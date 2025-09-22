@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools-scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pfas"
+authors = [
+    {name = "Raoul Schram", email = "r.d.schram@uu.nl"},
+]
+description = "."
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = []
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = [
+	"pytest", "ruff", "mypy", "nbval", "pytest-cov", 
+]
+docs = [
+    "sphinx<9.0.0", "sphinx-rtd-theme", "sphinxcontrib-napoleon",
+    "sphinx-autodoc-typehints", "sphinx_inline_tabs", "sphinx_copybutton",
+]
+
+[tool.setuptools_scm]
+write_to = "src/pfas/_version.py"
+
+[tool.ruff]
+exclude = ["_version.py", "examples/*"]
+line-length = 100
+lint.select = ["E", "F", "W", "I", "N", "D", "PL", "ARG"]
+lint.ignore = ["PLR2004", "D107", "D105", "D102"]
+
+[tool.ruff.lint.pydocstyle]
+convention="numpy"
+
+
+[tool.coverage.run]
+omit = ["src/pfas/_version.py"]
+

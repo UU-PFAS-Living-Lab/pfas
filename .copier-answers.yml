@@ -1,0 +1,15 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: 44a2a27
+_src_path: gh:UtrechtUniversity/python-template
+copyright_holder: Utrecht University
+email: r.d.schram@uu.nl
+features:
+- add_ruff
+- add_mypy
+- add_nbval
+- add_pytest
+- add_coverage
+- add_sphinx
+- add_pypi
+package: pfas
+user_name: Raoul Schram
