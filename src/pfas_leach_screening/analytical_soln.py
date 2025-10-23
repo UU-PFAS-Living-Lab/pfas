@@ -2,7 +2,7 @@ import numpy as np
 from scipy.special import iv
 from scipy.special import erfc
 from pfas_leach_screening import utils
-from pfas_leach_screening.solvers import equilibrium_solver
+from pfas_leach_screening.solvers import equilibrium_solver, kinetic_solver
 
 def analytical_soln(t,z,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,spaflag,cflag):
     # Compute the aqueous concentration (C1), solid-phase adsorption in the kinetic 
@@ -113,41 +113,44 @@ def analytical_soln(t,z,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,sp
         #            C1_ivp[j,i] = np.trapz(eqivpfunc(Z[j],T[i])*Ci,kesi)
     # SPA is kinetic
     elif spaflag == 1:
-        m = 30 # number of modified bessel function terms used   
-        for i in range(len(Z)):
-            for j in range(len(T)):
-                # Solution for the boundary value problem
-                if T[j] <= T0:
-                    C1_bvp[i,j], C2_bvp[i,j] = utils.ABfunc(Z[i],T[j],ws,betas,beta,P,R,Rs,m,cflag)
-                elif T[j] > T0:
-                    C1_bvp[i,j], C2_bvp[i,j] = utils.ABfunc(Z[i],T[j],ws,betas,beta,P,R,Rs,m,cflag)
-                    A, B = utils.ABfunc(Z[i],T[j]-T0,ws,betas,beta,P,R,Rs,m,cflag)
-                    C1_bvp[i,j] = C1_bvp[i,j] - A
-                    C2_bvp[i,j] = C2_bvp[i,j] - B
-                if max(Ci) != 0:
-                    # Solution for the initial value problem
-                    kesi = np.linspace(0,1,len(Ci))
-                    tau = np.linspace(0,T[j],100)
-                    neqivpfunc = lambda Z, T: (np.exp(-P*beta*R*(Z-kesi-T/(beta*R))**2/(4*T)) + np.exp(-kesi*P -P*beta*R*(Z+kesi-T/(beta*R))**2/(4*T)))/(2*np.sqrt(np.pi*T/(beta*R*P))) - P/2*np.exp(P*Z)*erfc((Z+kesi+T/(beta*R))/(2*np.sqrt(T/(beta*R)/P)))
-                    
-                    Hfunc = lambda T, tau: Rs*(1-Fs)/(beta*R)*np.exp(-ws*(T-tau)/(1-betas)/(1+Rs) -ws*tau*(1-Fs)*Rs/(1-betas)/(beta*R)/(1+Rs)) * (iv(0,2*ws/(1-betas)/(1+Rs)*np.sqrt(Rs*(1-Fs)*(T-tau)*tau)/(beta*R)) +iv(1,2*ws/(1-betas)/(1+Rs)*np.sqrt(Rs*(1-Fs)*(T-tau)*tau)/(beta*R))*tau/np.sqrt(Rs*(1-Fs)*(T-tau)*tau/(beta*R)))
-                    
-                    Hs2func = lambda T, tau: np.exp(-ws*(T-tau)/(1-betas)/(1+Rs) -ws*tau*(1-Fs)*Rs/(1-betas)/(beta*R)/(1+Rs)) * (iv(0,2*ws/(1-betas)/(1+Rs)*np.sqrt(Rs*(1-Fs)*(T-tau)*tau)/(beta*R)) + np.sqrt(Rs*(1-Fs)*(T-tau)/(beta*R)/tau)*iv(1,2*ws/(1-betas)/(1+Rs)*np.sqrt(Rs*(1-Fs)*(T-tau)*tau)/(beta*R)))
-                    
-                    GfuncT = np.trapz(neqivpfunc(Z[i],T[j])*Ci,kesi)
-                    if betas == 1:
-                        C1_ivp[i,j] = GfuncT
-                    else:
-                        C1_ivp[i,j] = np.exp(-ws*T[j]*(1-Fs)*Rs/(1-betas)/(beta*R)/(1+Rs)) * GfuncT
-                        C2_ivp[i,j] = (1-Fs)*Kd*Ci[i]*np.exp(-ws*T[j]/(1-betas)/(1+Rs))
-                        Gfunctau = np.zeros((len(tau),1))
-                        for k in range(1,len(tau)-1):
-                            Gfunctau[k] = np.trapz(neqivpfunc(Z[i],tau[k])*Ci,kesi)
-                        C1_ivp[i,j] = C1_ivp[i,j] + ws/(1-betas)/(1+Rs) * np.trapz(Hfunc(T[j],tau[1:-1])* Gfunctau[1:-1],tau[1:-1])
-                        C2_ivp[i,j] = C2_ivp[i,j] + ws/(1-betas)/(1+Rs) * (1-Fs)*Kd* np.trapz(Hs2func(T[j],tau[1:-1])* Gfunctau[1:-1],tau[1:-1])
-        # Convert dimensionless C1_bvp and C2_bvp to original dimensions
-        C1_bvp = C10*C1_bvp
-        C2_bvp = (1-Fs)*Kd*C10*C2_bvp
+        C1_bvp, C1_ivp, C2_ivp, C2_bvp = kinetic_solver(R, Z, T, P, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd)
+# =============================================================================
+#         m = 30 # number of modified bessel function terms used   
+#         for i in range(len(Z)):
+#             for j in range(len(T)):
+#                 # Solution for the boundary value problem
+#                 if T[j] <= T0:
+#                     C1_bvp[i,j], C2_bvp[i,j] = utils.ABfunc(Z[i],T[j],ws,betas,beta,P,R,Rs,m,cflag)
+#                 elif T[j] > T0:
+#                     C1_bvp[i,j], C2_bvp[i,j] = utils.ABfunc(Z[i],T[j],ws,betas,beta,P,R,Rs,m,cflag)
+#                     A, B = utils.ABfunc(Z[i],T[j]-T0,ws,betas,beta,P,R,Rs,m,cflag)
+#                     C1_bvp[i,j] = C1_bvp[i,j] - A
+#                     C2_bvp[i,j] = C2_bvp[i,j] - B
+#                 if max(Ci) != 0:
+#                     # Solution for the initial value problem
+#                     kesi = np.linspace(0,1,len(Ci))
+#                     tau = np.linspace(0,T[j],100)
+#                     neqivpfunc = lambda Z, T: (np.exp(-P*beta*R*(Z-kesi-T/(beta*R))**2/(4*T)) + np.exp(-kesi*P -P*beta*R*(Z+kesi-T/(beta*R))**2/(4*T)))/(2*np.sqrt(np.pi*T/(beta*R*P))) - P/2*np.exp(P*Z)*erfc((Z+kesi+T/(beta*R))/(2*np.sqrt(T/(beta*R)/P)))
+#                     
+#                     Hfunc = lambda T, tau: Rs*(1-Fs)/(beta*R)*np.exp(-ws*(T-tau)/(1-betas)/(1+Rs) -ws*tau*(1-Fs)*Rs/(1-betas)/(beta*R)/(1+Rs)) * (iv(0,2*ws/(1-betas)/(1+Rs)*np.sqrt(Rs*(1-Fs)*(T-tau)*tau)/(beta*R)) +iv(1,2*ws/(1-betas)/(1+Rs)*np.sqrt(Rs*(1-Fs)*(T-tau)*tau)/(beta*R))*tau/np.sqrt(Rs*(1-Fs)*(T-tau)*tau/(beta*R)))
+#                     
+#                     Hs2func = lambda T, tau: np.exp(-ws*(T-tau)/(1-betas)/(1+Rs) -ws*tau*(1-Fs)*Rs/(1-betas)/(beta*R)/(1+Rs)) * (iv(0,2*ws/(1-betas)/(1+Rs)*np.sqrt(Rs*(1-Fs)*(T-tau)*tau)/(beta*R)) + np.sqrt(Rs*(1-Fs)*(T-tau)/(beta*R)/tau)*iv(1,2*ws/(1-betas)/(1+Rs)*np.sqrt(Rs*(1-Fs)*(T-tau)*tau)/(beta*R)))
+#                     
+#                     GfuncT = np.trapz(neqivpfunc(Z[i],T[j])*Ci,kesi)
+#                     if betas == 1:
+#                         C1_ivp[i,j] = GfuncT
+#                     else:
+#                         C1_ivp[i,j] = np.exp(-ws*T[j]*(1-Fs)*Rs/(1-betas)/(beta*R)/(1+Rs)) * GfuncT
+#                         C2_ivp[i,j] = (1-Fs)*Kd*Ci[i]*np.exp(-ws*T[j]/(1-betas)/(1+Rs))
+#                         Gfunctau = np.zeros((len(tau),1))
+#                         for k in range(1,len(tau)-1):
+#                             Gfunctau[k] = np.trapz(neqivpfunc(Z[i],tau[k])*Ci,kesi)
+#                         C1_ivp[i,j] = C1_ivp[i,j] + ws/(1-betas)/(1+Rs) * np.trapz(Hfunc(T[j],tau[1:-1])* Gfunctau[1:-1],tau[1:-1])
+#                         C2_ivp[i,j] = C2_ivp[i,j] + ws/(1-betas)/(1+Rs) * (1-Fs)*Kd* np.trapz(Hs2func(T[j],tau[1:-1])* Gfunctau[1:-1],tau[1:-1])
+#         # Convert dimensionless C1_bvp and C2_bvp to original dimensions
+#         C1_bvp = C10*C1_bvp
+#         C2_bvp = (1-Fs)*Kd*C10*C2_bvp
+# =============================================================================
     # Combine solutions for BVP and IVP
     C1 = C1_bvp + C1_ivp
     C2 = C2_bvp + C2_ivp
