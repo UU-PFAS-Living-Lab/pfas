@@ -1,9 +1,14 @@
-def kinetic_solver():
+from scipy.special import erfc
+import numpy as np
+
+def equilibrium_solver(R, Z, T, P, T0, C10, Ci):
   """
   Kinetic solver and parameters.
   """
   # Solution for the boundary value problem
   # Define the solution for a constant boundary condition as a function
+  C1_bvp = np.zeros((len(Z),len(T)))                
+  C1_ivp = np.zeros((len(Z),len(T)))
   eqbvpfunc = lambda T: 0.5 * erfc((R*Z-T)/(2*(T*R/P)**(1/2))) + ((T*P)/(np.pi*R))**(1/2) * np.exp(-(R*Z-T)**2/(4*T*R/P)) - 1/2 * (1 + P*Z + P*T/R) * np.exp(P*Z) * erfc((R*Z + T)/(2*(T*R/P)**(1/2)))
   for i in range(len(T)):
     if T[i] <= T0:
@@ -19,7 +24,7 @@ def kinetic_solver():
           C1_ivp[j,i] = np.trapz(eqivpfunc(Z[j],T[i])*Ci,kesi)
   return C1_bvp, C1_ivp
 
-def equilibrium_solver():
+def kinetic_solver():
   """
   Equilibrium solver and its parameters.
   """

@@ -2,7 +2,7 @@ import numpy as np
 from scipy.special import iv
 from scipy.special import erfc
 from pfas_leach_screening import utils
-from pfas_leach_screening.solvers import kinetic_solver
+from pfas_leach_screening.solvers import equilibrium_solver
 
 def analytical_soln(t,z,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,spaflag,cflag):
     # Compute the aqueous concentration (C1), solid-phase adsorption in the kinetic 
@@ -95,7 +95,7 @@ def analytical_soln(t,z,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,sp
     
     # SPA is equilibrium
     if spaflag == 0:
-        C1_bvp, C1_ivp = kinetic_solver(R, Z, T, P, T0, C10, Ci)
+        C1_bvp, C1_ivp = equilibrium_solver(R, Z, T, P, T0, C10, Ci)
         # Solution for the boundary value problem
         # Define the solution for a constant boundary condition as a function
         #eqbvpfunc = lambda T: 0.5 * erfc((R*Z-T)/(2*(T*R/P)**(1/2))) + ((T*P)/(np.pi*R))**(1/2) * np.exp(-(R*Z-T)**2/(4*T*R/P)) - 1/2 * (1 + P*Z + P*T/R) * np.exp(P*Z) * erfc((R*Z + T)/(2*(T*R/P)**(1/2)))
