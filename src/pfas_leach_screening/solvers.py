@@ -17,7 +17,7 @@ def kinetic_solver():
           kesi = np.linspace(0,1,len(Ci))       
           eqivpfunc = lambda Z, T: (np.exp(-(R*Z-R*kesi-T)**2/(4*T*R/P)) + np.exp(-P*kesi - (R*Z+R*kesi-T)**2/(4*T*R/P)))/(2*np.sqrt(np.pi*T/P/R)) - P/2*np.exp(P*Z)*erfc((R*Z+R*kesi+T)/(2*np.sqrt(T*R/P)))            
           C1_ivp[j,i] = np.trapz(eqivpfunc(Z[j],T[i])*Ci,kesi)
-  return
+  return C1_bvp, C1_ivp
 
 def equilibrium_solver():
   """
