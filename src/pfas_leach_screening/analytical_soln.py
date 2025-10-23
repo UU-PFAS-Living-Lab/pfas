@@ -92,10 +92,10 @@ def analytical_soln(t,z,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,sp
     # Initialize solutions for adsorbed concentration at the kinetic sorption domain
     C2_bvp = np.zeros((len(Z),len(T)))
     C2_ivp = np.zeros((len(Z),len(T)))
-    
+    C2 = None #TODO
     # SPA is equilibrium
     if spaflag == 0:
-        C1_bvp, C1_ivp = equilibrium_solver(R, Z, T, P, T0, C10, Ci)
+        C1, C_tot = equilibrium_solver(R, Z, T, P, T0, C10, Ci, theta)
         # Solution for the boundary value problem
         # Define the solution for a constant boundary condition as a function
         #eqbvpfunc = lambda T: 0.5 * erfc((R*Z-T)/(2*(T*R/P)**(1/2))) + ((T*P)/(np.pi*R))**(1/2) * np.exp(-(R*Z-T)**2/(4*T*R/P)) - 1/2 * (1 + P*Z + P*T/R) * np.exp(P*Z) * erfc((R*Z + T)/(2*(T*R/P)**(1/2)))
@@ -113,7 +113,7 @@ def analytical_soln(t,z,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,sp
         #            C1_ivp[j,i] = np.trapz(eqivpfunc(Z[j],T[i])*Ci,kesi)
     # SPA is kinetic
     elif spaflag == 1:
-        C1_bvp, C1_ivp, C2_ivp, C2_bvp = kinetic_solver(R, Z, T, P, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd)
+        C1, C2, C_tot = kinetic_solver(R, Z, T, P, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd, theta, rhob)
 # =============================================================================
 #         m = 30 # number of modified bessel function terms used   
 #         for i in range(len(Z)):
@@ -151,13 +151,15 @@ def analytical_soln(t,z,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,sp
 #         C1_bvp = C10*C1_bvp
 #         C2_bvp = (1-Fs)*Kd*C10*C2_bvp
 # =============================================================================
-    # Combine solutions for BVP and IVP
-    C1 = C1_bvp + C1_ivp
-    C2 = C2_bvp + C2_ivp
-    # Compute the total concentration per bulk volume
-    if spaflag == 0:
-        C_tot = C1*R*theta + rhob*C2
-    elif spaflag == 1:
-        C_tot = C1*beta*R*theta + rhob*C2  
+# =============================================================================
+#     # Combine solutions for BVP and IVP
+#     C1 = C1_bvp + C1_ivp
+#     C2 = C2_bvp + C2_ivp
+#     # Compute the total concentration per bulk volume
+#     if spaflag == 0:
+#         C_tot = C1*R*theta + rhob*C2
+#     elif spaflag == 1:
+#         C_tot = C1*beta*R*theta + rhob*C2  
+# =============================================================================
 
     return C1, C2, C_tot
