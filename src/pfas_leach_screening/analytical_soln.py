@@ -3,8 +3,52 @@ from scipy.special import iv
 from scipy.special import erfc
 from pfas_leach_screening import utils
 from pfas_leach_screening.solvers import equilibrium_solver, kinetic_solver
+from dataclasses import dataclass
 
-def analytical_soln(t,z,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,spaflag,cflag):
+@dataclass
+class SimulationGrid():
+    depth: np.array[float]
+    time: np.array[float]
+
+# @dataclass
+# class SoilParameters():
+    # bulk_density: float  # rhob
+
+@dataclass
+class BoundaryConditions():
+    pulse_time: float
+    # solute_concentration: float
+    contaminant_release_rate: float # C10
+
+# class InitialConditions():
+    # contaminant_concentration: np.array[float] # Ci
+
+@dataclass
+class HydrologicalProperties():
+    water_content: float # theta
+    pore_velocity: float
+    dispersion_coefficient: float  # D
+
+@dataclass
+class Adsorption():
+    Kd: float
+    rate_const: float  # alphas
+    frac_int: float # Fs
+    total_retardation: float # R
+    sp_retardation: float # Rs
+    awi_retardation: float # Raw
+
+
+def analytical_soln(
+    grid: SimulationGrid,
+    bulk_density: float,
+    boundary_conditions: BoundaryConditions,
+    initial_contaminant_concentration: float,
+    hydro_properties: HydrologicalProperties,
+    adsorption: Adsorption,
+    kinetic: bool = False,
+    volume_averaged: bool = False):
+    # spaflag,cflag):
     # Compute the aqueous concentration (C1), solid-phase adsorption in the kinetic 
     # sorption domain (C2), and the total concentration (C_tot)
     
@@ -77,8 +121,8 @@ def analytical_soln(t,z,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,sp
     
     #Compute dimensionless variables
     Z = z/L            # dimensionless length
-    T = v*t/L          # dimensionless time
-    T0 = v*t0/L        # dimensionless duration of contamination period
+    T = t*(v/L)        # dimensionless time
+    T0 = t0*(v/L)      # dimensionless duration of contamination period
     P = v*L/D          # Peclect number
     
     # Define dimensionless variables for kinetic SPA
