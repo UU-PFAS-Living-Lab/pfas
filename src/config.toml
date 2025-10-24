@@ -1,0 +1,37 @@
+[grid]
+
+domain_length = 150 #cm
+spatial_resolution = 1.0 #cm
+time_total = 5000  # seconds
+
+[pfas]
+name = "PFOA" #for future use
+molecular_weight = 414.07  # g/mol
+cas_number = "335-67-1"  # for future use
+surface_tension = 71 #dyn/cm now sigma0
+
+[soil]
+soil_name = "S1"  # for future use
+soil_type = "sandy loam"  # for future use/staring soil database: can the other parameters be derived from this?
+bulk_density = 1.6  # g/cm^3 rhob
+porosity = 0.43  # poro 
+van_genuchten_alpha = 0.019  # 1/cm #alpha
+van_genuchten_n = 1.31  # n_vg
+saturated_water_content  = 0.43 #- 
+hydraulic_conductivity = 0.34 #cm/s #ks
+dispersivity = 1.5  # cm #alpha_L
+
+[sorption_solid]
+# I don't know if we should have different toml files for different sorption models
+kinetic = True #now extra parameters are needed    
+sorption_isomer = "linear" #or "freundlich" or "langmuir"
+
+[sorption_solid.linear] # or a different way of approaching this
+#here are now also different ways of calculating Kd
+[sorption_awi]
+
+[water_flow]
+init_sat = 0.2  # -  se0
+average_infiltration_rate = 0.5  # cm/s q
+
+
