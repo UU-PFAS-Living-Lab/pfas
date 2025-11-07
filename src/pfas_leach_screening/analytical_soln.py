@@ -12,8 +12,8 @@ class SimulationGrid():
 
 # @dataclass
 # class SoilParameters():
+    
     # bulk_density: float  # rhob
-
 @dataclass
 class BoundaryConditions():
     pulse_time: float

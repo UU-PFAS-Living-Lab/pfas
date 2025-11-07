@@ -23,12 +23,19 @@ dispersivity = 1.5  # cm #alpha_L
 
 [sorption_solid]
 # I don't know if we should have different toml files for different sorption models
-kinetic = True #now extra parameters are needed    
+kinetic = true #now extra parameters are needed    
 sorption_isomer = "linear" #or "freundlich" or "langmuir"
 
 [sorption_solid.linear] # or a different way of approaching this
 #here are now also different ways of calculating Kd
 [sorption_awi]
+AWI_type = "SWC-based" # or thermodynamic-based 
+
+[sorption_awi.SWC-based]
+szyskowski_a = 62.11 # mg/L
+szyskowski_b = 0.19 #
+
+[sorption_awi.thermodynamic-based]
 
 [water_flow]
 init_sat = 0.2  # -  se0
