@@ -1,9 +1,9 @@
-import numpy as np
-from scipy.special import iv
-from scipy.special import erfc
-from pfas_leach_screening import utils
-from pfas_leach_screening.solvers import equilibrium_solver, kinetic_solver
 from dataclasses import dataclass
+
+import numpy as np
+
+from pfas_leach_screening.solvers import equilibrium_solver, kinetic_solver
+
 
 @dataclass
 class SimulationGrid():
