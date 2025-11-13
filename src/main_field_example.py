@@ -16,9 +16,10 @@
 # GNU General Public License for more details, <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from pfas_leach_screening.analytical_soln import analytical_soln
-from pfas_leach_screening.utils import Aaw_func_thermo 
-from pfas_leach_screening.utils import Aaw_func_tracer
+from pfas.analytical_soln import analytical_soln
+from pfas.utils import Aaw_func_thermo 
+from pfas.utils import Aaw_func_tracer
+from pfas.analytical_soln import SimulationGrid, BoundaryConditions, HydrologicalProperties, Adsorption
 from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
 
@@ -61,8 +62,6 @@ L = 400                                     # vadose zone depth [cm]
 # hydraulic parameters
 thetar = 0.015                              # Residual water content [cm^3/cm^3]
 alpha = 0.044                               #VG parameter a
-n_vg = 4                                    # VG parameter
-m = 1 - 1/n_vg                              # VG parameter
 # coefficients to compute tracer-measured air-water interfacial area
 x0 = 633.96                                 # [-]               -> Aaw fitting parameter
 x1 = -1182.5                                # [-]               -> Aaw fitting parameter
@@ -82,12 +81,16 @@ Kaw = 0.1*sigma0*b/(Rg*Tp*(a+C_rep/M))      # air-water interfacial coefficient 
                                             
 # solve for effective saturation corresponding to the infiltration rate
 kr = q/Ks                                   # relative permeability
-relperm = lambda se: se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
-se = fsolve(relperm,se0)
-theta = se[0] * (poro - thetar) + thetar    # water content [cm^3/cm^3]
-sw = theta/poro                             # water saturation [cm^3/cm^3]
-v = q/theta                                 # pore velocity [cm/s]
-D = v*alphaL                                # dispersion coefficient [cm^2/s]
+
+# n_vg = 4                                    # VG parameter
+# m = 1 - 1/n_vg                              # VG parameter
+# relperm = lambda se: se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
+# se = fsolve(relperm,se0)
+# theta = se[0] * (poro - thetar) + thetar    # water content [cm^3/cm^3]
+# sw = theta/poro                             # water saturation [cm^3/cm^3]
+# v = q/theta                                 # pore velocity [cm/s]
+# D = v*alphaL                                # dispersion coefficient [cm^2/s]
+
 if Aawflag == 'tracer-based':
     Aaw = Aaw_func_tracer(sw,x2,x1,x0)      # air-water interfacial area [cm^2/cm^3]
 elif Aawflag == 'thermodynamic-based':
@@ -99,15 +102,15 @@ Rs = rhob*Kd/theta                          # retardation factor assuming no AWI
 Raw = Aaw*Kaw/theta                         # retardation factor by AWIA
 R = 1+Rs+Raw                                # retardation factor
 
-dz = 1                                      # Spatial resolution [cm]
-zs = np.linspace(dz/2.0,L-dz/2.0,int(L/dz)) # Spatial location of interest. zs needs to be an array. If a single location z0 is of interest, then set zs = np.array([z0])                        
-ts = np.array([5*year,20*year])             # Time of interest. ts needs to be an array. If a single time point t0 is of interest, then set ts = np.array([t0])
-pfas_tot = C0/M*0.55*2/24*t0/(10*day)       # total (single-component) PFAS released during t0 [micro mol per unit area in cm^2]                                   
+# dz = 1                                      # Spatial resolution [cm]
+# zs = np.linspace(dz/2.0,L-dz/2.0,int(L/dz)) # Spatial location of interest. zs needs to be an array. If a single location z0 is of interest, then set zs = np.array([z0])                        
+# ts = np.array([5*year,20*year])             # Time of interest. ts needs to be an array. If a single time point t0 is of interest, then set ts = np.array([t0])
+# pfas_tot = C0/M*0.55*2/24*t0/(10*day)       # total (single-component) PFAS released during t0 [micro mol per unit area in cm^2]                                   
 
 
-spaflag = 0 # 0 - SPA is equilibrium 1 - SPA is kinetic
-cflag = 0 # 0 - volume-averaged 1 - flux-averaged
-Ci = np.zeros(len(zs))                      # initial PFAS aqueous concentration. This can be nonzero and arbitrary.
+# spaflag = 0 # 0 - SPA is equilibrium 1 - SPA is kinetic
+# cflag = 0 # 0 - volume-averaged 1 - flux-averaged
+# Ci = np.zeros(len(zs))                      # initial PFAS aqueous concentration. This can be nonzero and arbitrary.
 
 # Employ analytical solution
 # C1                    aqueous concentration in space [micro mol/cm^3]
@@ -118,6 +121,41 @@ Ci = np.zeros(len(zs))                      # initial PFAS aqueous concentration
 
 # NB: 	When either ts or zs is a vector (i.e., length > 1), the output parameters C1, C2, and Ctot will be vectors. 
 #		When both ts and zs are vectors, the output parameters C1, C2, and Ctot will be matrices.
+
+def preprocess_configuration(config):
+    domain_length = config["experimental_conditions"]["domain_length"]
+    dz = config["experimental_conditions"]["spatial_resolution"]
+    grid_depth = np.linspace(dz/2.0,domain_length-dz/2.0,int(domain_length/dz))
+    dt = config["experimental_conditions"]["time_resolution"]
+    time_total = config["experimental_conditions"]["time_total"]
+    grid_time = np.linspace(0, time_total, int(time_total/dt+0.5))
+    grid = SimulationGrid(grid_depth, grid_time)
+
+
+    bulk_density = ...
+    boundary_conditions = ...
+    # initial_contaminant_concentration = ...
+    hydro_properties = ...
+    adsorption = ...
+    kinetic = config["sorption_solid"]["kinetic_sorption"]
+    # volume_averaged = ...
+
+def water_preprocessing(config, grid):
+    # TODO finish
+    kr = q/Ks
+    poro = config["soil"]["porosity"]
+    alphaL = 100*0.83*(np.log10(grid.domain_length/100))**2.414  # dispersivity [cm]
+    n_vg = config["soil"]["van_genuchten_n"]                                    # VG parameter
+    m = 1 - 1/n_vg                              # VG parameter
+    relperm = lambda se: se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
+    se = fsolve(relperm, se0)
+    theta = se[0] * (poro - thetar) + thetar    # water content [cm^3/cm^3]
+    sw = theta/poro                             # water saturation [cm^3/cm^3]
+    v = q/theta                                 # pore velocity [cm/s]
+    D = v*alphaL                                # dispersion coefficient [cm^2/s]
+    return HydrologicalProperties(theta, v, D)
+
+
 
 C1, C2, Ctot = analytical_soln(ts,zs,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,spaflag,cflag)
            

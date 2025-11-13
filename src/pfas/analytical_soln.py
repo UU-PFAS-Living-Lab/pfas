@@ -10,6 +10,10 @@ class SimulationGrid():
     depth: np.array[float]  # z
     time: np.array[float]  # t
 
+    @property
+    def total_depth(self) -> float:
+        return self.depth[-1] + self.depth[0]
+
 
 @dataclass
 class BoundaryConditions():
@@ -50,7 +54,7 @@ def analytical_soln(
         grid: SimulationGrid,
         bulk_density: float,
         boundary_conditions: BoundaryConditions,
-        initial_contaminant_concentration: float,
+        initial_contaminant_concentration: np.NDArray[float],
         hydro_properties: HydrologicalProperties,
         adsorption: Adsorption,
         kinetic: bool = False,
