@@ -40,7 +40,7 @@ def equilibrium_solver(R, Z, T, P, T0, C10, Ci, theta):
                     C1_ivp[j, i] = np.trapz(eqivpfunc(Z[j], T[i]) * Ci, kesi)
         C1 = C1_bvp + C1_ivp
         #C2 = C2_bvp + C2_ivp
-        C_tot = C1*R*theta #+ rhob*C2 #TODO 
+        C_tot = C1*R*theta #+ rhob*C2 #TODO
     return C1, C_tot
 
 
@@ -163,5 +163,5 @@ def kinetic_solver(R, Z, T, P, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd, 
     C2_bvp = (1 - Fs) * Kd * C10 * C2_bvp
     C1 = C1_bvp + C1_ivp
     C2 = C2_bvp + C2_ivp
-    C_tot = C1*beta*R*theta + rhob*C2  
+    C_tot = C1*beta*R*theta + rhob*C2
     return C1, C2, C_tot

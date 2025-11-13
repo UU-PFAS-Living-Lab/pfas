@@ -1,0 +1,95 @@
+[experimental_conditions]
+
+domain_length = 150 #cm
+spatial_resolution = 1.0 #cm
+time_total = 5000  # seconds
+soil_temp = 293 #Kelvin #maybe make .boundaryconditions here
+
+[experimental_conditions.initial]
+init_sat = 0.2 # [-] se0 
+initial_solute_concentration = 0.0 #mg/L #vector matching length/spatial resolution
+[experimental_conditions.boundary]
+average_infiltration_rate = 0.5 #cm/s (q)
+pulse_duration = 2000 #seconds
+solute_concentration_influx = 10.0 #mg/L
+
+#TODO or input PFAS_tot?
+
+
+[pfas]
+name = "PFOA" #for future use
+molecular_weight = 414.07  # g/mol
+cas_number = "335-67-1"  # for future use
+surface_tension = 71 #dyn/cm now sigma0
+
+[soil]
+soil_name = "S1"  # for future use
+soil_type = "sandy loam"  # for future use/staring soil database: can the other parameters be derived from this?
+bulk_density = 1.6  # g/cm^3 rhob
+porosity = 0.43  # poro 
+van_genuchten_alpha = 0.019  # 1/cm #alpha
+van_genuchten_n = 1.31  # n_vg
+saturated_water_content  = 0.43 #- 
+residual_water_content = 0.04 # - 
+hydraulic_conductivity = 0.34 #cm/s #ks
+dispersivity = 1.5  # cm #alpha_L #can also be calculated
+
+[water_flow]
+
+#these are called hydro_properties in analytical_sol? 
+[sorption_solid]
+# I don't know if we should have different toml files for different sorption models
+kinetic_sorption = true #now extra parameters are needed    
+sorption_isotherm = "linear" #or "freundlich" or "langmuir"
+
+[sorption_solid.kinetic]
+frac_int = 0.3 # [-] fraction of instantaneous sorption
+rate_const = 0.01 # 1/s rate constant for kinetic sorption
+
+[sorption_solid.linear] 
+Kd_method = "direct_input"  #linear sorption coefficient , "direct_input", "organic_mineral" "Fabregat_Palau2021" or later more
+#direct_input
+Kd = 5.0 # L/kg or a different way of approaching this
+c_non_lin = 5 #mg/L + I am not sure if this is needed here
+
+#organic_mineral
+OC_perc = 2 #% #Or should this be at soil?
+Koc = 7 #L/Kg organic sorption coefficient
+Min_perc = 30 #% fraction of silt and clay (can also be calculated from soil texture #question
+Kmin = 10 #L/kg mineral sorption coefficient
+
+#Fabregat_Palau2021
+#also uses OC_perc and Min_perc from above 
+chain_length = 5 #number of perfluorinated carbons or should this be at [PFAS] #question
+
+#others will be added. 
+
+[sorption_solid.freundlich]
+K_freund = 3.0  # (mg/kg)/(mg/L)^n
+n_freund = 0.9  #  
+
+[sorption_solid.langmuir]
+Q_max = 100.0  # mg/kg
+K_langmuir = 1  # L/kg
+
+[AWI]
+AWI_type = "SWC-based" # or GUO #TODO: add other approaches, at least 2 more 
+
+[AWI.SWC-based]
+scaling_factor_AWI = 1.0 # - 
+
+[AWI.Guo]
+guo_x0 = 0.5 #empirical parameter
+guo_x1 = 10 #empirical parameter
+guo_x2 = 0.1 #emperical parameter 
+
+[sorption_AWI]
+Kawi_method = "direct_input"  # or szyszkowski-langmuir awi sorption coefficient #TODO: add others 
+#direct_input
+
+Kaw = 0.5 # cm3/cm2
+#szyszkowski-langmuir
+szyszkowski_a = 62.11 # mg/L
+szyszkowski_b = 0.19 #[-]
+
+
