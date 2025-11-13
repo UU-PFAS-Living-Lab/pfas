@@ -1,21 +1,23 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Oct 30 14:22:20 2025
-
-@author: 6346650
-"""
-
 from pathlib import Path
 
-import toml
+import tomllib
 
 
 def read_toml(path: Path) -> dict:
-    toml_file = toml.load(path)
-    return toml_file
+    with open(path, "rb") as handle:
+        config_dict = tomllib.load(handle)
+    return config_dict
 
-def check_experimental_conditions(experimental_conditions_dict: dict) -> bool:
-    """Validate experimental conditions from TOML config"""
+
+def validate_config(config_dict: dict):
+    success = True
+    success &= check_toml_experimental_conditions(config_dict["experimental_conditions"])
+    success &= check_toml_soil(config_dict["soil"])
+    success &= check_toml_sorption(config_dict["sorption_solid"])
+    success &= check_toml_AWI(config_dict["AWI"])
+    success &= check_toml_sorption_AWI(config_dict["sorption_AWI"])
+    success &= check_toml_pfas(config_dict["pfas"])
+    return success
 
 
 def check_toml_experimental_conditions(experimental_conditions_dict: dict) -> bool:
@@ -71,7 +73,7 @@ def check_toml_soil(soil_dict: dict) -> bool:
     expected_keys = [
         "soil_name", "soil_type", "bulk_density", "porosity",
         "van_genuchten_alpha", "van_genuchten_n", "saturated_water_content",
-        "hydraulic_conductivity", "dispersivity"
+        "hydraulic_conductivity", "dispersivity", "residual_water_content",
     ]
 
     # Check all keys present
@@ -310,7 +312,7 @@ def check_toml_AWI(awi_dict: dict) -> bool:
 
     return True
 
-def check_toml_sorption_awi(sorption_awi_dict: dict) -> bool:
+def check_toml_sorption_AWI(sorption_awi_dict: dict) -> bool:
     """Validate air-water interface sorption parameters from TOML config"""
     # Check Kawi_method
     if 'Kawi_method' not in sorption_awi_dict:

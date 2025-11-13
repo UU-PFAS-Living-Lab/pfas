@@ -83,7 +83,7 @@ guo_x0 = 0.5 #empirical parameter
 guo_x1 = 10 #empirical parameter
 guo_x2 = 0.1 #emperical parameter 
 
-[sorption_awi]
+[sorption_AWI]
 Kawi_method = "direct_input"  # or szyszkowski-langmuir awi sorption coefficient #TODO: add others 
 #direct_input
 
