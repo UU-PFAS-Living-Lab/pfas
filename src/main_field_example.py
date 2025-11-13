@@ -22,6 +22,8 @@ from pfas_leach_screening.utils import Aaw_func_tracer
 from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
 
+
+
 # Example simulation of PFOA release and contamination in Accusand under AZ climate
 
 # Flag for the type of air-water interfacial area
@@ -34,7 +36,7 @@ day = 24*hour
 year = 365*day
 
 # PFAS properties
-M = 414.07                                  # Molecular weight of PFOS [g/mol]
+M = 414.07                                  # Molecular weight of PFOS [g/mol] #done
 b = 0.19                                    # [-]
 a = 62.11/M                                 # mg/L
 sigma0 = 71                                 # dyn/cm
@@ -58,7 +60,7 @@ L = 400                                     # vadose zone depth [cm]
 
 # hydraulic parameters
 thetar = 0.015                              # Residual water content [cm^3/cm^3]
-alpha = 0.04479                             # VG parameter
+alpha = 0.044                               #VG parameter a
 n_vg = 4                                    # VG parameter
 m = 1 - 1/n_vg                              # VG parameter
 # coefficients to compute tracer-measured air-water interfacial area
