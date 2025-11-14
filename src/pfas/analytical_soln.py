@@ -11,7 +11,7 @@ class SimulationGrid():
     time: np.array[float]  # t
 
     @property
-    def total_depth(self) -> float:
+    def domain_length(self) -> float:
         return self.depth[-1] + self.depth[0]
 
 
