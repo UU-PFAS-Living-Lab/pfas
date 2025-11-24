@@ -41,7 +41,7 @@ M = 414.07                                  # Molecular weight of PFOS [g/mol] #
 b = 0.19                                    # [-]
 a = 62.11/M                                 # mg/L
 sigma0 = 71                                 # dyn/cm
-C0 = 0.9                                    # mg/L
+#C0 = 0.9                                    # mg/L
 C_rep = 0.016                               # representative aqueous concentration [mg/L]
                                             # NB: C_rep is not a required parameter. It is only needed
                                             #     if solid-phase and air-water interfacial adsorption are nonlinear
@@ -53,34 +53,34 @@ Fs = 0.4                                    # fraction of instantaneous sites
 alphas = 5.9/hour                           # first-order rate constant for kinetic adsorption
 
 # total simulation time
-tf = 80*year
+#tf = 80*year
 
 Rg = 8.31                                   # gas constant [J/K/mol]
 Tp = 293.15                                 # temperature [K]
 L = 400                                     # vadose zone depth [cm]
 
 # hydraulic parameters
-thetar = 0.015                              # Residual water content [cm^3/cm^3]
+#thetar = 0.015                              # Residual water content [cm^3/cm^3]
 alpha = 0.044                               #VG parameter a
 # coefficients to compute tracer-measured air-water interfacial area
 x0 = 633.96                                 # [-]               -> Aaw fitting parameter
 x1 = -1182.5                                # [-]               -> Aaw fitting parameter
 x2 = 548.54                                 # [-]               -> Aaw fitting parameter
 # initial guess of effective saturation
-se0 = 0.1                                   
-rhob = 1.65                                 # bulk density [g/cm^3] 
-poro = 0.294                                # porosity [cm^3/cm^3]
-thetas = 0.294                              # saturated water saturation [cm^3/cm^3]
-Ks = 2.0964E-2                              # saturated hydraulic conductivity
-alphaL = 100*0.83*(np.log10(L/100))**2.414  # dispersivity [cm]
-q = 1916.2/tf                               # water infiltration rate        
+#se0 = 0.1                                   
+#rhob = 1.65                                 # bulk density [g/cm^3] 
+#poro = 0.294                                # porosity [cm^3/cm^3]
+#thetas = 0.294                              # saturated water saturation [cm^3/cm^3]
+#Ks = 2.0964E-2                              # saturated hydraulic conductivity
+#alphaL = 100*0.83*(np.log10(L/100))**2.414  # dispersivity [cm]
+#q = 1916.2/tf                               # water infiltration rate        
 
 Kd = Kf*C_rep**(n_fr-1)                     # solid-phase adsorption coefficient [cm^3/g]
 Kaw = 0.1*sigma0*b/(Rg*Tp*(a+C_rep/M))      # air-water interfacial coefficient [cm^3/cm^2]
                                             # NB: if C_rep is not known, set C_rep = 0
                                             
 # solve for effective saturation corresponding to the infiltration rate
-kr = q/Ks                                   # relative permeability
+#kr = q/Ks                                   # relative permeability
 
 # n_vg = 4                                    # VG parameter
 # m = 1 - 1/n_vg                              # VG parameter
@@ -122,6 +122,37 @@ R = 1+Rs+Raw                                # retardation factor
 # NB: 	When either ts or zs is a vector (i.e., length > 1), the output parameters C1, C2, and Ctot will be vectors. 
 #		When both ts and zs are vectors, the output parameters C1, C2, and Ctot will be matrices.
 
+
+def water_preprocessing(config, grid):
+    infiltration_rate = config["experimental_conditions"]["boundary"]["average_infiltration_rate"]
+    Ks = config["soil"]["hydraulic_conductivity"]
+    kr = infiltration_rate/Ks
+    poro = config["soil"]["porosity"]
+    alphaL = 100*0.83*(np.log10(grid.domain_length/100))**2.414  # dispersivity [cm] #TODO multiple options
+    n_vg = config["soil"]["van_genuchten_n"]                                    # VG parameter
+    m = 1 - 1/n_vg                              # VG parameter
+    relperm = lambda se: se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
+    init_sat = config["experimental_condititions"]["initial"]["init_sat"] #good?
+    se = fsolve(relperm, init_sat)
+    res_water_content = config["soil"]["residiual_water_content"]
+    theta = se[0] * (poro - res_water_content) + res_water_content    # water content [cm^3/cm^3]
+    sw = theta/poro                             # water saturation [cm^3/cm^3]
+    v = q/theta                                 # pore velocity [cm/s]
+    D = v*alphaL                                # dispersion coefficient [cm^2/s]
+    return HydrologicalProperties(theta, v, D)
+
+def boundary_preprocessing(config):
+    #c10 is mg/s/m (what if this is 0?)
+    average_infiltration_rate = config["experimental_conditions"]["boundary"]["average_infiltration_rate"]
+    solute_concentration = config["experimental_conditions"]["boundary"]["solute_concentration_influx"]  #is there a better way of doing this? # units?
+    pulse_duration = config["experimental_conditions"]["boundary"]["pulse_duration"] 
+    contaminant_release_rate_per_second = solute_concentration* average_infiltration_rate/ pulse_duration
+    return BoundaryConditions(pulse_duration, contaminant_release_rate_per_second) #TODO do these need to match naming
+
+def adsorption_preprocessing(config): 
+    #TODO multiple (how to deal with all the options --> discuss during meeting)
+
+
 def preprocess_configuration(config):
     domain_length = config["experimental_conditions"]["domain_length"]
     dz = config["experimental_conditions"]["spatial_resolution"]
@@ -132,28 +163,16 @@ def preprocess_configuration(config):
     grid = SimulationGrid(grid_depth, grid_time)
 
 
-    bulk_density = ...
-    boundary_conditions = ...
+    bulk_density = ["soil"]["bulk_density"]
+    
+    # not finished
+    boundary_conditions = boundary_preprocessing(config)
+    
     # initial_contaminant_concentration = ...
-    hydro_properties = ...
+    hydro_properties = water_preprocessing(config, grid)
     adsorption = ...
     kinetic = config["sorption_solid"]["kinetic_sorption"]
     # volume_averaged = ...
-
-def water_preprocessing(config, grid):
-    # TODO finish
-    kr = q/Ks
-    poro = config["soil"]["porosity"]
-    alphaL = 100*0.83*(np.log10(grid.domain_length/100))**2.414  # dispersivity [cm]
-    n_vg = config["soil"]["van_genuchten_n"]                                    # VG parameter
-    m = 1 - 1/n_vg                              # VG parameter
-    relperm = lambda se: se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
-    se = fsolve(relperm, se0)
-    theta = se[0] * (poro - thetar) + thetar    # water content [cm^3/cm^3]
-    sw = theta/poro                             # water saturation [cm^3/cm^3]
-    v = q/theta                                 # pore velocity [cm/s]
-    D = v*alphaL                                # dispersion coefficient [cm^2/s]
-    return HydrologicalProperties(theta, v, D)
 
 
 
