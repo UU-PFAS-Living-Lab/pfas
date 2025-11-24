@@ -1,75 +1,141 @@
+"""
+TOML configuration file validator for PFAS transport modeling.
+
+This module provides functionality to read and validate TOML configuration files
+for soil transport simulations, including validation of experimental conditions,
+soil properties, sorption parameters, air-water interface settings, and PFAS properties.
+"""
+
 from pathlib import Path
+from typing import Dict, Any
 
 import tomllib
 
 
-def read_toml(path: Path) -> dict:
+def read_toml(path: Path) -> Dict[str, Any]:
+    """
+    Read a TOML configuration file.
+
+    Args:
+        path: Path to the TOML file
+
+    Returns:
+        Dictionary containing the parsed TOML configuration
+    """
     with open(path, "rb") as handle:
         config_dict = tomllib.load(handle)
     return config_dict
 
 
-def validate_config(config_dict: dict):
-    success = True
-    success &= check_toml_experimental_conditions(config_dict["experimental_conditions"])
-    success &= check_toml_soil(config_dict["soil"])
-    success &= check_toml_sorption(config_dict["sorption_solid"])
-    success &= check_toml_AWI(config_dict["AWI"])
-    success &= check_toml_sorption_AWI(config_dict["sorption_AWI"])
-    success &= check_toml_pfas(config_dict["pfas"])
-    return success
+def validate_config(config_dict: Dict[str, Any]) -> bool:
+    """
+    Validate all sections of the configuration dictionary.
+
+    Args:
+        config_dict: Configuration dictionary parsed from TOML
+
+    Returns:
+        True if all validations pass, False otherwise
+    """
+    validators = [
+        ("experimental_conditions", check_toml_experimental_conditions),
+        ("soil", check_toml_soil),
+        ("sorption_solid", check_toml_sorption),
+        ("AWI", check_toml_awi),
+        ("sorption_AWI", check_toml_sorption_awi),
+        ("pfas", check_toml_pfas),
+    ]
+
+    results = []
+    for section_name, validator_func in validators:
+        if section_name not in config_dict:
+            print(f"Missing required section: {section_name}")
+            results.append(False)
+        else:
+            results.append(validator_func(config_dict[section_name]))
+
+    return all(results)
 
 
-def check_toml_experimental_conditions(experimental_conditions_dict: dict) -> bool:
-    """Validate grid parameters from TOML config"""
+def check_toml_experimental_conditions(experimental_conditions_dict: Dict[str, Any]) -> bool:
+    """
+    Validate experimental conditions parameters from TOML config.
+
+    Args:
+        experimental_conditions_dict: Dictionary containing experimental conditions
+
+    Returns:
+        True if validation passes, False otherwise
+    """
     required_keys = ['domain_length', 'spatial_resolution', 'time_total', 'soil_temp']
-    # Check if all required keys exist
+
+    # Check if all required keys exist and are valid
     for key in required_keys:
         if key not in experimental_conditions_dict:
             print(f"Missing required key: {key}")
             return False
 
-    # Check if all values are numeric
-    for key in required_keys:
         value = experimental_conditions_dict[key]
         if not isinstance(value, (int, float)):
             print(f"Value for '{key}' must be numeric, got {type(value).__name__}")
             return False
 
-        # Check for positive values
         if value <= 0:
             print(f"Value for '{key}' must be positive, got {value}")
             return False
 
-    #initial conditions
+    # Validate initial conditions
+    if 'initial' not in experimental_conditions_dict:
+        print("Missing required section: initial")
+        return False
+
     initial_params = experimental_conditions_dict['initial']
-    required_initial_keys = ['init_sat', 'initial_solute_concentration'] #TODO initial solute concentration should be one value or vector, how to do it?
+    required_initial_keys = ['init_sat', 'initial_solute_concentration']
+
     for key in required_initial_keys:
         if key not in initial_params:
-            print(f"Missing required key: {key}")
+            print(f"Missing required key in initial conditions: {key}")
             return False
+
+    # Validate boundary conditions
+    if 'boundary' not in experimental_conditions_dict:
+        print("Missing required section: boundary")
+        return False
+
     boundary_params = experimental_conditions_dict['boundary']
-    required_boundary_keys = ["average_infiltration_rate", "pulse_duration", "solute_concentration_influx"]
+    required_boundary_keys = [
+        "average_infiltration_rate",
+        "pulse_duration",
+        "solute_concentration_influx"
+    ]
+
     for key in required_boundary_keys:
         if key not in boundary_params:
-            print(f"Missing required key: {key}")
+            print(f"Missing required key in boundary conditions: {key}")
             return False
-    for key in required_boundary_keys:
+
         value = boundary_params[key]
         if not isinstance(value, (int, float)):
             print(f"Value for '{key}' must be numeric, got {type(value).__name__}")
             return False
-        # Check for positive values
+
         if value <= 0:
             print(f"Value for '{key}' must be positive, got {value}")
             return False
 
-
-
     return True
 
-def check_toml_soil(soil_dict: dict) -> bool:
-    """Validate soil parameters from TOML config."""
+
+def check_toml_soil(soil_dict: Dict[str, Any]) -> bool:
+    """
+    Validate soil parameters from TOML config.
+
+    Args:
+        soil_dict: Dictionary containing soil parameters
+
+    Returns:
+        True if validation passes, False otherwise
+    """
     expected_keys = [
         "soil_name", "soil_type", "bulk_density", "porosity",
         "van_genuchten_alpha", "van_genuchten_n", "saturated_water_content",
@@ -98,7 +164,7 @@ def check_toml_soil(soil_dict: dict) -> bool:
     numeric_fields = [
         "bulk_density", "porosity", "van_genuchten_alpha",
         "van_genuchten_n", "saturated_water_content",
-        "hydraulic_conductivity", "dispersivity"
+        "hydraulic_conductivity", "dispersivity", "residual_water_content"
     ]
 
     for field in numeric_fields:
@@ -107,61 +173,101 @@ def check_toml_soil(soil_dict: dict) -> bool:
             return False
 
     # Range checks
-    if not (0 < soil_dict["porosity"] <= 1):
+    if not 0 < soil_dict["porosity"] <= 1:
         print(f"porosity must be between 0 and 1, got {soil_dict['porosity']}")
         return False
-    if not (0 < soil_dict["saturated_water_content"] <= 1):
-        print(f"saturated_water_content must be between 0 and 1, got {soil_dict['saturated_water_content']}")
+    if not 0 < soil_dict["saturated_water_content"] <= 1:
+        print(
+            f"saturated_water_content must be between 0 and 1, "
+            f"got {soil_dict['saturated_water_content']}"
+        )
         return False
 
     return True
 
-def check_toml_sorption(sorption_dict: dict) -> bool:
-    """Validate sorption parameters from TOML config"""
-    # Check main sorption_solid section
+
+def _validate_numeric_param(
+    params: Dict[str, Any],
+    param_name: str,
+    allow_positive_only: bool = True,
+    min_value: float = None,
+    max_value: float = None
+) -> bool:
+    """
+    Validate a numeric parameter.
+
+    Args:
+        params: Dictionary containing parameters
+        param_name: Name of parameter to validate
+        allow_positive_only: If True, value must be positive
+        min_value: Minimum allowed value (inclusive)
+        max_value: Maximum allowed value (inclusive)
+
+    Returns:
+        True if validation passes, False otherwise
+    """
+    if param_name not in params:
+        print(f"Missing required parameter: {param_name}")
+        return False
+
+    value = params[param_name]
+    if not isinstance(value, (int, float)):
+        print(f"'{param_name}' must be numeric, got {type(value).__name__}")
+        return False
+
+    if allow_positive_only and value <= 0:
+        print(f"'{param_name}' must be positive, got {value}")
+        return False
+
+    if min_value is not None and value < min_value:
+        print(f"'{param_name}' must be >= {min_value}, got {value}")
+        return False
+
+    if max_value is not None and value > max_value:
+        print(f"'{param_name}' must be <= {max_value}, got {value}")
+        return False
+
+    return True
+
+
+def check_toml_sorption(sorption_dict: Dict[str, Any]) -> bool:
+    """
+    Validate sorption parameters from TOML config.
+
+    Args:
+        sorption_dict: Dictionary containing sorption parameters
+
+    Returns:
+        True if validation passes, False otherwise
+    """
+    # Check kinetic_sorption flag
     if 'kinetic_sorption' not in sorption_dict:
         print("Missing required key: kinetic_sorption")
         return False
 
     if not isinstance(sorption_dict['kinetic_sorption'], bool):
-        print(f"'kinetic_sorption' must be a boolean, got {type(sorption_dict['kinetic_sorption']).__name__}")
+        print(
+            f"'kinetic_sorption' must be a boolean, "
+            f"got {type(sorption_dict['kinetic_sorption']).__name__}"
+        )
         return False
 
+    # Check sorption isotherm type
     if 'sorption_isotherm' not in sorption_dict:
         print("Missing required key: sorption_isotherm")
         return False
 
     valid_isotherms = ['linear', 'freundlich', 'langmuir']
     if sorption_dict['sorption_isotherm'] not in valid_isotherms:
-        print(f"'sorption_isotherm' must be one of {valid_isotherms}, got '{sorption_dict['sorption_isotherm']}'")
+        print(
+            f"'sorption_isotherm' must be one of {valid_isotherms}, "
+            f"got '{sorption_dict['sorption_isotherm']}'"
+        )
         return False
 
     # Check kinetic parameters if kinetic=true
-    if sorption_dict['kinetic']:
-        if 'kinetic' not in sorption_dict:
-            print("Missing [sorption_solid.kinetic] section when kinetic=true")
-            return False
-
-        kinetic_params = sorption_dict['kinetic']
-
-        if 'frac_int' not in kinetic_params:
-            print("Missing required parameter: frac_int")
-            return False
-        if not isinstance(kinetic_params['frac_int'], (int, float)):
-            print(f"'frac_int' must be numeric, got {type(kinetic_params['frac_int']).__name__}")
-            return False
-        if not 0 <= kinetic_params['frac_int'] <= 1:
-            print(f"'frac_int' must be between 0 and 1, got {kinetic_params['frac_int']}")
-            return False
-
-        if 'rate_const' not in kinetic_params:
-            print("Missing required parameter: rate_const")
-            return False
-        if not isinstance(kinetic_params['rate_const'], (int, float)):
-            print(f"'rate_const' must be numeric, got {type(kinetic_params['rate_const']).__name__}")
-            return False
-        if kinetic_params['rate_const'] <= 0:
-            print(f"'rate_const' must be positive, got {kinetic_params['rate_const']}")
+    if sorption_dict['kinetic_sorption']:
+        if not _validate_kinetic_params(sorption_dict):
             return False
 
     # Check the specific isotherm section
@@ -170,103 +276,108 @@ def check_toml_sorption(sorption_dict: dict) -> bool:
         print(f"Missing section for isotherm: [sorption_solid.{isotherm}]")
         return False
 
-    isotherm_params = sorption_dict[isotherm]
-
-    # Validate based on isotherm type
+    # Validate isotherm-specific parameters
     if isotherm == 'linear':
-        if 'Kd_method' not in isotherm_params:
-            print("Missing required key: Kd_method")
-            return False
-
-        valid_methods = ['direct_input', 'organic_mineral', 'Fabregat_Palau2021']
-        kd_method = isotherm_params['Kd_method']
-
-        if kd_method not in valid_methods:
-            print(f"'Kd_method' must be one of {valid_methods}, got '{kd_method}'")
-            return False
-
-        # Check method-specific parameters
-        if kd_method == 'direct_input':
-            if 'Kd' not in isotherm_params:
-                print("Missing required parameter: Kd")
-                return False
-            if not isinstance(isotherm_params['Kd'], (int, float)):
-                print(f"'Kd' must be numeric, got {type(isotherm_params['Kd']).__name__}")
-                return False
-            if isotherm_params['Kd'] <= 0:
-                print(f"'Kd' must be positive, got {isotherm_params['Kd']}")
-                return False
-
-        elif kd_method == 'organic_mineral':
-            required = ['OC_perc', 'Koc', 'Min_perc', 'Kmin']
-            for param in required:
-                if param not in isotherm_params:
-                    print(f"Missing required parameter: {param}")
-                    return False
-                if not isinstance(isotherm_params[param], (int, float)):
-                    print(f"'{param}' must be numeric, got {type(isotherm_params[param]).__name__}")
-                    return False
-                if isotherm_params[param] <= 0:
-                    print(f"'{param}' must be positive, got {isotherm_params[param]}")
-                    return False
-
-        elif kd_method == 'Fabregat_Palau2021':
-            required = ['OC_perc', 'Min_perc', 'chain_length']
-            for param in required:
-                if param not in isotherm_params:
-                    print(f"Missing required parameter: {param}")
-                    return False
-                if not isinstance(isotherm_params[param], (int, float)):
-                    print(f"'{param}' must be numeric, got {type(isotherm_params[param]).__name__}")
-                    return False
-                if isotherm_params[param] <= 0:
-                    print(f"'{param}' must be positive, got {isotherm_params[param]}")
-                    return False
-
-            if not isinstance(isotherm_params['chain_length'], int):
-                print(f"'chain_length' must be an integer, got {type(isotherm_params['chain_length']).__name__}")
-                return False
-
-        # Check optional c_non_lin if present
-        if 'c_non_lin' in isotherm_params:
-            if not isinstance(isotherm_params['c_non_lin'], (int, float)):
-                print(f"'c_non_lin' must be numeric, got {type(isotherm_params['c_non_lin']).__name__}")
-                return False
-            if isotherm_params['c_non_lin'] <= 0:
-                print(f"'c_non_lin' must be positive, got {isotherm_params['c_non_lin']}")
-                return False
-
-    elif isotherm == 'freundlich':
-        required = ['K_freund', 'n_freund']
-        for param in required:
-            if param not in isotherm_params:
-                print(f"Missing required parameter: {param}")
-                return False
-            if not isinstance(isotherm_params[param], (int, float)):
-                print(f"'{param}' must be numeric, got {type(isotherm_params[param]).__name__}")
-                return False
-            if isotherm_params[param] <= 0:
-                print(f"'{param}' must be positive, got {isotherm_params[param]}")
-                return False
-
-    elif isotherm == 'langmuir':
-        required = ['Q_max', 'K_langmuir']
-        for param in required:
-            if param not in isotherm_params:
-                print(f"Missing required parameter: {param}")
-                return False
-            if not isinstance(isotherm_params[param], (int, float)):
-                print(f"'{param}' must be numeric, got {type(isotherm_params[param]).__name__}")
-                return False
-            if isotherm_params[param] <= 0:
-                print(f"'{param}' must be positive, got {isotherm_params[param]}")
-                return False
+        return _validate_linear_isotherm(sorption_dict[isotherm])
+    if isotherm == 'freundlich':
+        return _validate_freundlich_isotherm(sorption_dict[isotherm])
+    if isotherm == 'langmuir':
+        return _validate_langmuir_isotherm(sorption_dict[isotherm])
 
     return True
 
-def check_toml_AWI(awi_dict: dict) -> bool:
-    """Validate air-water interface parameters from TOML config"""
-    # Check AWI_type
+
+def _validate_kinetic_params(sorption_dict: Dict[str, Any]) -> bool:
+    """Validate kinetic sorption parameters."""
+    if 'kinetic' not in sorption_dict:
+        print("Missing [sorption_solid.kinetic] section when kinetic_sorption=true")
+        return False
+
+    kinetic_params = sorption_dict['kinetic']
+
+    if not _validate_numeric_param(
+        kinetic_params, 'frac_int', allow_positive_only=False, min_value=0, max_value=1
+    ):
+        return False
+
+    if not _validate_numeric_param(kinetic_params, 'rate_const', allow_positive_only=True):
+        return False
+
+    return True
+
+
+def _validate_linear_isotherm(isotherm_params: Dict[str, Any]) -> bool:
+    """Validate linear isotherm parameters."""
+    if 'Kd_method' not in isotherm_params:
+        print("Missing required key: Kd_method")
+        return False
+
+    valid_methods = ['direct_input', 'organic_mineral', 'Fabregat_Palau2021']
+    kd_method = isotherm_params['Kd_method']
+
+    if kd_method not in valid_methods:
+        print(f"'Kd_method' must be one of {valid_methods}, got '{kd_method}'")
+        return False
+
+    # Check method-specific parameters
+    if kd_method == 'direct_input':
+        return _validate_numeric_param(isotherm_params, 'Kd', allow_positive_only=True)
+
+    if kd_method == 'organic_mineral':
+        required = ['OC_perc', 'Koc', 'Min_perc', 'Kmin']
+        for param in required:
+            if not _validate_numeric_param(isotherm_params, param, allow_positive_only=True):
+                return False
+
+    elif kd_method == 'Fabregat_Palau2021':
+        required = ['OC_perc', 'Min_perc', 'chain_length']
+        for param in required:
+            if not _validate_numeric_param(isotherm_params, param, allow_positive_only=True):
+                return False
+
+        if not isinstance(isotherm_params['chain_length'], int):
+            print(
+                f"'chain_length' must be an integer, "
+                f"got {type(isotherm_params['chain_length']).__name__}"
+            )
+            return False
+
+    # Check optional c_non_lin if present
+    if 'c_non_lin' in isotherm_params:
+        if not _validate_numeric_param(isotherm_params, 'c_non_lin', allow_positive_only=True):
+            return False
+
+    return True
+
+
+def _validate_freundlich_isotherm(isotherm_params: Dict[str, Any]) -> bool:
+    """Validate Freundlich isotherm parameters."""
+    required = ['K_freund', 'n_freund']
+    for param in required:
+        if not _validate_numeric_param(isotherm_params, param, allow_positive_only=True):
+            return False
+    return True
+
+
+def _validate_langmuir_isotherm(isotherm_params: Dict[str, Any]) -> bool:
+    """Validate Langmuir isotherm parameters."""
+    required = ['Q_max', 'K_langmuir']
+    for param in required:
+        if not _validate_numeric_param(isotherm_params, param, allow_positive_only=True):
+            return False
+    return True
+
+
+def check_toml_awi(awi_dict: Dict[str, Any]) -> bool:
+    """
+    Validate air-water interface parameters from TOML config.
+
+    Args:
+        awi_dict: Dictionary containing AWI parameters
+
+    Returns:
+        True if validation passes, False otherwise
+    """
     if 'AWI_type' not in awi_dict:
         print("Missing required key: AWI_type")
         return False
@@ -287,74 +398,68 @@ def check_toml_AWI(awi_dict: dict) -> bool:
 
     # Validate based on AWI type
     if awi_type == 'SWC-based':
-        if 'scaling_factor_AWI' not in awi_params:
-            print("Missing required parameter: scaling_factor_AWI")
-            return False
-        if not isinstance(awi_params['scaling_factor_AWI'], (int, float)):
-            print(f"'scaling_factor_AWI' must be numeric, got {type(awi_params['scaling_factor_AWI']).__name__}")
-            return False
-        if awi_params['scaling_factor_AWI'] <= 0:
-            print(f"'scaling_factor_AWI' must be positive, got {awi_params['scaling_factor_AWI']}")
-            return False
+        return _validate_numeric_param(
+            awi_params, 'scaling_factor_AWI', allow_positive_only=True
+        )
 
-    elif awi_type == 'Guo':
+    if awi_type == 'Guo':
         required = ['guo_x0', 'guo_x1', 'guo_x2']
         for param in required:
-            if param not in awi_params:
-                print(f"Missing required parameter: {param}")
-                return False
-            if not isinstance(awi_params[param], (int, float)):
-                print(f"'{param}' must be numeric, got {type(awi_params[param]).__name__}")
-                return False
-            if awi_params[param] <= 0:
-                print(f"'{param}' must be positive, got {awi_params[param]}")
+            if not _validate_numeric_param(awi_params, param, allow_positive_only=True):
                 return False
 
     return True
 
-def check_toml_sorption_AWI(sorption_awi_dict: dict) -> bool:
-    """Validate air-water interface sorption parameters from TOML config"""
-    # Check Kawi_method
+
+def check_toml_sorption_awi(sorption_awi_dict: Dict[str, Any]) -> bool:
+    """
+    Validate air-water interface sorption parameters from TOML config.
+
+    Args:
+        sorption_awi_dict: Dictionary containing AWI sorption parameters
+
+    Returns:
+        True if validation passes, False otherwise
+    """
     if 'Kawi_method' not in sorption_awi_dict:
         print("Missing required key: Kawi_method")
         return False
 
-    valid_methods = ['direct_input', 'szyskowski-langmuir']
+    valid_methods = ['direct_input', 'szyszkowski-langmuir']
     if sorption_awi_dict['Kawi_method'] not in valid_methods:
-        print(f"'Kawi_method' must be one of {valid_methods}, got '{sorption_awi_dict['Kawi_method']}'")
+        print(
+            f"'Kawi_method' must be one of {valid_methods}, "
+            f"got '{sorption_awi_dict['Kawi_method']}'"
+        )
         return False
 
     kawi_method = sorption_awi_dict['Kawi_method']
 
     # Validate based on method
     if kawi_method == 'direct_input':
-        if 'Kaw' not in sorption_awi_dict:
-            print("Missing required parameter: Kaw")
-            return False
-        if not isinstance(sorption_awi_dict['Kaw'], (int, float)):
-            print(f"'Kaw' must be numeric, got {type(sorption_awi_dict['Kaw']).__name__}")
-            return False
-        if sorption_awi_dict['Kaw'] <= 0:
-            print(f"'Kaw' must be positive, got {sorption_awi_dict['Kaw']}")
-            return False
+        return _validate_numeric_param(sorption_awi_dict, 'Kaw', allow_positive_only=True)
 
-    elif kawi_method == 'szyszkowski-langmuir':
+    if kawi_method == 'szyszkowski-langmuir':
         required = ['szyszkowski_a', 'szyszkowski_b']
         for param in required:
-            if param not in sorption_awi_dict:
-                print(f"Missing required parameter: {param}")
-                return False
-            if not isinstance(sorption_awi_dict[param], (int, float)):
-                print(f"'{param}' must be numeric, got {type(sorption_awi_dict[param]).__name__}")
-                return False
-            if sorption_awi_dict[param] <= 0:
-                print(f"'{param}' must be positive, got {sorption_awi_dict[param]}")
+            if not _validate_numeric_param(
+                sorption_awi_dict, param, allow_positive_only=True
+            ):
                 return False
 
     return True
 
-def check_toml_pfas(pfas_dict: dict) -> bool:
-    """Validate PFAS parameters from TOML config"""
+
+def check_toml_pfas(pfas_dict: Dict[str, Any]) -> bool:
+    """
+    Validate PFAS parameters from TOML config.
+
+    Args:
+        pfas_dict: Dictionary containing PFAS parameters
+
+    Returns:
+        True if validation passes, False otherwise
+    """
     # Check name
     if 'name' not in pfas_dict:
         print("Missing required key: name")
@@ -364,32 +469,17 @@ def check_toml_pfas(pfas_dict: dict) -> bool:
         return False
 
     # Check molecular_weight
-    if 'molecular_weight' not in pfas_dict:
-        print("Missing required parameter: molecular_weight")
-        return False
-    if not isinstance(pfas_dict['molecular_weight'], (int, float)):
-        print(f"'molecular_weight' must be numeric, got {type(pfas_dict['molecular_weight']).__name__}")
-        return False
-    if pfas_dict['molecular_weight'] <= 0:
-        print(f"'molecular_weight' must be positive, got {pfas_dict['molecular_weight']}")
+    if not _validate_numeric_param(pfas_dict, 'molecular_weight', allow_positive_only=True):
         return False
 
     # Check surface_tension
-    if 'surface_tension' not in pfas_dict:
-        print("Missing required parameter: surface_tension")
-        return False
-    if not isinstance(pfas_dict['surface_tension'], (int, float)):
-        print(f"'surface_tension' must be numeric, got {type(pfas_dict['surface_tension']).__name__}")
-        return False
-    if pfas_dict['surface_tension'] <= 0:
-        print(f"'surface_tension' must be positive, got {pfas_dict['surface_tension']}")
+    if not _validate_numeric_param(pfas_dict, 'surface_tension', allow_positive_only=True):
         return False
 
-    # Check cas_number if present =
+    # Check cas_number if present
     if 'cas_number' in pfas_dict:
         if not isinstance(pfas_dict['cas_number'], str):
             print(f"'cas_number' must be a string, got {type(pfas_dict['cas_number']).__name__}")
             return False
 
     return True
-
