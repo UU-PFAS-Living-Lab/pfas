@@ -150,8 +150,14 @@ def boundary_preprocessing(config):
     return BoundaryConditions(pulse_duration, contaminant_release_rate_per_second) #TODO do these need to match naming
 
 def adsorption_preprocessing(config): 
-    #TODO multiple (how to deal with all the options --> discuss during meeting)
-
+    #TODO 
+    sp_sorption = config["sorption_solid"]
+    
+    if sp_sorption["sorption_isotherm"] == "linear":
+        linear = sp_sorption["linear"]
+        if linear["Kd_method"] == "direct_input":
+            return linear["Kd"]
+    
 
 def preprocess_configuration(config):
     domain_length = config["experimental_conditions"]["domain_length"]
