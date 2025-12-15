@@ -1,43 +1,89 @@
 import numpy as np
+from pfas_leach_screening import utils
 from scipy.special import erfc, iv
 
-from pfas_leach_screening import utils
 
+def eqbvpfunc(T, R, Z, P):
+    return (
+        0.5 * erfc((R * Z - T) / (2 * (T * R / P) ** (1 / 2)))
+        + ((T * P) / (np.pi * R)) ** (1 / 2) * np.exp(-((R * Z - T) ** 2) / (4 * T * R / P))
+        - (1/2) * (1 + P * Z + P * T / R)
+        * np.exp(P * Z)
+        * erfc((R * Z + T) / (2 * (T * R / P) ** (1 / 2)))
+    )
+
+def eqivpfunc(T, R, Z, P, kesi):
+    return (
+        (np.exp(-((R * Z - R * kesi - T) ** 2) / (4 * T * R / P))
+            + np.exp(-P * kesi - (R * Z + R * kesi - T) ** 2 / (4 * T * R / P)))
+        / (2 * np.sqrt(np.pi * T / P / R))
+        - P / 2 * np.exp(P * Z)
+        * erfc((R * Z + R * kesi + T) / (2 * np.sqrt(T * R / P)))
+    )
+
+
+def neqivpfunc(T, R, Z, P, kesi, beta):
+    return (
+        (np.exp(-P * beta * R * (Z - kesi - T / (beta * R)) ** 2 / (4 * T))
+            + np.exp(-kesi * P - P * beta * R * (Z + kesi - T / (beta * R)) ** 2 / (4 * T)))
+        / (2 * np.sqrt(np.pi * T / (beta * R * P)))
+        - P / 2 * np.exp(P * Z)
+        * erfc((Z + kesi + T / (beta * R)) / (2 * np.sqrt(T / (beta * R) / P)))
+    )
+
+def Hfunc(T, R, tau, Rs, Fs, beta, betas, ws):
+    iv_arg_2 = (
+        2 * ws / (1 - betas) / (1 + Rs)
+        * np.sqrt(Rs * (1 - Fs) * (T - tau) * tau)
+        / (beta * R))
+
+    return (
+        Rs * (1 - Fs) / (beta * R)
+        * np.exp(
+            -ws * (T - tau) / (1 - betas) / (1 + Rs)
+            - ws * tau * (1 - Fs) * Rs / (1 - betas) / (beta * R) / (1 + Rs))
+        * (
+            iv(0, iv_arg_2) + iv(1, iv_arg_2) * tau
+            / np.sqrt(Rs * (1 - Fs) * (T - tau) * tau / (beta * R))
+        )
+    )
+
+
+def Hs2func(T, R, tau, Rs, Fs, beta, betas, ws):
+    iv_arg_2 = (
+        2 * ws / (1 - betas) / (1 + Rs)
+        * np.sqrt(Rs * (1 - Fs) * (T - tau) * tau)
+        / (beta * R))
+
+    return (
+        np.exp(
+            -ws * (T - tau) / (1 - betas) / (1 + Rs)
+            - ws * tau * (1 - Fs) * Rs / (1 - betas) / (beta * R) / (1 + Rs))
+        * (
+            iv(0, iv_arg_2)
+            + np.sqrt(Rs * (1 - Fs) * (T - tau) / (beta * R) / tau)
+            * iv(1, iv_arg_2)
+        )
+    )
 
 def equilibrium_solver(R, Z, T, P, T0, C10, Ci, theta):
-    """
-    Kinetic solver and parameters.
-    """
+    """Kinetic solver and parameters."""
+
     # Solution for the boundary value problem
     # Define the solution for a constant boundary condition as a function
     C1_bvp = np.zeros((len(Z), len(T)))
     C1_ivp = np.zeros((len(Z), len(T)))
-    eqbvpfunc = (
-        lambda T: 0.5 * erfc((R * Z - T) / (2 * (T * R / P) ** (1 / 2)))
-        + ((T * P) / (np.pi * R)) ** (1 / 2) * np.exp(-((R * Z - T) ** 2) / (4 * T * R / P))
-        - 1
-        / 2
-        * (1 + P * Z + P * T / R)
-        * np.exp(P * Z)
-        * erfc((R * Z + T) / (2 * (T * R / P) ** (1 / 2)))
-    )
     for i in range(len(T)):
         if T[i] <= T0:
-            C1_bvp[:, i] = C10 * eqbvpfunc(T[i])
+            C1_bvp[:, i] = C10 * eqbvpfunc(T[i], R, Z, P)
         else:
-            C1_bvp[:, i] = C10 * eqbvpfunc(T[i]) - C10 * eqbvpfunc(T[i] - T0)
+            C1_bvp[:, i] = C10 * eqbvpfunc(T[i], R, Z, P) - C10 * eqbvpfunc(T[i] - T0, R, Z, P)
         if max(Ci) != 0:
             # Solution for the initial value problem
             for i in range(len(T)):
                 for j in range(len(Z)):
                     kesi = np.linspace(0, 1, len(Ci))
-                    eqivpfunc = lambda Z, T: (
-                        np.exp(-((R * Z - R * kesi - T) ** 2) / (4 * T * R / P))
-                        + np.exp(-P * kesi - (R * Z + R * kesi - T) ** 2 / (4 * T * R / P))
-                    ) / (2 * np.sqrt(np.pi * T / P / R)) - P / 2 * np.exp(P * Z) * erfc(
-                        (R * Z + R * kesi + T) / (2 * np.sqrt(T * R / P))
-                    )
-                    C1_ivp[j, i] = np.trapz(eqivpfunc(Z[j], T[i]) * Ci, kesi)
+                    C1_ivp[j, i] = np.trapz(eqivpfunc(T[i], R, Z[j], P, kesi) * Ci, kesi)
         C1 = C1_bvp + C1_ivp
         #C2 = C2_bvp + C2_ivp
         C_tot = C1*R*theta #+ rhob*C2 #TODO
@@ -45,9 +91,7 @@ def equilibrium_solver(R, Z, T, P, T0, C10, Ci, theta):
 
 
 def kinetic_solver(R, Z, T, P, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd, theta, rhob):
-    """
-    Kinetic solver its parameters.
-    """
+    """Kinetic solver its parameters."""
     # Initialize solutions for the aqueous concentration for BVP and IVP problems
     C1_bvp = np.zeros((len(Z), len(T)))
     C1_ivp = np.zeros((len(Z), len(T)))
@@ -73,71 +117,8 @@ def kinetic_solver(R, Z, T, P, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd, 
                 # Solution for the initial value problem
                 kesi = np.linspace(0, 1, len(Ci))
                 tau = np.linspace(0, T[j], 100)
-                neqivpfunc = lambda Z, T: (
-                    np.exp(-P * beta * R * (Z - kesi - T / (beta * R)) ** 2 / (4 * T))
-                    + np.exp(-kesi * P - P * beta * R * (Z + kesi - T / (beta * R)) ** 2 / (4 * T))
-                ) / (2 * np.sqrt(np.pi * T / (beta * R * P))) - P / 2 * np.exp(P * Z) * erfc(
-                    (Z + kesi + T / (beta * R)) / (2 * np.sqrt(T / (beta * R) / P))
-                )
 
-                Hfunc = (
-                    lambda T, tau: Rs
-                    * (1 - Fs)
-                    / (beta * R)
-                    * np.exp(
-                        -ws * (T - tau) / (1 - betas) / (1 + Rs)
-                        - ws * tau * (1 - Fs) * Rs / (1 - betas) / (beta * R) / (1 + Rs)
-                    )
-                    * (
-                        iv(
-                            0,
-                            2
-                            * ws
-                            / (1 - betas)
-                            / (1 + Rs)
-                            * np.sqrt(Rs * (1 - Fs) * (T - tau) * tau)
-                            / (beta * R),
-                        )
-                        + iv(
-                            1,
-                            2
-                            * ws
-                            / (1 - betas)
-                            / (1 + Rs)
-                            * np.sqrt(Rs * (1 - Fs) * (T - tau) * tau)
-                            / (beta * R),
-                        )
-                        * tau
-                        / np.sqrt(Rs * (1 - Fs) * (T - tau) * tau / (beta * R))
-                    )
-                )
-
-                Hs2func = lambda T, tau: np.exp(
-                    -ws * (T - tau) / (1 - betas) / (1 + Rs)
-                    - ws * tau * (1 - Fs) * Rs / (1 - betas) / (beta * R) / (1 + Rs)
-                ) * (
-                    iv(
-                        0,
-                        2
-                        * ws
-                        / (1 - betas)
-                        / (1 + Rs)
-                        * np.sqrt(Rs * (1 - Fs) * (T - tau) * tau)
-                        / (beta * R),
-                    )
-                    + np.sqrt(Rs * (1 - Fs) * (T - tau) / (beta * R) / tau)
-                    * iv(
-                        1,
-                        2
-                        * ws
-                        / (1 - betas)
-                        / (1 + Rs)
-                        * np.sqrt(Rs * (1 - Fs) * (T - tau) * tau)
-                        / (beta * R),
-                    )
-                )
-
-                GfuncT = np.trapz(neqivpfunc(Z[i], T[j]) * Ci, kesi)
+                GfuncT = np.trapz(neqivpfunc(T[j], R, Z[i], P, kesi, beta) * Ci, kesi)
                 if betas == 1:
                     C1_ivp[i, j] = GfuncT
                 else:
@@ -150,13 +131,15 @@ def kinetic_solver(R, Z, T, P, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd, 
                     )
                     Gfunctau = np.zeros((len(tau), 1))
                     for k in range(1, len(tau) - 1):
-                        Gfunctau[k] = np.trapz(neqivpfunc(Z[i], tau[k]) * Ci, kesi)
+                        Gfunctau[k] = np.trapz(neqivpfunc(tau[k], R, Z[i], P, kesi, beta) * Ci, kesi)
                     C1_ivp[i, j] = C1_ivp[i, j] + ws / (1 - betas) / (1 + Rs) * np.trapz(
-                        Hfunc(T[j], tau[1:-1]) * Gfunctau[1:-1], tau[1:-1]
+                        Hfunc(T[j], R, tau[1:-1], Rs, Fs, beta, betas, ws) * Gfunctau[1:-1],
+                        tau[1:-1]
                     )
                     C2_ivp[i, j] = C2_ivp[i, j] + ws / (1 - betas) / (1 + Rs) * (
                         1 - Fs
-                    ) * Kd * np.trapz(Hs2func(T[j], tau[1:-1]) * Gfunctau[1:-1], tau[1:-1])
+                    ) * Kd * np.trapz(Hs2func(T[j], R, tau[1:-1], Rs, Fs, beta, betas, ws)
+                                      * Gfunctau[1:-1], tau[1:-1])
 
     # Convert dimensionless C1_bvp and C2_bvp to original dimensions
     C1_bvp = C10 * C1_bvp
