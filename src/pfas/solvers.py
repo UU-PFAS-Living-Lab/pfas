@@ -1,5 +1,5 @@
 import numpy as np
-from pfas_leach_screening import utils
+from pfas import utils
 from scipy.special import erfc, iv
 
 

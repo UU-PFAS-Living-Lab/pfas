@@ -24,119 +24,21 @@ from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
 
 
-
-# Example simulation of PFOA release and contamination in Accusand under AZ climate
-
-# Flag for the type of air-water interfacial area
-# Aawflag = 'tracer-based'          # "tracer-based" or "thermodynamic-based". See Guo et al (2022) AWR 
-Aawflag = 'tracer-based'
-
-# time units
-hour = 3600
-day = 24*hour
-year = 365*day
-
-# PFAS properties
-M = 414.07                                  # Molecular weight of PFOS [g/mol] #done
-b = 0.19                                    # [-]
-a = 62.11/M                                 # mg/L
-sigma0 = 71                                 # dyn/cm
-#C0 = 0.9                                    # mg/L
-C_rep = 0.016                               # representative aqueous concentration [mg/L]
-                                            # NB: C_rep is not a required parameter. It is only needed
-                                            #     if solid-phase and air-water interfacial adsorption are nonlinear
-
-# PFAS solid-phase adsorption parameters
-Kf = 0.1                                    # Freundlich Kf [mg/kg / (mg/L)^N]
-n_fr = 0.87                                 # Freundlich power
-Fs = 0.4                                    # fraction of instantaneous sites
-alphas = 5.9/hour                           # first-order rate constant for kinetic adsorption
-
-# total simulation time
-#tf = 80*year
-
-Rg = 8.31                                   # gas constant [J/K/mol]
-Tp = 293.15                                 # temperature [K]
-L = 400                                     # vadose zone depth [cm]
-
-# hydraulic parameters
-#thetar = 0.015                              # Residual water content [cm^3/cm^3]
-alpha = 0.044                               #VG parameter a
-# coefficients to compute tracer-measured air-water interfacial area
-x0 = 633.96                                 # [-]               -> Aaw fitting parameter
-x1 = -1182.5                                # [-]               -> Aaw fitting parameter
-x2 = 548.54                                 # [-]               -> Aaw fitting parameter
-# initial guess of effective saturation
-#se0 = 0.1                                   
-#rhob = 1.65                                 # bulk density [g/cm^3] 
-#poro = 0.294                                # porosity [cm^3/cm^3]
-#thetas = 0.294                              # saturated water saturation [cm^3/cm^3]
-#Ks = 2.0964E-2                              # saturated hydraulic conductivity
-#alphaL = 100*0.83*(np.log10(L/100))**2.414  # dispersivity [cm]
-#q = 1916.2/tf                               # water infiltration rate        
-
-Kd = Kf*C_rep**(n_fr-1)                     # solid-phase adsorption coefficient [cm^3/g]
-Kaw = 0.1*sigma0*b/(Rg*Tp*(a+C_rep/M))      # air-water interfacial coefficient [cm^3/cm^2]
-                                            # NB: if C_rep is not known, set C_rep = 0
-                                            
-# solve for effective saturation corresponding to the infiltration rate
-#kr = q/Ks                                   # relative permeability
-
-# n_vg = 4                                    # VG parameter
-# m = 1 - 1/n_vg                              # VG parameter
-# relperm = lambda se: se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
-# se = fsolve(relperm,se0)
-# theta = se[0] * (poro - thetar) + thetar    # water content [cm^3/cm^3]
-# sw = theta/poro                             # water saturation [cm^3/cm^3]
-# v = q/theta                                 # pore velocity [cm/s]
-# D = v*alphaL                                # dispersion coefficient [cm^2/s]
-
-if Aawflag == 'tracer-based':
-    Aaw = Aaw_func_tracer(sw,x2,x1,x0)      # air-water interfacial area [cm^2/cm^3]
-elif Aawflag == 'thermodynamic-based':
-    sf = 4.15                               # scaling factor to correct the thermodyanmic-based Aaw (see Guo et al., 2022) [-]
-    Aaw = Aaw_func_thermo(sigma0,poro,alpha,n_vg,theta,thetar,thetas,sf)
-t0 = 30*year                                # Contamination period [s].  Set it to zero if contamination had occured.
-
-Rs = rhob*Kd/theta                          # retardation factor assuming no AWIA
-Raw = Aaw*Kaw/theta                         # retardation factor by AWIA
-R = 1+Rs+Raw                                # retardation factor
-
-# dz = 1                                      # Spatial resolution [cm]
-# zs = np.linspace(dz/2.0,L-dz/2.0,int(L/dz)) # Spatial location of interest. zs needs to be an array. If a single location z0 is of interest, then set zs = np.array([z0])                        
-# ts = np.array([5*year,20*year])             # Time of interest. ts needs to be an array. If a single time point t0 is of interest, then set ts = np.array([t0])
-# pfas_tot = C0/M*0.55*2/24*t0/(10*day)       # total (single-component) PFAS released during t0 [micro mol per unit area in cm^2]                                   
-
-
-# spaflag = 0 # 0 - SPA is equilibrium 1 - SPA is kinetic
-# cflag = 0 # 0 - volume-averaged 1 - flux-averaged
-# Ci = np.zeros(len(zs))                      # initial PFAS aqueous concentration. This can be nonzero and arbitrary.
-
-# Employ analytical solution
-# C1                    aqueous concentration in space [micro mol/cm^3]
-#                       NB: C1 here is the C in Guo et al (2022) AWR.         
-# C2                    kinetic solid-phase adsorption [micro mol/g]
-#                       NB: C2 here is the Cs,2 in Guo et al (2022) AWR.  
-# C_tot                 total concentration per bulk volume in space [micro mol/cm^3] 
-
-# NB: 	When either ts or zs is a vector (i.e., length > 1), the output parameters C1, C2, and Ctot will be vectors. 
-#		When both ts and zs are vectors, the output parameters C1, C2, and Ctot will be matrices.
-
-
 def water_preprocessing(config, grid):
     infiltration_rate = config["experimental_conditions"]["boundary"]["average_infiltration_rate"]
     Ks = config["soil"]["hydraulic_conductivity"]
     kr = infiltration_rate/Ks
     poro = config["soil"]["porosity"]
-    alphaL = 100*0.83*(np.log10(grid.domain_length/100))**2.414  # dispersivity [cm] #TODO multiple options
+    alphaL = config["soil"]["dispersivity"]  #100*0.83*(np.log10(grid.domain_length/100))**2.414  # dispersivity [cm] #TODO multiple options
     n_vg = config["soil"]["van_genuchten_n"]                                    # VG parameter
     m = 1 - 1/n_vg                              # VG parameter
     relperm = lambda se: se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
-    init_sat = config["experimental_condititions"]["initial"]["init_sat"] #good?
+    init_sat = config["experimental_conditions"]["initial"]["init_sat"] #good?
     se = fsolve(relperm, init_sat)
-    res_water_content = config["soil"]["residiual_water_content"]
+    res_water_content = config["soil"]["residual_water_content"]
     theta = se[0] * (poro - res_water_content) + res_water_content    # water content [cm^3/cm^3]
-    sw = theta/poro                             # water saturation [cm^3/cm^3]
+    sw = theta/poro     
+    q = config["experimental_conditions"]["boundary"]["average_infiltration_rate"]                    # water saturation [cm^3/cm^3]
     v = q/theta                                 # pore velocity [cm/s]
     D = v*alphaL                                # dispersion coefficient [cm^2/s]
     return HydrologicalProperties(theta, v, D)
@@ -149,47 +51,114 @@ def boundary_preprocessing(config):
     contaminant_release_rate_per_second = solute_concentration* average_infiltration_rate/ pulse_duration
     return BoundaryConditions(pulse_duration, contaminant_release_rate_per_second) #TODO do these need to match naming
 
-def adsorption_preprocessing(config): 
+def adsorption_preprocessing(config, hydro_properties, bulk_density): 
     #TODO 
     sp_sorption = config["sorption_solid"]
     
     if sp_sorption["sorption_isotherm"] == "linear":
         linear = sp_sorption["linear"]
         if linear["Kd_method"] == "direct_input":
-            return linear["Kd"]
+            Kd = linear["Kd"]
+    
+    sp_retardation = (bulk_density * Kd) / hydro_properties.water_content
+    rate_const = sp_sorption.get("rate_constant", 0.0)  # alphas
+    frac_int = sp_sorption.get("fraction_instantaneous", 1.0)  # Fs
+    
+    if "AWI" in config:
+        awi = config["AWI"]
+        
+        if awi["AWI_type"] == "SWC-based":
+            swc_based = awi["SWC-based"]
+            sf = swc_based["scaling_factor_AWI"]
+      # Get soil parameters
+            soil = config["soil"]
+            sigma0 = swc_based.get("sigma0", 0.072)  # surface tension
+            poro = soil["porosity"]
+            alpha = soil["van_genuchten_alpha"]
+            n_vg = soil["van_genuchten_n"]
+            theta = hydro_properties.water_content
+            thetar = soil["residual_water_content"]
+            thetas = poro  
+            
+            # Call the thermodynamic function
+            Aaw = Aaw_func_thermo(sigma0, poro, alpha, n_vg, theta, thetar, thetas, sf)
+    if "sorption_AWI" in config:
+        awi_sorption = config["sorption_AWI"]
+    if awi_sorption["Kawi_method"] == "direct_input":
+        Kaw = awi_sorption["Kaw"]
+        awi_retardation = (Kaw * Aaw) / hydro_properties.water_content  # Raw
+    else:
+        awi_retardation = 0.0
+    
+    return Adsorption(
+        Kd=Kd,
+        rate_const=rate_const,
+        frac_int=frac_int,
+        sp_retardation=sp_retardation,
+        awi_retardation=awi_retardation
+    )
     
 
 def preprocess_configuration(config):
+    """Complete preprocessing and return all parameters"""
+    # Grid setup
     domain_length = config["experimental_conditions"]["domain_length"]
     dz = config["experimental_conditions"]["spatial_resolution"]
-    grid_depth = np.linspace(dz/2.0,domain_length-dz/2.0,int(domain_length/dz))
+    grid_depth = np.linspace(dz/2.0, domain_length-dz/2.0, int(domain_length/dz))
+    
     dt = config["experimental_conditions"]["time_resolution"]
     time_total = config["experimental_conditions"]["time_total"]
     grid_time = np.linspace(0, time_total, int(time_total/dt+0.5))
+    
     grid = SimulationGrid(grid_depth, grid_time)
-
-
-    bulk_density = ["soil"]["bulk_density"]
     
-    # not finished
+    # Bulk density
+    bulk_density = config["soil"]["bulk_density"]
+    
+    # Preprocess components
     boundary_conditions = boundary_preprocessing(config)
-    
-    # initial_contaminant_concentration = ...
     hydro_properties = water_preprocessing(config, grid)
-    adsorption = ...
-    kinetic = config["sorption_solid"]["kinetic_sorption"]
-    # volume_averaged = ...
+    adsorption = adsorption_preprocessing(config, hydro_properties, bulk_density)
+    
+    # Initial contaminant concentration
+    initial_contaminant_concentration = config["experimental_conditions"]["initial"].get(
+        "contaminant_concentration", 
+        np.zeros(len(grid_depth))
+    )
+    
+    # Flags
+    kinetic = config["sorption_solid"].get("kinetic_sorption", False)
+    volume_averaged = config.get("volume_averaged", False)
+    
+    return {
+        "grid": grid,
+        "bulk_density": bulk_density,
+        "boundary_conditions": boundary_conditions,
+        "initial_contaminant_concentration": initial_contaminant_concentration,
+        "hydro_properties": hydro_properties,
+        "adsorption": adsorption,
+        "kinetic": kinetic,
+        "volume_averaged": volume_averaged
+    }
 
 
+# Main execution
+def run_simulation(config):
+    """Run the analytical solution with preprocessed parameters"""
+    # Preprocess all parameters
+    params = preprocess_configuration(config)
+    
+    # Call analytical solution
+    C1, C2, C_tot = analytical_soln(
+        grid=params["grid"],
+        bulk_density=params["bulk_density"],
+        boundary_conditions=params["boundary_conditions"],
+        initial_contaminant_concentration=params["initial_contaminant_concentration"],
+        hydro_properties=params["hydro_properties"],
+        adsorption=params["adsorption"],
+        kinetic=params["kinetic"],
+        volume_averaged=params["volume_averaged"]
+    )
 
-C1, C2, Ctot = analytical_soln(ts,zs,t0,pfas_tot,Ci,L,v,theta,rhob,D,Kd,alphas,Fs,R,Rs,Raw,spaflag,cflag)
-           
-# plot the results
-fig, ax = plt.subplots()
-ax.plot(Ctot[:,0]*M,zs,label='5 yrs');
-ax.plot(Ctot[:,1]*M,zs,label='20 yrs');
-ax.invert_yaxis()
-ax.ticklabel_format(axis='x',style='sci',scilimits=(0,0))
-ax.set_xlabel('Total PFOA concentration (mg / dm^3)')
-ax.set_ylabel('Depth (cm)')
-ax.legend()
+    return C1, C2, C_tot, params["grid"]
+

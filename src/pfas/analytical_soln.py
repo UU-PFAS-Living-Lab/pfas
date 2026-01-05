@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
 import numpy as np
-from pfas_leach_screening.solvers import equilibrium_solver, kinetic_solver
-
+from pfas.solvers import equilibrium_solver, kinetic_solver
+from numpy.typing import NDArray
 
 @dataclass
 class SimulationGrid():
-    depth: np.array[float]  # z
-    time: np.array[float]  # t
+    depth: NDArray[float]  # z
+    time: NDArray[float]  # t
 
     @property
     def domain_length(self) -> float:
@@ -18,7 +18,7 @@ class SimulationGrid():
 class BoundaryConditions():
     pulse_time: float
     # solute_concentration: float
-    contaminant_release_rate: np.NDArray[float] # C10
+    contaminant_release_rate: NDArray[float] # C10
 
 
 @dataclass
@@ -53,7 +53,7 @@ def analytical_soln(
         grid: SimulationGrid,
         bulk_density: float,
         boundary_conditions: BoundaryConditions,
-        initial_contaminant_concentration: np.NDArray[float],
+        initial_contaminant_concentration: NDArray[float],
         hydro_properties: HydrologicalProperties,
         adsorption: Adsorption,
         kinetic: bool = False,
