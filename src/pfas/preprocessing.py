@@ -143,11 +143,10 @@ def preprocess_configuration(config):
 
 
 # Main execution
-def run_simulation(config):
+def run_simulation(params):
     """Run the analytical solution with preprocessed parameters"""
-    # Preprocess all parameters
-    params = preprocess_configuration(config)
-    
+    params = params
+
     # Call analytical solution
     C1, C2, C_tot = analytical_soln(
         grid=params["grid"],

@@ -67,13 +67,13 @@ def _(mo):
 
 @app.cell
 def _(pfas, toml_file):
-    pfas.preprocessing.preprocess_configuration(toml_file)
-    return
+    params = pfas.preprocessing.preprocess_configuration(toml_file)
+    return (params,)
 
 
 @app.cell
-def _(pfas, toml_file):
-    C1, C2, C_tot, grid = pfas.preprocessing.run_simulation(toml_file)
+def _(params, pfas):
+    C1, C2, C_tot, grid = pfas.preprocessing.run_simulation(params)
     return C_tot, grid
 
 
