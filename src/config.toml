@@ -8,7 +8,7 @@ soil_temp = 293 #Kelvin #maybe make .boundaryconditions here
 
 [experimental_conditions.initial]
 init_sat = 0.2 # [-] se0 
-# initial_solute_concentration = 0.0 #mg/L #vector matching length/spatial resolution
+initial_solute_concentration = 0.0 #mg/L #vector matching length/spatial resolution
 [experimental_conditions.boundary]
 average_infiltration_rate = 0.5 #cm/s (q)
 pulse_duration = 2000 #seconds
