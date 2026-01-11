@@ -23,7 +23,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "numpy", "scipy",
+    "numpy", "scipy", "matplotlib",
     "tomli;python_version<'3.11'",
 ]
 dynamic = ["version"]
@@ -37,7 +37,7 @@ docs = [
     "sphinx-autodoc-typehints", "sphinx_inline_tabs", "sphinx_copybutton",
 ]
 examples = [
-    "marimo", "matplotlib"
+    "marimo"
 ]
 dev = ["pfas[test,docs,examples]"]
 
