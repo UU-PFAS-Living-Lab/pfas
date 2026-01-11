@@ -23,6 +23,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
+    "numpy"
 ]
 dynamic = ["version"]
 
@@ -34,6 +35,10 @@ docs = [
     "sphinx<9.0.0", "sphinx-rtd-theme", "sphinxcontrib-napoleon",
     "sphinx-autodoc-typehints", "sphinx_inline_tabs", "sphinx_copybutton",
 ]
+examples = [
+    "marimo", "matplotlib"
+]
+dev = ["pfas[test,docs,examples]"]
 
 [tool.setuptools_scm]
 write_to = "src/pfas/_version.py"
