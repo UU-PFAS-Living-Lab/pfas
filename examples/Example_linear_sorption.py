@@ -1,28 +1,30 @@
 import marimo
 
-__generated_with = "0.16.5"
+__generated_with = "0.19.1"
 app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""# Example Linear Sorption""")
+    mo.md(r"""
+    # Example Linear Sorption
+    """)
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-    ## Loading in dependencies 
+    mo.md(r"""
+    ## Loading in dependencies
     First we load in the necessary packages and functions
-    """
-    )
+    """)
     return
 
 
 @app.cell
 def _():
+    from pathlib import Path
+
     import marimo as mo
     import pfas 
     import numpy as np
@@ -30,38 +32,35 @@ def _():
     from pfas.toml_handler import read_toml, validate_config
     from pfas.analytical_soln import SimulationGrid, BoundaryConditions, HydrologicalProperties, Adsorption
     import matplotlib.pyplot as plt
-    return mo, pfas, plt
+    return Path, mo, pfas, plt
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Importing and checking the toml file
 
-    We load our default configuration file, including most of the parameters needed for our simulation. We use the validation function to ensure we have all needed parameters (for our basic scenario) and have no values outside of the expected ranges. If there are no problems, the function will return **True**. 
+    We load our default configuration file, including most of the parameters needed for our simulation. We use the validation function to ensure we have all needed parameters (for our basic scenario) and have no values outside of the expected ranges. If there are no problems, the function will return **True**.
 
     We will have the opportunity to override values from the toml file #TODO
-    """
-    )
+    """)
     return
 
 
 @app.cell
-def _(pfas):
-    toml_file = pfas.toml_handler.read_toml("examples\data\config.toml")
+def _(Path, pfas):
+    toml_path = Path("examples", "data", "config.toml")
+    toml_file = pfas.toml_handler.read_toml(toml_path)
     pfas.toml_handler.validate_config(toml_file)
     return (toml_file,)
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-    ## Preprocessing data 
+    mo.md(r"""
+    ## Preprocessing data
     We will preprocess our data to make it ready for our analysis. We have the opportunity to do this seperately for each category in the toml file (e.g. *water_preprocessing*) or do it at once through the function (e.g. *preprocess_configuration*) or directly run it through *run_simulation*
-    """
-    )
+    """)
     return
 
 
@@ -79,12 +78,10 @@ def _(params, pfas):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Plotting
     Now we can plot our results, we will have better plotting functions later
-    """
-    )
+    """)
     return
 
 
