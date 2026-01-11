@@ -29,7 +29,7 @@ def _():
     import pfas 
     import numpy as np
     from pfas.preprocessing import preprocess_configuration, run_simulation
-    from pfas.toml_handler import read_toml, validate_config
+    from pfas.configuration import read_toml, validate_config
     from pfas.analytical_soln import SimulationGrid, BoundaryConditions, HydrologicalProperties, Adsorption
     import matplotlib.pyplot as plt
     return Path, mo, pfas, plt
