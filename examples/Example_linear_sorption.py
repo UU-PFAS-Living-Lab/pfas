@@ -50,8 +50,8 @@ def _(mo):
 @app.cell
 def _(Path, pfas):
     toml_path = Path("examples", "data", "config.toml")
-    toml_file = pfas.toml_handler.read_toml(toml_path)
-    pfas.toml_handler.validate_config(toml_file)
+    toml_file = pfas.configuration.read_toml(toml_path)
+    pfas.configuration.validate_config(toml_file)
     return (toml_file,)
 
 
