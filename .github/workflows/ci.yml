@@ -50,7 +50,7 @@ jobs:
       if: ${{ matrix.python-version != '3.12' }}  # Either do coverage testing or pytest only
       run: pytest tests
 
-  nbval_test:
+  marimo_test:
     name: Integration tests on notebooks
     strategy:
       fail-fast: false
@@ -73,7 +73,7 @@ jobs:
       run: |
         python -m pip install -e ".[test]"
     - name: Check notebook output
-      run: pytest --nbval-lax examples
+      run: python examples/Example_linear_sorption.py
 
   coverage:
     name: Test coverage of unit tests

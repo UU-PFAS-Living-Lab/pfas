@@ -1,8 +1,8 @@
 [experimental_conditions]
 
-domain_length = 150 #cm
+domain_length = 60 #cm
 spatial_resolution = 1.0 #cm
-time_total = 5000  # seconds
+time_total = 500  # seconds
 time_resolution = 10  #seconds
 soil_temp = 293 #Kelvin #maybe make .boundaryconditions here
 
