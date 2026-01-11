@@ -24,6 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy", "scipy",
+    "tomli;python_version<'3.11'",
 ]
 dynamic = ["version"]
 
