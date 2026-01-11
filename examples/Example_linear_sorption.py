@@ -105,7 +105,8 @@ def _(C_tot, grid, plt):
 def _(C_tot, grid, plt):
 
     # Select specific time indices to plot
-    time_indices = [0, 100, 200, 300, -1]  # First, and some intermediate, and last time step
+    t_len = C_tot.shape[1]
+    time_indices = [0, t_len//4, t_len//2, 3*t_len//4, -1]  # First, and some intermediate, and last time step
 
     plt.figure(figsize=(8, 6))
 
