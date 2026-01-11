@@ -82,8 +82,8 @@ def ABfunc(Z,T,ws,betas,beta,P,R,Rs,m,cflag):
                        Iba_sum = Iba_sum + (a[i]/b[i])**(j/2.0)*iv(j,2*np.sqrt(a[i]*b[i]))
                    Jab[i] = 1 - np.exp(-a[i]-b[i])*Iab_sum
                    Jba[i] = np.exp(-a[i]-b[i])*Iba_sum
-    A = np.trapz(g*Jab,tau)
-    B = np.trapz(g*(1-Jba),tau)
+    A = np.trapezoic(g*Jab,tau)
+    B = np.trapezoic(g*(1-Jba),tau)
     return A, B
 
 def Aaw_func_thermo(sigma0,poro,alpha,n,th,thr,ths,sf):
@@ -110,7 +110,7 @@ def Aaw_func_thermo(sigma0,poro,alpha,n,th,thr,ths,sf):
     Sw = np.linspace(th/ths,1,1000)
     Pc = lambda Sw: (((1-Sr)/(Sw-Sr))**(1/m) - 1)**(1/n)/alpha/100*rhow*g
 
-    Aaw = 10*np.trapz(poro/sigma0*Pc(Sw),Sw)
+    Aaw = 10*np.trapezoic(poro/sigma0*Pc(Sw),Sw)
 
     Aaw = Aaw*sf
 
