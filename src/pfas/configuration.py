@@ -9,7 +9,10 @@ soil properties, sorption parameters, air-water interface settings, and PFAS pro
 from pathlib import Path
 from typing import Dict, Any
 
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # type: ignore  # noqa
 
 
 def read_toml(path: Path) -> Dict[str, Any]:

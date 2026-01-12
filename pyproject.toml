@@ -19,10 +19,13 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
+    "numpy", "scipy", "matplotlib",
+    "tomli;python_version<'3.11'",
 ]
 dynamic = ["version"]
 
@@ -34,6 +37,10 @@ docs = [
     "sphinx<9.0.0", "sphinx-rtd-theme", "sphinxcontrib-napoleon",
     "sphinx-autodoc-typehints", "sphinx_inline_tabs", "sphinx_copybutton",
 ]
+examples = [
+    "marimo"
+]
+dev = ["pfas[test,docs,examples]"]
 
 [tool.setuptools_scm]
 write_to = "src/pfas/_version.py"
