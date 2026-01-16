@@ -15,149 +15,170 @@
 # of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details, <http://www.gnu.org/licenses/>.
 
-import numpy as np
-from pfas.analytical_soln import analytical_soln
-from pfas.utils import Aaw_func_thermo 
-from pfas.utils import Aaw_func_tracer
-from pfas.analytical_soln import SimulationGrid, BoundaryConditions, HydrologicalProperties, Adsorption
+from typing import Annotated
 from scipy.optimize import fsolve
-import matplotlib.pyplot as plt
+from annotated_types import Gt, Interval
+from pydantic import BaseModel, ConfigDict
+from pfas.analytical_soln import SimulationGrid, BoundaryConditions, HydrologicalProperties, Adsorption
+import numpy as np
+from pfas.utils import Aaw_func_thermo 
+from pfas.analytical_soln import analytical_soln
 
 
-def water_preprocessing(config, grid):
-    infiltration_rate = config["experimental_conditions"]["boundary"]["average_infiltration_rate"]
-    Ks = config["soil"]["hydraulic_conductivity"]
-    kr = infiltration_rate/Ks
-    poro = config["soil"]["porosity"]
-    alphaL = config["soil"]["dispersivity"]  #100*0.83*(np.log10(grid.domain_length/100))**2.414  # dispersivity [cm] #TODO multiple options
-    n_vg = config["soil"]["van_genuchten_n"]                                    # VG parameter
-    m = 1 - 1/n_vg                              # VG parameter
-    relperm = lambda se: se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
-    init_sat = config["experimental_conditions"]["initial"]["init_sat"] #good?
-    se = fsolve(relperm, init_sat)
-    res_water_content = config["soil"]["residual_water_content"]
-    theta = se[0] * (poro - res_water_content) + res_water_content    # water content [cm^3/cm^3]
-    sw = theta/poro     
-    q = config["experimental_conditions"]["boundary"]["average_infiltration_rate"]                    # water saturation [cm^3/cm^3]
-    v = q/theta                                 # pore velocity [cm/s]
-    D = v*alphaL                                # dispersion coefficient [cm^2/s]
-    return HydrologicalProperties(theta, v, D)
+class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
+    average_infiltration_rate: Annotated[float, Gt(0)]
+    hydraulic_conductivity: Annotated[float, Gt(0)]
+    porosity: Annotated[float, Interval(ge=0, le=1)]
+    dispersivity: Annotated[float, Gt(0)]
+    van_genuchten_n: Annotated[float, Gt(0)]
+    init_sat: Annotated[float, Interval(ge=0, le=1)]
+    residual_water_content: Annotated[float, Interval(ge=0, le=1)]
 
-def boundary_preprocessing(config):
-    #c10 is mg/s/m (what if this is 0?)
-    average_infiltration_rate = config["experimental_conditions"]["boundary"]["average_infiltration_rate"]
-    solute_concentration = config["experimental_conditions"]["boundary"]["solute_concentration_influx"]  #is there a better way of doing this? # units?
-    pulse_duration = config["experimental_conditions"]["boundary"]["pulse_duration"] 
-    contaminant_release_rate_per_second = solute_concentration* average_infiltration_rate/ pulse_duration
-    return BoundaryConditions(pulse_duration, contaminant_release_rate_per_second) #TODO do these need to match naming
+    def compute(self):
+        kr = self.average_infiltration_rate/self.hydraulic_conductivity
+        m = 1 - 1/self.van_genuchten_n
+        relperm = lambda se: se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
+        se = fsolve(relperm, self.init_sat)
+        theta = se[0] * (self.porosity - self.residual_water_content) + self.residual_water_content
+        # sw = theta/porosity
+        v = self.average_infiltration_rate/theta
+        D = v*self.dispersivity
+        return {"hydro_properties": HydrologicalProperties(theta, v, D)}
 
-def adsorption_preprocessing(config, hydro_properties, bulk_density): 
-    #TODO 
-    sp_sorption = config["sorption_solid"]
+    @property
+    def outputs(self):
+        return ["hydro_properties"]
+
+class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
+    average_infiltration_rate: Annotated[float, Gt(0)]
+    solute_concentration_influx: Annotated[float, Gt(0)]
+    pulse_duration: Annotated[float, Gt(0)]
+
+    def compute(self):
+        #c10 is mg/s/m (what if this is 0?)
+        # average_infiltration_rate = config["experimental_conditions"]["boundary"]["average_infiltration_rate"]
+        # solute_concentration = config["experimental_conditions"]["boundary"]["solute_concentration_influx"]  #is there a better way of doing this? # units?
+        # pulse_duration = config["experimental_conditions"]["boundary"]["pulse_duration"] 
+        contaminant_release_rate_per_second = (
+            self.solute_concentration_influx * self.average_infiltration_rate / self.pulse_duration)
+        bc = BoundaryConditions(self.pulse_duration, contaminant_release_rate_per_second)
+        return {"boundary_conditions": bc} #TODO do these need to match naming
+
+    @property
+    def outputs(self):
+        return ["boundary_conditions"]
+
+class GridGenerator(BaseModel, validate_assignment=True, extra='forbid'):
+    domain_length: Annotated[float, Gt(0)]
+    spatial_resolution: Annotated[float, Gt(0)]
+    time_resolution: Annotated[float, Gt(0)]
+    time_total: Annotated[float, Gt(0)]
+
+    def compute(self):
+        grid_depth = np.linspace(self.spatial_resolution/2.0,
+                                 self.domain_length-self.spatial_resolution/2.0,
+                                 int(self.domain_length/self.spatial_resolution))
+        grid_time = np.linspace(0, self.time_total, int(self.time_total/self.time_resolution+0.5))
+        return {"grid": SimulationGrid(grid_depth, grid_time)}
+
+    @property
+    def outputs(self):
+        return ["grid"]
+
+class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
+    sorption_solid: dict
+    bulk_density: Annotated[float, Gt(0)]
+    hydro_properties: HydrologicalProperties
     
-    if sp_sorption["sorption_isotherm"] == "linear":
-        linear = sp_sorption["linear"]
-        if linear["Kd_method"] == "direct_input":
-            Kd = linear["Kd"]
-    
-    sp_retardation = (bulk_density * Kd) / hydro_properties.water_content
-    rate_const = sp_sorption.get("rate_constant", 0.0)  # alphas
-    frac_int = sp_sorption.get("fraction_instantaneous", 1.0)  # Fs
-    
-    if "AWI" in config:
-        awi = config["AWI"]
+    def compute(self):
+        if self.sorption_solid["sorption_isotherm"] == "linear":
+            linear = self.sorption_solid["linear"]
+            if linear["Kd_method"] == "direct_input":
+                Kd = linear["Kd"]
+        sp_retardation = (self.bulk_density * Kd) / self.hydro_properties.water_content
+        return {"sp_retardation": sp_retardation, "Kd": Kd}
+
+    @property
+    def outputs(self):
+        return ["sp_retardation"]
+
+class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
+    hydro_properties: HydrologicalProperties
+    sigma0: Annotated[float, Gt(0)] = 0.072
+    scaling_factor_awi: float
+    soil: dict
+
+    def compute(self):
+        # sf = self.swc_based["scaling_factor_AWI"]
+    # Get soil parameters
+        poro = self.soil["porosity"]
+        alpha = self.soil["van_genuchten_alpha"]
+        n_vg = self.soil["van_genuchten_n"]
+        theta = self.hydro_properties.water_content
+        thetar = self.soil["residual_water_content"]
+        thetas = poro
         
-        if awi["AWI_type"] == "SWC-based":
-            swc_based = awi["SWC-based"]
-            sf = swc_based["scaling_factor_AWI"]
-      # Get soil parameters
-            soil = config["soil"]
-            sigma0 = swc_based.get("sigma0", 0.072)  # surface tension
-            poro = soil["porosity"]
-            alpha = soil["van_genuchten_alpha"]
-            n_vg = soil["van_genuchten_n"]
-            theta = hydro_properties.water_content
-            thetar = soil["residual_water_content"]
-            thetas = poro  
-            
-            # Call the thermodynamic function
-            Aaw = Aaw_func_thermo(sigma0, poro, alpha, n_vg, theta, thetar, thetas, sf)
-    if "sorption_AWI" in config:
-        awi_sorption = config["sorption_AWI"]
-    if awi_sorption["Kawi_method"] == "direct_input":
-        Kaw = awi_sorption["Kaw"]
-        awi_retardation = (Kaw * Aaw) / hydro_properties.water_content  # Raw
-    else:
-        awi_retardation = 0.0
-    
-    return Adsorption(
-        Kd=Kd,
-        rate_const=rate_const,
-        frac_int=frac_int,
-        sp_retardation=sp_retardation,
-        awi_retardation=awi_retardation
-    )
-    
+        # Call the thermodynamic function
+        Aaw = Aaw_func_thermo(self.sigma0, poro, alpha, n_vg, theta, thetar, thetas,
+                              self.scaling_factor_awi)
+        return {"aaw": Aaw}
 
-def preprocess_configuration(config):
-    """Complete preprocessing and return all parameters"""
-    # Grid setup
-    domain_length = config["experimental_conditions"]["domain_length"]
-    dz = config["experimental_conditions"]["spatial_resolution"]
-    grid_depth = np.linspace(dz/2.0, domain_length-dz/2.0, int(domain_length/dz))
-    
-    dt = config["experimental_conditions"]["time_resolution"]
-    time_total = config["experimental_conditions"]["time_total"]
-    grid_time = np.linspace(0, time_total, int(time_total/dt+0.5))
-    
-    grid = SimulationGrid(grid_depth, grid_time)
-    
-    # Bulk density
-    bulk_density = config["soil"]["bulk_density"]
-    
-    # Preprocess components
-    boundary_conditions = boundary_preprocessing(config)
-    hydro_properties = water_preprocessing(config, grid)
-    adsorption = adsorption_preprocessing(config, hydro_properties, bulk_density)
-    
-    # Initial contaminant concentration
-    initial_contaminant_concentration = config["experimental_conditions"]["initial"].get(
-        "contaminant_concentration", 
-        np.zeros(len(grid_depth))
-    )
-    
-    # Flags
-    kinetic = config["sorption_solid"].get("kinetic_sorption", False)
-    volume_averaged = config.get("volume_averaged", False)
-    
-    return {
-        "grid": grid,
-        "bulk_density": bulk_density,
-        "boundary_conditions": boundary_conditions,
-        "initial_contaminant_concentration": initial_contaminant_concentration,
-        "hydro_properties": hydro_properties,
-        "adsorption": adsorption,
-        "kinetic": kinetic,
-        "volume_averaged": volume_averaged
-    }
+class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid'):
+    kaw: float
+    hydro_properties: HydrologicalProperties
+    Kd: float
+    aaw: float
+    sorption_solid: dict
+    sp_retardation: float
+    # sorption_awi: ffloat
 
+    def compute(self):
+        # 
+            # awi_sorption = config["sorption_AWI"]
+        # if awi_sorption["Kawi_method"] == "direct_input":
+            # Kaw = awi_sorption["Kaw"]
+        awi_retardation = (self.kaw * self.aaw) / self.hydro_properties.water_content  # Raw
+        return {"adsorption": Adsorption(
+            Kd=self.Kd,
+            rate_const=self.sorption_solid.get("rate_const", 0.0),
+            frac_int=self.sorption_solid.get("fraction_instantaneous", 1.0),
+            sp_retardation=self.sp_retardation,
+            awi_retardation=awi_retardation,
+        )}
 
-# Main execution
-def run_simulation(params):
-    """Run the analytical solution with preprocessed parameters"""
-    params = params
+    @property
+    def outputs(self):
+        return ["awi_retardation"]
+        # else:
+            # awi_retardation = 0.0
+            # 
 
-    # Call analytical solution
-    C1, C2, C_tot = analytical_soln(
-        grid=params["grid"],
-        bulk_density=params["bulk_density"],
-        boundary_conditions=params["boundary_conditions"],
-        initial_contaminant_concentration=params["initial_contaminant_concentration"],
-        hydro_properties=params["hydro_properties"],
-        adsorption=params["adsorption"],
-        kinetic=params["kinetic"],
-        volume_averaged=params["volume_averaged"]
-    )
+class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
+                       arbitrary_types_allowed=True):
+    grid: SimulationGrid
+    bulk_density: Annotated[float, Gt(0)]
+    boundary_conditions: BoundaryConditions
+    # contaminant_concentration: Annotated[float, Gt(0)]
+    hydro_properties: HydrologicalProperties
+    adsorption: Adsorption
+    kinetic_sorption: bool
+    volume_averaged: bool
 
-    return C1, C2, C_tot, params["grid"]
+    def compute(self):
+        initial_contaminant_concentration = np.zeros(len(self.grid.depth))
+        C1, C2, C_tot = analytical_soln(
+            grid=self.grid,
+            bulk_density=self.bulk_density,
+            boundary_conditions=self.boundary_conditions,
+            initial_contaminant_concentration=initial_contaminant_concentration,
+            hydro_properties=self.hydro_properties,
+            adsorption=self.adsorption,
+            kinetic=self.kinetic_sorption,
+            volume_averaged=self.volume_averaged
+        )
 
+        return {
+            "C1": C1,
+            "C2": C2,
+            "C_tot": C_tot,
+        }

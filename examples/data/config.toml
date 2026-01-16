@@ -77,7 +77,7 @@ K_langmuir = 1  # L/kg
 AWI_type = "SWC-based" # or GUO #TODO: add other approaches, at least 2 more 
 
 [AWI.SWC-based]
-scaling_factor_AWI = 1.0 # - 
+scaling_factor_awi = 1.0 # - 
 
 [AWI.Guo]
 guo_x0 = 0.5 #empirical parameter
@@ -88,9 +88,10 @@ guo_x2 = 0.1 #emperical parameter
 Kawi_method = "direct_input"  # or szyszkowski-langmuir awi sorption coefficient #TODO: add others 
 #direct_input
 
-Kaw = 0.5 # cm3/cm2
+kaw = 0.5 # cm3/cm2
 #szyszkowski-langmuir
 szyszkowski_a = 62.11 # mg/L
 szyszkowski_b = 0.19 #[-]
 
-
+[simulation]
+volume_averaged = false
