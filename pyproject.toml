@@ -24,8 +24,9 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "numpy", "scipy", "matplotlib",
+    "numpy>=2", "scipy", "matplotlib",
     "tomli;python_version<'3.11'",
+    "pydantic"
 ]
 dynamic = ["version"]
 
