@@ -10,7 +10,6 @@ class Model():
                     if key in self.generated_data}
         config_data.update(gen_data)
         config_data.update(kwargs)
-        print(model_class, model_class.__annotations__, config_data, gen_data)
 
         model = model_class(**config_data)
         self.generated_data.update(model.compute())
