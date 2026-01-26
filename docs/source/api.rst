@@ -3,6 +3,18 @@ The *pfas* API Reference
 
 This chapter documents the Python API for the *pfas* package.
 
+The "model" module
+------------------
+
+.. module:: pfas.model
+
+The model module provides orchestration for sequential execution of preprocessing
+and solving steps using a builder pattern.
+
+.. autoclass:: Model
+   :members: __init__, add
+   :member-order: bysource
+
 The "preprocessing" module
 ---------------------------
 
@@ -42,6 +54,40 @@ dictionary of computed values.
    :members: compute
    :member-order: bysource
 
+The "analytical_soln" module
+----------------------------
+
+.. module:: pfas.analytical_soln
+
+The analytical_soln module provides the core data structures and solvers for
+simulating contaminant transport through porous media with equilibrium or
+kinetic sorption. It takes preprocessed input from the preprocessing module
+and runs the appropriate solver based on the selected sorption model.
+
+Data Structures
+~~~~~~~~~~~~~~~
+
+.. autoclass:: SimulationGrid
+   :members:
+   :member-order: bysource
+
+.. autoclass:: BoundaryConditions
+   :members:
+   :member-order: bysource
+
+.. autoclass:: HydrologicalProperties
+   :members:
+   :member-order: bysource
+
+.. autoclass:: Adsorption
+   :members:
+   :member-order: bysource
+
+Main Solution Function
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: analytical_soln
+
 The "solvers" module
 --------------------
 
@@ -70,3 +116,17 @@ Main Solver Functions
 .. autofunction:: equilibrium_solver
 
 .. autofunction:: kinetic_solver
+
+The "utils" module
+------------------
+
+.. module:: pfas.utils
+
+The utils module provides utility functions for kinetic sorption calculations,
+air-water interface area estimation, and numerical integration support.
+
+.. autofunction:: ABfunc
+
+.. autofunction:: Aaw_func_thermo
+
+.. autofunction:: Aaw_func_tracer

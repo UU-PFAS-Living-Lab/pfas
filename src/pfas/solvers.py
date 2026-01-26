@@ -128,7 +128,7 @@ def Hfunc(T, R, tau, Rs, Fs, beta, betas, ws):
     betas : float
         Surface retardation factor.
     ws : float
-        Kinetic sorption rate coefficient.
+        Damköhler number for kinetic sorption.
     
     Returns
     -------

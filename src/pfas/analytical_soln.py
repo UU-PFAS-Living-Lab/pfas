@@ -15,22 +15,26 @@ from pfas.solvers import equilibrium_solver, kinetic_solver
 @dataclass
 class SimulationGrid:
     """Grid for spatial and temporal discretization of the simulation domain.
-
-    :param depth: Spatial grid points (z-coordinates) in the domain
-    :type depth: NDArray[float]
-    :param time: Temporal grid points for the simulation
-    :type time: NDArray[float]
+    
+    Parameters
+    ----------
+    depth : ndarray
+        Spatial grid points (z-coordinates) in the domain.
+    time : ndarray
+        Temporal grid points for the simulation.
     """
 
-    depth: NDArray[float]
-    time: NDArray[float]
+    depth: NDArray[np.float64]
+    time: NDArray[np.float64]
 
     @property
     def domain_length(self) -> float:
         """Calculate total domain length.
-
-        :return: Total length of the simulation domain
-        :rtype: float
+        
+        Returns
+        -------
+        float
+            Total length of the simulation domain.
         """
         return self.depth[-1] + self.depth[0]
 
@@ -38,27 +42,31 @@ class SimulationGrid:
 @dataclass
 class BoundaryConditions:
     """Boundary conditions for contaminant source.
-
-    :param pulse_time: Duration of the contaminant pulse at the boundary
-    :type pulse_time: float
-    :param contaminant_release_rate: Rate of contaminant release at the boundary (C10)
-    :type contaminant_release_rate: NDArray[float]
+    
+    Parameters
+    ----------
+    pulse_time : float
+        Duration of the contaminant pulse at the boundary (s).
+    contaminant_release_rate : float or ndarray
+        Rate of contaminant release at the boundary (C10) (mg/L·s).
     """
 
     pulse_time: float
-    contaminant_release_rate: NDArray[float]
+    contaminant_release_rate: NDArray[np.float64] | float
 
 
 @dataclass
 class HydrologicalProperties:
     """Hydrological properties of the porous medium.
-
-    :param water_content: Volumetric water content (theta)
-    :type water_content: float
-    :param pore_velocity: Average pore water velocity (v)
-    :type pore_velocity: float
-    :param dispersion_coefficient: Hydrodynamic dispersion coefficient (D)
-    :type dispersion_coefficient: float
+    
+    Parameters
+    ----------
+    water_content : float
+        Volumetric water content (theta) (dimensionless).
+    pore_velocity : float
+        Average pore water velocity (v) (m/s).
+    dispersion_coefficient : float
+        Hydrodynamic dispersion coefficient (D) (m²/s).
     """
 
     water_content: float
@@ -69,17 +77,19 @@ class HydrologicalProperties:
 @dataclass
 class Adsorption:
     """Adsorption parameters for contaminant-solid interactions.
-
-    :param Kd: Distribution coefficient for solid-phase partitioning
-    :type Kd: float
-    :param rate_const: Rate constant for kinetic sorption (alphas)
-    :type rate_const: float
-    :param frac_int: Fraction of instantaneous sorption sites (Fs)
-    :type frac_int: float
-    :param sp_retardation: Solid-phase retardation factor
-    :type sp_retardation: float
-    :param awi_retardation: Air-water interface retardation factor (Raw)
-    :type awi_retardation: float
+    
+    Parameters
+    ----------
+    Kd : float
+        Distribution coefficient for solid-phase partitioning (L/kg).
+    rate_const : float
+        Rate constant for kinetic sorption (alphas) (1/s).
+    frac_int : float
+        Fraction of instantaneous sorption sites (Fs) (dimensionless).
+    sp_retardation : float
+        Solid-phase retardation factor (dimensionless).
+    awi_retardation : float
+        Air-water interface retardation factor (Raw) (dimensionless).
     """
 
     Kd: float
@@ -91,27 +101,33 @@ class Adsorption:
     @property
     def total_retardation(self) -> float:
         """Calculate total retardation factor.
-
-        :return: Sum of solid-phase and air-water interface retardation
-        :rtype: float
+        
+        Returns
+        -------
+        float
+            Sum of solid-phase and air-water interface retardation.
         """
         return self.sp_retardation + self.awi_retardation
 
     @property
     def betas(self) -> float:
         """Calculate solid-phase sorption parameter.
-
-        :return: Dimensionless sorption parameter for solid phase
-        :rtype: float
+        
+        Returns
+        -------
+        float
+            Dimensionless sorption parameter for solid phase.
         """
         return (1 + self.frac_int * self.sp_retardation) / (1 + self.sp_retardation)
 
     @property
     def beta(self) -> float:
         """Calculate combined sorption parameter.
-
-        :return: Dimensionless parameter accounting for both solid-phase and AWI sorption
-        :rtype: float
+        
+        Returns
+        -------
+        float
+            Dimensionless parameter accounting for both solid-phase and AWI sorption.
         """
         return (
             (self.betas * (1 + self.sp_retardation) + self.awi_retardation)
@@ -123,36 +139,48 @@ def analytical_soln(
     grid: SimulationGrid,
     bulk_density: float,
     boundary_conditions: BoundaryConditions,
-    initial_contaminant_concentration: NDArray[float],
+    initial_contaminant_concentration: NDArray[np.float64],
     hydro_properties: HydrologicalProperties,
     adsorption: Adsorption,
     kinetic: bool = False,
     volume_averaged: bool = False,
-) -> tuple[NDArray[float], NDArray[float] | None, NDArray[float]]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64] | None, NDArray[np.float64]]:
     """Solve contaminant transport using analytical solutions.
-
-    The solution is computed using dimensionless variables:
+    
+    Computes aqueous and sorbed phase concentrations for PFAS transport through
+    the vadose zone using analytical solutions to the advection-dispersion equation
+    with retardation. The solution is computed using dimensionless variables:
     Z (dimensionless depth), T (dimensionless time), P (Péclet number),
     and ws (Damköhler number for kinetic sorption).
-
-    :param grid: Spatial and temporal discretization grid
-    :type grid: SimulationGrid
-    :param bulk_density: Bulk density of the porous medium
-    :type bulk_density: float
-    :param boundary_conditions: Contaminant source boundary conditions
-    :type boundary_conditions: BoundaryConditions
-    :param initial_contaminant_concentration: Initial concentration distribution in the domain
-    :type initial_contaminant_concentration: NDArray[float]
-    :param hydro_properties: Hydrological properties of the medium
-    :type hydro_properties: HydrologicalProperties
-    :param adsorption: Adsorption parameters for the contaminant
-    :type adsorption: Adsorption
-    :param kinetic: If True, use kinetic sorption model; otherwise use equilibrium model, defaults to False
-    :type kinetic: bool, optional
-    :param volume_averaged: If True, return volume-averaged concentrations, defaults to False
-    :type volume_averaged: bool, optional
-    :return: Tuple containing aqueous phase concentration (C1), sorbed phase concentration (C2, None for equilibrium), and total concentration (C_tot)
-    :rtype: tuple[NDArray[float], NDArray[float] | None, NDArray[float]]
+    
+    Parameters
+    ----------
+    grid : SimulationGrid
+        Spatial and temporal discretization grid.
+    bulk_density : float
+        Bulk density of the porous medium (kg/L).
+    boundary_conditions : BoundaryConditions
+        Contaminant source boundary conditions.
+    initial_contaminant_concentration : ndarray
+        Initial concentration distribution in the domain (mg/L).
+    hydro_properties : HydrologicalProperties
+        Hydrological properties of the medium.
+    adsorption : Adsorption
+        Adsorption parameters for the contaminant.
+    kinetic : bool, optional
+        If True, use kinetic sorption model; otherwise use equilibrium model.
+        Default is False.
+    volume_averaged : bool, optional
+        If True, return volume-averaged concentrations. Default is False.
+    
+    Returns
+    -------
+    C1 : ndarray
+        Aqueous phase concentration (mg/L).
+    C2 : ndarray or None
+        Sorbed phase concentration (mg/kg). None for equilibrium sorption.
+    C_tot : ndarray
+        Total concentration (mg/L bulk volume).
     """
     # Compute dimensionless variables
     L = grid.depth[-1]
