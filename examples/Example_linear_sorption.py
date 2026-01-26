@@ -1,23 +1,23 @@
 import marimo
 
-__generated_with = "0.19.1"
+__generated_with = "0.16.5"
 app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
-    # Example Linear Sorption
-    """)
+    mo.md(r"""# Example Linear Sorption""")
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     ## Loading in dependencies
     First we load in the necessary packages and functions
-    """)
+    """
+    )
     return
 
 
@@ -37,13 +37,15 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     ## Importing and checking the toml file
 
     We load our default configuration file, including most of the parameters needed for our simulation. We use the validation function to ensure we have all needed parameters (for our basic scenario) and have no values outside of the expected ranges. If there are no problems, the function will return **True**.
 
     We will have the opportunity to override values from the toml file #TODO
-    """)
+    """
+    )
     return
 
 
@@ -57,10 +59,12 @@ def _(Path, pfas):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     ## Preprocessing data
     We will preprocess our data to make it ready for our analysis. We have the opportunity to do this seperately for each category in the toml file (e.g. *water_preprocessing*) or do it at once through the function (e.g. *preprocess_configuration*) or directly run it through *run_simulation*
-    """)
+    """
+    )
     return
 
 
@@ -84,10 +88,12 @@ def _(C2):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     ## Plotting
     Now we can plot our results, we will have better plotting functions later
-    """)
+    """
+    )
     return
 
 

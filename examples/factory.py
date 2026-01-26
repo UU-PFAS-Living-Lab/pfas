@@ -1,15 +1,28 @@
 import marimo
 
-__generated_with = "0.19.1"
+__generated_with = "0.16.5"
 app = marimo.App(width="medium")
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    #Example linear sorption
+    In this example we will showcase how to use the pfas package to create a basic forward modelling exercise of PFAS leaching in the vadose zone. 
+    """
+    )
+    return
 
 
 @app.cell
 def _():
+    #loading relevant modules 
     from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner
     from pfas.configuration import read_toml
     from pfas.model import Model
     from matplotlib import pyplot as plt
+    import marimo as mo
     return (
         BoundaryPreprocessor,
         GridGenerator,
@@ -19,15 +32,42 @@ def _():
         SorptionKawiDirectInput,
         SpRetardationPreprocessor,
         WaterPreprocessor,
+        mo,
         plt,
         read_toml,
     )
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ## Loading configuration file
+    First we load our configuration file, in which we provide our model with most of the parameters needed to run our model. The input is later checked to see if it meets the requirements.
+    """
+    )
+    return
 
 
 @app.cell
 def _(read_toml):
     config = read_toml("examples/data/config.toml")
     return (config,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ##Initializing Model and preprocessing data from TOML file
+
+    We now create an instance of our model and do the preprocessing for different categories of our data. Simoultaneously, the input is checked for its validity. We run the analytical solution through the class SimulationRunner. 
+
+    In this step it is also possible to overwrite certain parameters from the TOML file, as examplified by the parameter porosity here. 
+
+    """
+    )
+    return
 
 
 @app.cell
@@ -43,7 +83,7 @@ def _(
     config,
 ):
     model = Model(config)
-    model.add(WaterPreprocessor, porosity=0.23)
+    model.add(WaterPreprocessor, porosity=0.4)
     model.add(BoundaryPreprocessor)
     model.add(GridGenerator)
     model.add(SpRetardationPreprocessor)
@@ -53,9 +93,32 @@ def _(
     return (model,)
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ##Accessing generated data
+    We access our data through model.generated_data, which prints all the output. Accessing it in this manneer also allows for easier plotting.
+    """
+    )
+    return
+
+
 @app.cell
 def _(model):
     model.generated_data
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ## Plotting of data 
+
+    The generated_data allows you to access both input and output of the model and thus also allows for relative simple plotting.
+    """
+    )
     return
 
 
