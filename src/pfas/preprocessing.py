@@ -21,7 +21,7 @@ from annotated_types import Gt, Interval
 from pydantic import BaseModel, ConfigDict
 from pfas.analytical_soln import SimulationGrid, BoundaryConditions, HydrologicalProperties, Adsorption
 import numpy as np
-from pfas.utils import Aaw_func_thermo 
+from pfas.utils import Aaw_func_thermo , Aaw_func_tracer
 from pfas.analytical_soln import analytical_soln
 
 
@@ -105,7 +105,8 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
 class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     hydro_properties: HydrologicalProperties
     sigma0: Annotated[float, Gt(0)] = 0.072
-    scaling_factor_awi: float
+    scaling_factor_awi: Annotated[float, Gt(0)]
+    AWI: dict
     soil: dict
 
     def compute(self):
@@ -118,9 +119,16 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
         thetar = self.soil["residual_water_content"]
         thetas = poro
         
-        # Call the thermodynamic function
-        Aaw = Aaw_func_thermo(self.sigma0, poro, alpha, n_vg, theta, thetar, thetas,
+        #compute relevant air-water interfacial area
+        if self.AWI["AWI_type"] == "SWC-based":
+            Aaw = Aaw_func_thermo(self.sigma0, poro, alpha, n_vg, theta, thetar, thetas,
                               self.scaling_factor_awi)
+        elif self.AWI["AWI_type"] == "Guo":
+            guo_params = self.AWI["Guo"]
+            x0 = guo_params["guo_x0"]
+            x1 = guo_params["guo_x1"]
+            x2 = guo_params["guo_x2"]
+            Aaw = Aaw_func_tracer(self.theta, x2,x1,x0)
         return {"aaw": Aaw}
 
 class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid'):
