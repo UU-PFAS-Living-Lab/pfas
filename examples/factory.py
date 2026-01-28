@@ -1,17 +1,15 @@
 import marimo
 
-__generated_with = "0.16.5"
+__generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     #Example linear sorption
-    In this example we will showcase how to use the pfas package to create a basic forward modelling exercise of PFAS leaching in the vadose zone. 
-    """
-    )
+    In this example we will showcase how to use the pfas package to create a basic forward modelling exercise of PFAS leaching in the vadose zone.
+    """)
     return
 
 
@@ -40,12 +38,10 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Loading configuration file
     First we load our configuration file, in which we provide our model with most of the parameters needed to run our model. The input is later checked to see if it meets the requirements.
-    """
-    )
+    """)
     return
 
 
@@ -57,16 +53,13 @@ def _(read_toml):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ##Initializing Model and preprocessing data from TOML file
 
-    We now create an instance of our model and do the preprocessing for different categories of our data. Simoultaneously, the input is checked for its validity. We run the analytical solution through the class SimulationRunner. 
+    We now create an instance of our model and do the preprocessing for different categories of our data. Simoultaneously, the input is checked for its validity. We run the analytical solution through the class SimulationRunner.
 
-    In this step it is also possible to overwrite certain parameters from the TOML file, as examplified by the parameter porosity here. 
-
-    """
-    )
+    In this step it is also possible to overwrite certain parameters from the TOML file, as examplified by the parameter porosity here.
+    """)
     return
 
 
@@ -95,12 +88,10 @@ def _(
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ##Accessing generated data
     We access our data through model.generated_data, which prints all the output. Accessing it in this manneer also allows for easier plotting.
-    """
-    )
+    """)
     return
 
 
@@ -112,13 +103,11 @@ def _(model):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-    ## Plotting of data 
+    mo.md(r"""
+    ## Plotting of data
 
     The generated_data allows you to access both input and output of the model and thus also allows for relative simple plotting.
-    """
-    )
+    """)
     return
 
 
