@@ -1,44 +1,61 @@
+"""Utility functions for PFAS analytical solver.
+
+This module provides helper functions for kinetic sorption calculations,
+air-water interface area estimation, and numerical integration support.
+"""
+
 import numpy as np
 from scipy.special import erfc, iv
 
 
-def ABfunc(Z,T,ws,betas,beta,P,R,Rs,m,cflag):
-    # Compute the A and B functions in Eqs (16-17)
-
-    # output parameters
-    # A         Eq (18) of Guo et al (2022) AWR
-    # B         Eq (19) of Guo et al (2022) AWR
-
-    # input parameters
-    # Z         dimensionless length (Z = z/L)
-    # T         dimensionless time (T = v*t/L)
-    # ws        ws = alphas*(1-betas)*(1+Rs)*L/v (Damköhler number)
-    # betas     betas = (1+Fs*Rs)/(1+Rs)
-    # beta      beta = (betas*(1+Rs)+Raw)/(1+Rs+Raw)
-    # P         P = v*L/D (Peclect number)
-    # R         total retardation factor (-)
-    # Rs        retardation factor associated with SPA
-    # m         number of modified bessel function terms used
-    # cflag     A flag to denote volume-averaged or flux-averaged concentration
-    #           NB: 0 - concentration is volume-averaged, 1 - concentration is flux-averaged
-
-    # Copyright 2021-2022 Bo Guo (University of Arizona, Email: boguo@arizona.edu or guobo07@gmail.com).
-
-    # This file is part of the implementation for the PFAS-LEACH-Screening analytical
-    # solver presented in the article Guo et al. (2022) AWR
-
-    # Guo, B., Zeng, J., Brusseau, M.L. and Zhang, Y., 2022.
-    # A screening model for quantifying PFAS leaching in the vadose zone and
-    # mass discharge to groundwater. Advances in Water Resources, 160, p.104102.
-
-    # Development of PFAS-LEACH-Screening is supported by the ESTCP Project ER21-5041.
-    # Project Webpage: https://www.serdp-estcp.org/Program-Areas/Environmental-Restoration/ER21-5041
-
-    # The PFAS-LEACH-Screening analytical solver is distributed in the hope that
-    # it will be useful, but WITHOUT ANY WARRANTY without even the implied warranty
-    # of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    # GNU General Public License for more details, <http://www.gnu.org/licenses/>.
-
+def ABfunc(Z, T, ws, betas, beta, P, R, Rs, m, cflag):
+    """Compute A and B functions for kinetic sorption transport equations.
+    
+    Calculates the A and B functions appearing in Eqs (16-17) of Guo et al (2022)
+    for the advection-dispersion equation with kinetic sorption. Uses approximations
+    of Goldstein's J functions with modified Bessel functions for efficiency.
+    
+    Parameters
+    ----------
+    Z : float or ndarray
+        Dimensionless depth (Z = z/L).
+    T : float or ndarray
+        Dimensionless time (T = v*t/L).
+    ws : float
+        Damköhler number (ws = alphas*(1-betas)*(1+Rs)*L/v), characterizing
+        the relative importance of kinetic sorption to advection.
+    betas : float
+        Dimensionless sorption parameter (betas = (1+Fs*Rs)/(1+Rs)).
+    beta : float
+        Combined sorption parameter (beta = (betas*(1+Rs)+Raw)/(1+Rs+Raw)).
+    P : float
+        Péclet number (P = v*L/D), ratio of advection to dispersion.
+    R : float
+        Total retardation factor (dimensionless).
+    Rs : float
+        Retardation factor associated with surface or solid-phase adsorption.
+    m : int
+        Number of modified Bessel function terms used in the approximation.
+    cflag : int
+        Concentration averaging flag:
+        
+        - 0: volume-averaged concentration
+        - 1: flux-averaged concentration
+    
+    Returns
+    -------
+    A : float or ndarray
+        A function value (Eq 18 of Guo et al 2022), representing the
+        contribution from sorption equilibrium.
+    B : float or ndarray
+        B function value (Eq 19 of Guo et al 2022), representing the
+        contribution from kinetic sorption kinetics.
+    
+    References
+    ----------
+    Guo et al. (2022). Advection-dispersion equation with kinetic sorption.
+    Advances in Water Resources.
+    """
 
     # number of cells for the numerical integration
     n = 1001
@@ -86,22 +103,45 @@ def ABfunc(Z,T,ws,betas,beta,P,R,Rs,m,cflag):
     B = np.trapezoid(g*(1-Jba),tau)
     return A, B
 
-def Aaw_func_thermo(sigma0,poro,alpha,n,th,thr,ths,sf):
-    #Computing air-water interfacial area using the thermodynamic approach
-
-    # Aaw       air-water interfacial area (cm^2/cm^3)
-    # sigma0    surface tension (dyn/cm)
-    # poro      porosity (-)
-    # alphal    V-G parameter (cm^-1)
-    # n         V-G parameter (-)
-    # th        water content (-)
-    # thr       residual water content (-)
-    # ths       saturated water content (-)
-
-    # rhow      water density (kg/m^3)
-    # g         gravity acceleration (m/s^2)
-    # Pc        capillary pressure
-    # sf        scaling factor to correct the thermodynamic-based Aaw (-)
+def Aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf):
+    """Compute air-water interfacial area using thermodynamic approach.
+    
+    Estimates the air-water interfacial area per unit volume of porous medium
+    using thermodynamic relations based on capillary pressure and water content,
+    following van Genuchten soil water retention characteristics.
+    
+    Parameters
+    ----------
+    sigma0 : float
+        Surface tension of water (dyn/cm).
+    poro : float
+        Porosity of the porous medium (dimensionless, 0-1).
+    alpha : float
+        van Genuchten parameter (cm⁻¹), related to the air-entry pressure.
+    n : float
+        van Genuchten parameter (dimensionless), related to pore size distribution.
+    th : float
+        Current water content (dimensionless).
+    thr : float
+        Residual water content (dimensionless).
+    ths : float
+        Saturated water content (dimensionless).
+    sf : float
+        Scaling factor to correct the thermodynamic-based estimate (dimensionless).
+    
+    Returns
+    -------
+    Aaw : float
+        Air-water interfacial area per unit volume (cm²/cm³).
+    
+    Notes
+    -----
+    The function integrates the capillary pressure curve over saturation range
+    to estimate the interfacial area. Water properties are assumed:
+    
+    - Water density: 1000 kg/m³
+    - Gravitational acceleration: 9.81 m/s²
+    """
 
     rhow = 1000
     g = 9.81
@@ -115,11 +155,37 @@ def Aaw_func_thermo(sigma0,poro,alpha,n,th,thr,ths,sf):
     Aaw = Aaw*sf
 
     return Aaw
-def Aaw_func_tracer(sw,x2,x1,x0):
-    #Computing air-water interfacial area using the thermodynamic approach
 
-    # Aaw           air-water interfacial area (cm^2/cm^3)
-    # sw            water saturation
-    # x2, x1, x0    polynomial fitting coefficients
+def Aaw_func_tracer(sw, x2, x1, x0):
+    """Compute air-water interfacial area using empirical polynomial model.
+    
+    Estimates air-water interfacial area per unit volume using polynomial
+    fitting coefficients derived from tracer experiments or pore-scale imaging.
+    This approach provides a simplified, computationally efficient alternative
+    to thermodynamic calculations.
+    
+    Parameters
+    ----------
+    sw : float or ndarray
+        Water saturation (dimensionless, 0-1).
+    x2 : float
+        Quadratic coefficient of polynomial fit.
+    x1 : float
+        Linear coefficient of polynomial fit.
+    x0 : float
+        Constant coefficient (intercept) of polynomial fit.
+    
+    Returns
+    -------
+    Aaw : float or ndarray
+        Air-water interfacial area per unit volume (cm²/cm³).
+    
+    Notes
+    -----
+    The polynomial model is: Aaw = x2*sw² + x1*sw + x0
+    
+    This function is useful when empirical coefficients have been determined
+    from experimental data for a specific porous medium.
+    """
     Aaw = x2*sw**2 + x1*sw + x0
     return Aaw
