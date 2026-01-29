@@ -15,6 +15,35 @@ except ImportError:
     import tomli as tomllib  # type: ignore  # noqa
 
 
+class Configuration():
+    def __init__(self, config_dict):
+        self.config_dict = config_dict
+
+    def __getattribute__(self, key):
+        try:
+            return super().__getattribute__(key)
+        except AttributeError as e:
+            val = self.find(key)
+            if val is None:
+                raise
+            return val
+
+
+    def find(self, key, sub_dict=None):
+        # print(key, sub_dict)
+        if sub_dict is None:
+            sub_dict = self.config_dict
+        if key in sub_dict:
+            return sub_dict[key]
+        if isinstance(sub_dict, dict):
+            for new_sub_dict in sub_dict.values():
+                if not isinstance(new_sub_dict, dict):
+                    continue
+                found_value = self.find(key, new_sub_dict)
+                if found_value is not None:
+                    return found_value
+        return None
+
 def read_toml(path: Path) -> Dict[str, Any]:
     """
     Read a TOML configuration file.
@@ -27,7 +56,7 @@ def read_toml(path: Path) -> Dict[str, Any]:
     """
     with open(path, "rb") as handle:
         config_dict = tomllib.load(handle)
-    return config_dict
+    return Configuration(config_dict)
 
 
 def validate_config(config_dict: Dict[str, Any]) -> bool:

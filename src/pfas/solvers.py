@@ -4,6 +4,29 @@ from scipy.special import erfc, iv
 
 
 def eqbvpfunc(T, R, Z, P):
+    """
+    Complementary error function solution for equilibrium boundary value problem.
+    
+    Computes the dimensionless concentration profile for the boundary value problem
+    with constant boundary concentration using complementary error functions and
+    exponential terms.
+    
+    Parameters
+    ----------
+    T : float
+        Dimensionless time.
+    R : float
+        Retardation factor.
+    Z : float or ndarray
+        Dimensionless depth.
+    P : float
+        Peclet number (ratio of advection to dispersion).
+    
+    Returns
+    -------
+    float or ndarray
+        Dimensionless concentration at specified T, R, Z, P.
+    """
     return (
         0.5 * erfc((R * Z - T) / (2 * (T * R / P) ** (1 / 2)))
         + ((T * P) / (np.pi * R)) ** (1 / 2) * np.exp(-((R * Z - T) ** 2) / (4 * T * R / P))
@@ -13,6 +36,30 @@ def eqbvpfunc(T, R, Z, P):
     )
 
 def eqivpfunc(T, R, Z, P, kesi):
+    """
+    Complementary error function solution for equilibrium initial value problem.
+    
+    Computes the dimensionless concentration profile for the initial value problem
+    with distributed initial concentration using complementary error functions.
+    
+    Parameters
+    ----------
+    T : float
+        Dimensionless time.
+    R : float
+        Retardation factor.
+    Z : float or ndarray
+        Dimensionless depth.
+    P : float
+        Peclet number.
+    kesi : float or ndarray
+        Dimensionless depth coordinate for initial concentration profile.
+    
+    Returns
+    -------
+    float or ndarray
+        Dimensionless concentration at specified parameters.
+    """
     return (
         (np.exp(-((R * Z - R * kesi - T) ** 2) / (4 * T * R / P))
             + np.exp(-P * kesi - (R * Z + R * kesi - T) ** 2 / (4 * T * R / P)))
@@ -23,6 +70,32 @@ def eqivpfunc(T, R, Z, P, kesi):
 
 
 def neqivpfunc(T, R, Z, P, kesi, beta):
+    """
+    Solution for non-equilibrium initial value problem with kinetic sorption.
+    
+    Computes the dimensionless concentration profile for the initial value problem
+    accounting for kinetic sorption effects with a retardation coefficient beta.
+    
+    Parameters
+    ----------
+    T : float
+        Dimensionless time.
+    R : float
+        Retardation factor for aqueous phase.
+    Z : float or ndarray
+        Dimensionless depth.
+    P : float
+        Peclet number.
+    kesi : float or ndarray
+        Dimensionless depth coordinate for initial concentration profile.
+    beta : float
+        Retardation factor related to kinetic sorption kinetics.
+    
+    Returns
+    -------
+    float or ndarray
+        Dimensionless concentration at specified parameters.
+    """
     return (
         (np.exp(-P * beta * R * (Z - kesi - T / (beta * R)) ** 2 / (4 * T))
             + np.exp(-kesi * P - P * beta * R * (Z + kesi - T / (beta * R)) ** 2 / (4 * T)))
@@ -32,6 +105,36 @@ def neqivpfunc(T, R, Z, P, kesi, beta):
     )
 
 def Hfunc(T, R, tau, Rs, Fs, beta, betas, ws):
+    """
+    Modified Bessel function based kernel for kinetic sorption convolution.
+    
+    Computes the kernel function using modified Bessel functions for the convolution
+    integral in kinetic sorption calculations.
+    
+    Parameters
+    ----------
+    T : float
+        Dimensionless time.
+    R : float
+        Retardation factor.
+    tau : float or ndarray
+        Integration time variable.
+    Rs : float
+        Surface retardation factor.
+    Fs : float
+        Fraction of sorption sites kinetically controlled.
+    beta : float
+        Retardation factor related to kinetic sorption.
+    betas : float
+        Surface retardation factor.
+    ws : float
+        Damköhler number for kinetic sorption.
+    
+    Returns
+    -------
+    float or ndarray
+        Kernel value for the convolution integral.
+    """
     iv_arg_2 = (
         2 * ws / (1 - betas) / (1 + Rs)
         * np.sqrt(Rs * (1 - Fs) * (T - tau) * tau)
@@ -50,6 +153,36 @@ def Hfunc(T, R, tau, Rs, Fs, beta, betas, ws):
 
 
 def Hs2func(T, R, tau, Rs, Fs, beta, betas, ws):
+    """
+    Modified Bessel function kernel for sorbed phase kinetic convolution.
+    
+    Computes the kernel function for the sorbed phase concentration convolution
+    integral in kinetic sorption calculations, related to Hfunc but for sorbed phase.
+    
+    Parameters
+    ----------
+    T : float
+        Dimensionless time.
+    R : float
+        Retardation factor.
+    tau : float or ndarray
+        Integration time variable.
+    Rs : float
+        Surface retardation factor.
+    Fs : float
+        Fraction of sorption sites kinetically controlled.
+    beta : float
+        Retardation factor related to kinetic sorption.
+    betas : float
+        Surface retardation factor.
+    ws : float
+        Kinetic sorption rate coefficient.
+    
+    Returns
+    -------
+    float or ndarray
+        Kernel value for the sorbed phase convolution integral.
+    """
     iv_arg_2 = (
         2 * ws / (1 - betas) / (1 + Rs)
         * np.sqrt(Rs * (1 - Fs) * (T - tau) * tau)
@@ -67,7 +200,43 @@ def Hs2func(T, R, tau, Rs, Fs, beta, betas, ws):
     )
 
 def equilibrium_solver(R, Z, T, P, T0, C10, Ci, theta):
-    """Kinetic solver and parameters."""
+    """
+    Solve advection-dispersion equation with equilibrium sorption.
+    
+    Computes the aqueous and total concentrations for contaminant transport
+    through porous media assuming instantaneous sorption equilibrium using
+    analytical solutions to the advection-dispersion equation.
+    
+    The solution includes contributions from:
+    - Boundary value problem (BVP): response to constant boundary condition
+    - Initial value problem (IVP): response to non-zero initial conditions
+    
+    Parameters
+    ----------
+    R : float
+        Retardation factor accounting for sorption equilibrium.
+    Z : ndarray
+        Dimensionless depth nodes (0 to 1).
+    T : ndarray
+        Dimensionless time points.
+    P : float
+        Peclet number (ratio of advection to dispersion).
+    T0 : float
+        Dimensionless pulse duration of contaminant input.
+    C10 : float
+        Normalized constant boundary concentration during pulse.
+    Ci : ndarray
+        Normalized initial concentration profile with depth (length must equal Z).
+    theta : float
+        Volumetric water content.
+    
+    Returns
+    -------
+    C1 : ndarray
+        Aqueous phase concentration (mg/L) with shape (len(Z), len(T)).
+    C_tot : ndarray
+        Total concentration (mg/L bulk volume) with shape (len(Z), len(T)).
+    """
 
     # Solution for the boundary value problem
     # Define the solution for a constant boundary condition as a function
@@ -91,7 +260,63 @@ def equilibrium_solver(R, Z, T, P, T0, C10, Ci, theta):
 
 
 def kinetic_solver(R, Z, T, P, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd, theta, rhob):
-    """Kinetic solver its parameters."""
+    """
+    Solve advection-dispersion equation with kinetic (time-dependent) sorption.
+    
+    Computes aqueous and sorbed phase concentrations for contaminant transport
+    with time-dependent sorption kinetics using modified Bessel function solutions.
+    Handles both boundary value problem (constant boundary concentration) and
+    initial value problem (non-zero initial conditions).
+    
+    The solution accounts for:
+    - Kinetic sorption with first-order kinetics
+    - Multiple sorption domains (equilibrium and kinetic)
+    - Distributed sorption sites
+    
+    Parameters
+    ----------
+    R : float
+        Retardation factor for aqueous phase.
+    Z : ndarray
+        Dimensionless depth nodes (0 to 1).
+    T : ndarray
+        Dimensionless time points.
+    P : float
+        Peclet number.
+    T0 : float
+        Dimensionless pulse duration of contaminant input.
+    C10 : float
+        Normalized constant boundary concentration during pulse.
+    Ci : ndarray
+        Normalized initial concentration profile with depth.
+    ws : float
+        Kinetic sorption rate coefficient.
+    betas : float
+        Kinetic sorption retardation factor for solid phase.
+    beta : float
+        Total kinetic sorption retardation factor
+    cflag : int
+        Configuration flag for volume-averaged (1) concentrations?
+    Rs : float
+        Solid phase retardation factor.
+    Fs : float
+        Fraction of sorption sites that are kinetically controlled (0 to 1).
+    Kd : float
+        Distribution coefficient for sorption (L/kg).
+    theta : float
+        Volumetric water content.
+    rhob : float
+        Bulk density of soil (kg/L).
+    
+    Returns
+    -------
+    C1 : ndarray
+        Aqueous phase concentration (mg/L) with shape (len(Z), len(T)).
+    C2 : ndarray
+        Sorbed phase concentration (mg/kg) with shape (len(Z), len(T)).
+    C_tot : ndarray
+        Total concentration (mg/L bulk volume) with shape (len(Z), len(T)).
+    """
     # Initialize solutions for the aqueous concentration for BVP and IVP problems
     C1_bvp = np.zeros((len(Z), len(T)))
     C1_ivp = np.zeros((len(Z), len(T)))

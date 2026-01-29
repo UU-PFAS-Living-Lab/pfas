@@ -72,7 +72,7 @@ jobs:
       run: |
         python -m pip install -e ".[examples]"
     - name: Check notebook output
-      run: python examples/Example_linear_sorption.py
+      run: python examples/factory.py
 
   coverage:
     name: Test coverage of unit tests
