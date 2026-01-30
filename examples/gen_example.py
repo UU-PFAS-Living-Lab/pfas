@@ -82,7 +82,7 @@ def _(
             time_total=5000
         )
     grid_results = grid_gen.compute()
-    
+
     # Step 2: Compute water flow properties
     water_prep = WaterPreprocessor(
             average_infiltration_rate=1.5,
@@ -94,7 +94,7 @@ def _(
             residual_water_content=0.04
         )
     water_results = water_prep.compute()
-    
+
     # Step 3: Setup boundary conditions
     boundary_prep = BoundaryPreprocessor(
             average_infiltration_rate=1.5,
@@ -102,7 +102,7 @@ def _(
             pulse_duration=2000
         )
     boundary_results = boundary_prep.compute()
-    
+
     # Step 4: Compute solid phase retardation
     sp_retard = SpRetardationPreprocessor(
             sorption_solid={
@@ -121,7 +121,7 @@ def _(
             hydro_properties=water_results["hydro_properties"]
         )
     sp_results = sp_retard.compute()
-    
+
     # Step 5: Compute AWI adsorption
     swc_adsorp = SWCAdsorptionPreprocessor(
             hydro_properties=water_results["hydro_properties"],
@@ -145,7 +145,7 @@ def _(
         }
         )
     awi_results = swc_adsorp.compute()
-    
+
     #Step 6: Compute Kawi sorption
     kawi_sorp = SorptionKawiDirectInput(
             kaw=0.5,
@@ -167,7 +167,7 @@ def _(
             sp_retardation=sp_results["sp_retardation"]
     )
     kawi_results = kawi_sorp.compute()
-    
+
         # Step 7: Run simulation
     sim_runner = SimulationRunner(
             grid=grid_results["grid"],
@@ -179,10 +179,9 @@ def _(
             volume_averaged=False
     )
     final_results = sim_runner.compute()
-    
-    
-    print("Simulation completed successfully!")
 
+
+    print("Simulation completed successfully!")
     return final_results, grid_results
 
 
