@@ -27,6 +27,7 @@ dependencies = [
     "numpy>=2", "scipy", "matplotlib",
     "tomli;python_version<'3.11'",
     "pydantic", "annotated-types",
+    "marimo"
 ]
 dynamic = ["version"]
 

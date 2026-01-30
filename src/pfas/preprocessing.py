@@ -311,16 +311,16 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
         thetar = self.soil["residual_water_content"]
         thetas = poro
         
-        Aaw = Aaw_func_thermo(self.sigma0, poro, alpha, n_vg, theta, thetar, thetas,
-                              self.scaling_factor_awi)
+        if self.AWI["AWI_type"] == "SWC-based":
+            Aaw = Aaw_func_thermo(self.sigma0, poro, alpha, n_vg, theta, thetar, thetas,
+                                  self.scaling_factor_awi)
         elif self.AWI["AWI_type"] == "Guo":
             guo_params = self.AWI["Guo"]
             x0 = guo_params["guo_x0"]
             x1 = guo_params["guo_x1"]
             x2 = guo_params["guo_x2"]
-            Aaw = Aaw_func_tracer(self.theta, x2,x1,x0)
+            Aaw = Aaw_func_tracer(self.theta, x2, x1, x0)
         return {"aaw": Aaw}
-
 
 class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid'):
     """
