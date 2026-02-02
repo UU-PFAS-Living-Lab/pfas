@@ -1,5 +1,6 @@
 """
 PFAS Preproccesing Module.
+
 ==========================================
 
 This module contains preprocessor classes for preparing input parameters
@@ -448,7 +449,7 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
             - 'C_tot' : ndarray
                 Total concentration (mg/L bulk volume)
         """
-        initial_contaminant_concentration = np.zeros(len(self.grid.depth)) #this should be input instead of defined
+        initial_contaminant_concentration = np.zeros(len(self.grid.depth)) #noqa : E501 #this should be input instead of defined
         C1, C2, C_tot = analytical_soln( # noqa: N806
             grid=self.grid,
             bulk_density=self.bulk_density,

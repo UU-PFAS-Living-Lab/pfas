@@ -57,6 +57,7 @@ lint.ignore = ["PLR2004", "D107", "D105", "D102"]
 "src/pfas/analytical_soln.py" = ["N806"]
 "src/pfas/solvers.py" = ["N806", "N803"]    
 "src/pfas/utils.py" = ["N806", "N803"]
+"tests/test_preprocessing.py" = ["N806", "N803"]
 
 [tool.ruff.lint.pydocstyle]
 convention="numpy"
