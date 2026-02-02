@@ -4,6 +4,7 @@ import pytest
 
 from pfas.configuration import read_toml
 from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor
+from pfas.preprocessing import GridGenerator
 
 @pytest.fixture(scope="session")
 def configuration():
@@ -41,3 +42,12 @@ def valid_boundary_preprocessor():
 def result_boundary(valid_boundary_preprocessor):
     """Computed result dictionary."""
     return valid_boundary_preprocessor.compute()
+
+@pytest.fixture
+def valid_grid_generator():
+    return GridGenerator(
+        domain_length=10.0,
+        spatial_resolution=1.0,
+        time_resolution=2.0,
+        time_total=10.0,
+    )
