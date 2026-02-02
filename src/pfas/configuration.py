@@ -1,9 +1,11 @@
 """
 TOML configuration file validator for PFAS transport modeling.
 
-This module provides functionality to read and validate TOML configuration files
-for soil transport simulations, including validation of experimental conditions,
-soil properties, sorption parameters, air-water interface settings, and PFAS properties.
+This module provides functionality to read and validate TOML
+configuration files for soil transport simulations,
+including validation of experimental conditions,
+soil properties, sorption parameters, air-water interface settings,
+and PFAS properties.
 """
 
 from pathlib import Path
@@ -18,9 +20,9 @@ except ImportError:
 class Configuration():
     """A read-only view over a parsed TOML configuration.
 
-    This class wraps a nested dictionary and provides convenient attribute-style access to configuration
-    values. If an attribute is not present on the instance, attribute lookup
-    falls back to a recursive search of the underlying dictionary using
+    This class wraps a nested dictionary and provides convenient attribute-style access
+    to configuration values. If an attribute is not present on the instance,
+    attribute lookup falls back to a recursive search of the underlying dictionary using
     :meth:`find`.
 
     Attributes
@@ -121,7 +123,7 @@ def validate_config(config_dict: Dict[str, Any]) -> bool:
     return all(results)
 
 
-def check_toml_experimental_conditions(experimental_conditions_dict: Dict[str, Any]) -> bool:
+def check_toml_experimental_conditions(experimental_conditions_dict: Dict[str, Any]) -> bool: #noqa: PLR0911
     """
     Validate experimental conditions parameters from TOML config.
 
@@ -191,7 +193,7 @@ def check_toml_experimental_conditions(experimental_conditions_dict: Dict[str, A
     return True
 
 
-def check_toml_soil(soil_dict: Dict[str, Any]) -> bool:
+def check_toml_soil(soil_dict: Dict[str, Any]) -> bool: #noqa: PLR0911
     """
     Validate soil parameters from TOML config.
 
@@ -297,7 +299,7 @@ def _validate_numeric_param(
     return True
 
 
-def check_toml_sorption(sorption_dict: Dict[str, Any]) -> bool:
+def check_toml_sorption(sorption_dict: Dict[str, Any]) -> bool: #noqa: PLR0911
     """
     Validate sorption parameters from TOML config.
 
@@ -374,7 +376,7 @@ def _validate_kinetic_params(sorption_dict: Dict[str, Any]) -> bool:
     return True
 
 
-def _validate_linear_isotherm(isotherm_params: Dict[str, Any]) -> bool:
+def _validate_linear_isotherm(isotherm_params: Dict[str, Any]) -> bool: #noqa: PLR0911
     """Validate linear isotherm parameters."""
     if 'Kd_method' not in isotherm_params:
         print("Missing required key: Kd_method")

@@ -324,14 +324,14 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
         thetas = poro
 
         if self.AWI["AWI_type"] == "SWC-based":
-            aaw = Aaw_func_thermo(self.sigma0, poro, alpha, n_vg, theta, thetar, thetas,
+            aaw = aaw_func_thermo(self.sigma0, poro, alpha, n_vg, theta, thetar, thetas,
                                   self.scaling_factor_awi)
         elif self.AWI["AWI_type"] == "Guo":
             guo_params = self.AWI["Guo"]
             x0 = guo_params["guo_x0"]
             x1 = guo_params["guo_x1"]
             x2 = guo_params["guo_x2"]
-            aaw = Aaw_func_tracer(self.theta, x2, x1, x0)
+            aaw = aaw_func_tracer(self.theta, x2, x1, x0)
         return {"aaw": aaw}
 
 class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid'):

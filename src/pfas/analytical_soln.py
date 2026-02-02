@@ -136,7 +136,7 @@ class Adsorption:
         )
 
 
-def analytical_soln(
+def analytical_soln( #noqa:PLR0913
     grid: SimulationGrid,
     bulk_density: float,
     boundary_conditions: BoundaryConditions,
