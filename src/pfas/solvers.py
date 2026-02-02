@@ -1,6 +1,7 @@
 import numpy as np
-from pfas import utils
 from scipy.special import erfc, iv
+
+from pfas import utils
 
 
 def eqbvpfunc(T, R, Z, P):
@@ -237,7 +238,6 @@ def equilibrium_solver(R, Z, T, P, T0, C10, Ci, theta):
     C_tot : ndarray
         Total concentration (mg/L bulk volume) with shape (len(Z), len(T)).
     """
-
     # Solution for the boundary value problem
     # Define the solution for a constant boundary condition as a function
     C1_bvp = np.zeros((len(Z), len(T)))

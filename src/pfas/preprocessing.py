@@ -1,5 +1,5 @@
 """
-PFAS Preproccesing Module
+PFAS Preproccesing Module.
 ==========================================
 
 This module contains preprocessor classes for preparing input parameters
@@ -31,27 +31,33 @@ SorptionKawiDirectInput
 SimulationRunner
     Executes the analytical solution with preprocessed parameters.
 
-
 """
 
 from typing import Annotated
-from scipy.optimize import fsolve
-from annotated_types import Gt, Interval
-from pydantic import BaseModel, ConfigDict
-from pfas.analytical_soln import SimulationGrid, BoundaryConditions, HydrologicalProperties, Adsorption
+
 import numpy as np
-from pfas.utils import Aaw_func_thermo , Aaw_func_tracer
-from pfas.analytical_soln import analytical_soln
+from annotated_types import Gt, Interval
+from pydantic import BaseModel
+from scipy.optimize import fsolve
+
+from pfas.analytical_soln import (
+    Adsorption,
+    BoundaryConditions,
+    HydrologicalProperties,
+    SimulationGrid,
+    analytical_soln,
+)
+from pfas.utils import Aaw_func_thermo, Aaw_func_tracer
 
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Compute hydraulic properties from infiltration rate and soil parameters.
-    
+
     This class calculates volumetric water content, pore water velocity, and
     dispersion coefficient based on van Genuchten soil hydraulic parameters
     and steady-state infiltration conditions.
-    
+
     Parameters
     ----------
     average_infiltration_rate : float
@@ -68,12 +74,12 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         Initial saturation estimate (dimensionless). Range: [0, 1].
     residual_water_content : float
         Residual water content (dimensionless). Range: [0, 1].
-    
+
     Attributes
     ----------
     outputs : list of str
         List containing 'hydro_properties'.
-    
+
     Examples
     --------
     >>> preprocessor = WaterPreprocessor(
@@ -89,6 +95,7 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     >>> 'hydro_properties' in result
     True
     """
+
     average_infiltration_rate: Annotated[float, Gt(0)]
     hydraulic_conductivity: Annotated[float, Gt(0)]
     porosity: Annotated[float, Interval(ge=0, le=1)]
@@ -100,11 +107,11 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     def compute(self):
         """
         Calculate hydraulic properties.
-        
+
         Uses van Genuchten relative permeability function to solve for
         effective saturation, then computes water content, velocity, and
         dispersion coefficient.
-        
+
         Returns
         -------
         dict
@@ -113,12 +120,13 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         """
         kr = self.average_infiltration_rate/self.hydraulic_conductivity
         m = 1 - 1/self.van_genuchten_n
-        relperm = lambda se: se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
+        def relperm(se):
+            return se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
         se = fsolve(relperm, self.init_sat)
         theta = se[0] * (self.porosity - self.residual_water_content) + self.residual_water_content
         v = self.average_infiltration_rate/theta
-        D = v*self.dispersivity
-        return {"hydro_properties": HydrologicalProperties(theta, v, D)}
+        d = v*self.dispersivity
+        return {"hydro_properties": HydrologicalProperties(theta, v, d)}
 
     @property
     def outputs(self):
@@ -129,10 +137,10 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
 class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Calculate boundary conditions for contaminant input.
-    
+
     Converts solute concentration and infiltration rate into a contaminant
     release rate suitable for the analytical solution.
-    
+
     Parameters
     ----------
     average_infiltration_rate : float
@@ -141,12 +149,13 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         Solute concentration in infiltrating water (mg/L). Must be positive.
     pulse_duration : float
         Duration of contaminant input pulse (s). Must be positive.
-    
+
     Attributes
     ----------
     outputs : list of str
         List containing 'boundary_conditions'.
     """
+
     average_infiltration_rate: Annotated[float, Gt(0)]
     solute_concentration_influx: Annotated[float, Gt(0)]
     pulse_duration: Annotated[float, Gt(0)]
@@ -154,7 +163,7 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     def compute(self):
         """
         Calculate boundary conditions.
-        
+
         Returns
         -------
         dict
@@ -175,9 +184,9 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
 class GridGenerator(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Generate spatial and temporal discretization grids.
-    
+
     Creates uniform grids for depth and time used in the analytical solution.
-    
+
     Parameters
     ----------
     domain_length : float
@@ -188,12 +197,13 @@ class GridGenerator(BaseModel, validate_assignment=True, extra='forbid'):
         Time step size (s). Must be positive.
     time_total : float
         Total simulation time (s). Must be positive.
-    
+
     Attributes
     ----------
     outputs : list of str
         List containing 'grid'.
     """
+
     domain_length: Annotated[float, Gt(0)]
     spatial_resolution: Annotated[float, Gt(0)]
     time_resolution: Annotated[float, Gt(0)]
@@ -202,7 +212,7 @@ class GridGenerator(BaseModel, validate_assignment=True, extra='forbid'):
     def compute(self):
         """
         Generate grid arrays.
-        
+
         Returns
         -------
         dict
@@ -224,10 +234,10 @@ class GridGenerator(BaseModel, validate_assignment=True, extra='forbid'):
 class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Compute solid-phase retardation factor.
-    
+
     Calculates the retardation factor for sorption to solid phase using
     linear isotherm partitioning coefficient.
-    
+
     Parameters
     ----------
     sorption_solid : dict
@@ -237,20 +247,21 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
         Soil bulk density (kg/m³). Must be positive.
     hydro_properties : HydrologicalProperties
         Hydraulic properties from WaterPreprocessor.
-    
+
     Attributes
     ----------
     outputs : list of str
         List containing 'sp_retardation'.
     """
+
     sorption_solid: dict
     bulk_density: Annotated[float, Gt(0)]
     hydro_properties: HydrologicalProperties
-    
+
     def compute(self):
         """
         Calculate solid-phase retardation.
-        
+
         Returns
         -------
         dict
@@ -259,7 +270,7 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
         if self.sorption_solid["sorption_isotherm"] == "linear":
             linear = self.sorption_solid["linear"]
             if linear["Kd_method"] == "direct_input":
-                Kd = linear["Kd"]
+                Kd = linear["Kd"] # noqa: N806
         sp_retardation = (self.bulk_density * Kd) / self.hydro_properties.water_content
         return {"sp_retardation": sp_retardation, "Kd": Kd}
 
@@ -272,10 +283,10 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
 class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Calculate air-water interface area using thermodynamic relations.
-    
+
     Uses van Genuchten soil water characteristic curve to estimate
     air-water interfacial area from water saturation.
-    
+
     Parameters
     ----------
     hydro_properties : HydrologicalProperties
@@ -288,6 +299,7 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
         Dictionary containing soil parameters: 'porosity', 'van_genuchten_alpha',
         'van_genuchten_n', and 'residual_water_content'.
     """
+
     hydro_properties: HydrologicalProperties
     sigma0: Annotated[float, Gt(0)] = 0.072
     scaling_factor_awi: Annotated[float, Gt(0)]
@@ -297,7 +309,7 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
     def compute(self):
         """
         Calculate air-water interfacial area.
-        
+
         Returns
         -------
         dict
@@ -310,25 +322,25 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
         theta = self.hydro_properties.water_content
         thetar = self.soil["residual_water_content"]
         thetas = poro
-        
+
         if self.AWI["AWI_type"] == "SWC-based":
-            Aaw = Aaw_func_thermo(self.sigma0, poro, alpha, n_vg, theta, thetar, thetas,
+            aaw = Aaw_func_thermo(self.sigma0, poro, alpha, n_vg, theta, thetar, thetas,
                                   self.scaling_factor_awi)
         elif self.AWI["AWI_type"] == "Guo":
             guo_params = self.AWI["Guo"]
             x0 = guo_params["guo_x0"]
             x1 = guo_params["guo_x1"]
             x2 = guo_params["guo_x2"]
-            Aaw = Aaw_func_tracer(self.theta, x2, x1, x0)
-        return {"aaw": Aaw}
+            aaw = Aaw_func_tracer(self.theta, x2, x1, x0)
+        return {"aaw": aaw}
 
 class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Compute adsorption parameters for air-water interface.
-    
+
     Calculates retardation factor for sorption at the air-water interface
     using directly specified partition coefficient.
-    
+
     Parameters
     ----------
     kaw : float
@@ -343,12 +355,13 @@ class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid
         Dictionary containing solid-phase sorption parameters.
     sp_retardation : float
         Solid-phase retardation factor (dimensionless).
-    
+
     Attributes
     ----------
     outputs : list of str
         List containing 'awi_retardation'.
     """
+
     kaw: float
     hydro_properties: HydrologicalProperties
     Kd: float
@@ -359,7 +372,7 @@ class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid
     def compute(self):
         """
         Calculate air-water interface retardation.
-        
+
         Returns
         -------
         dict
@@ -385,11 +398,11 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
                        arbitrary_types_allowed=True):
     """
     Execute the analytical solution with preprocessed parameters.
-    
+
     This class runs the PFAS-LEACH-Screening analytical solver using
     all preprocessed input parameters to compute contaminant concentrations
     in water and solid phases over space and time.
-    
+
     Parameters
     ----------
     grid : SimulationGrid
@@ -407,6 +420,7 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
     volume_averaged : bool
         Whether to compute volume-averaged concentrations.
     """
+
     grid: SimulationGrid
     bulk_density: Annotated[float, Gt(0)]
     boundary_conditions: BoundaryConditions
@@ -418,14 +432,15 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
     def compute(self):
         """
         Run the analytical solution.
-        
+
         Solves the advection-dispersion equation with retardation for PFAS
         transport through the vadose zone.
+
         Returns
         -------
         dict
             Dictionary with keys:
-            
+
             - 'C1' : ndarray
                 Aqueous phase concentration (mg/L)
             - 'C2' : ndarray
@@ -434,7 +449,7 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
                 Total concentration (mg/L bulk volume)
         """
         initial_contaminant_concentration = np.zeros(len(self.grid.depth)) #this should be input instead of defined
-        C1, C2, C_tot = analytical_soln(
+        C1, C2, C_tot = analytical_soln( # noqa: N806
             grid=self.grid,
             bulk_density=self.bulk_density,
             boundary_conditions=self.boundary_conditions,
