@@ -4,15 +4,6 @@ from pydantic import ValidationError
 
 from pfas.preprocessing import GridGenerator, SimulationGrid
 
-@pytest.fixture
-def valid_grid_generator():
-    return GridGenerator(
-        domain_length=10.0,
-        spatial_resolution=1.0,
-        time_resolution=2.0,
-        time_total=10.0,
-    )
-
 def test_outputs_property(valid_grid_generator):
     assert valid_grid_generator.outputs == ["grid"]
 
