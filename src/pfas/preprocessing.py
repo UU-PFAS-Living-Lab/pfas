@@ -47,7 +47,7 @@ from pfas.analytical_soln import (
     SimulationGrid,
     analytical_soln,
 )
-from pfas.utils import Aaw_func_thermo, Aaw_func_tracer
+from pfas.utils import aaw_func_thermo, aaw_func_tracer
 
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
