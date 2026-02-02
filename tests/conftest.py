@@ -5,6 +5,7 @@ import pytest
 from pfas.configuration import read_toml
 from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor
 from pfas.preprocessing import GridGenerator
+from pfas.preprocessing import SpRetardationPreprocessor
 
 @pytest.fixture(scope="session")
 def configuration():
@@ -50,4 +51,22 @@ def valid_grid_generator():
         spatial_resolution=1.0,
         time_resolution=2.0,
         time_total=10.0,
+    )
+
+@pytest.fixture
+def sorption_solid_linear():
+    return {
+        "sorption_isotherm": "linear",
+        "linear": {
+            "Kd_method": "direct_input",
+            "Kd": 0.8,
+        },
+    }
+
+@pytest.fixture
+def valid_sp_retardation_preprocessor(result_water, sorption_solid_linear):
+    return SpRetardationPreprocessor(
+        sorption_solid=sorption_solid_linear,
+        bulk_density=1600.0,
+        hydro_properties=result_water["hydro_properties"],
     )
