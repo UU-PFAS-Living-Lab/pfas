@@ -7,6 +7,7 @@ from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor
 from pfas.preprocessing import GridGenerator
 from pfas.preprocessing import SpRetardationPreprocessor
 from pfas.preprocessing import SWCAdsorptionPreprocessor
+from pfas.preprocessing import SorptionKawiDirectInput
 
 @pytest.fixture(scope="session")
 def configuration():
@@ -129,3 +130,28 @@ def valid_swc_adsorption_guo(
         soil=soil_params,
     )
 
+@pytest.fixture
+def valid_sorption_solid_awi():
+    """Solid-phase sorption parameters for AWI sorption."""
+    return {
+        "rate_const": 1.0e-4,
+        "fraction_instantaneous": 0.8,
+    }
+
+@pytest.fixture
+def valid_sorption_kawi_direct_input(
+    result_water,
+    valid_sp_retardation_preprocessor,
+    valid_swc_adsorption_swc,
+):
+    aaw = valid_swc_adsorption_swc.compute()["aaw"]
+    sp_ret = valid_sp_retardation_preprocessor.compute()["sp_retardation"]
+
+    return SorptionKawiDirectInput(
+        kaw=0.5,
+        hydro_properties=result_water["hydro_properties"],
+        Kd=0.8,
+        aaw=aaw,
+        sorption_solid={},      # optional fields tested elsewhere
+        sp_retardation=sp_ret,
+    )
