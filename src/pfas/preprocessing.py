@@ -342,7 +342,7 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
             x0 = guo_params["guo_x0"]
             x1 = guo_params["guo_x1"]
             x2 = guo_params["guo_x2"]
-            aaw = aaw_func_tracer(self.theta, x2, x1, x0)
+        aaw = aaw_func_tracer(theta, x2, x1, x0)
         return {"aaw": aaw}
 
 class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid'):
