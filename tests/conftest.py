@@ -6,6 +6,7 @@ from pfas.configuration import read_toml
 from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor
 from pfas.preprocessing import GridGenerator
 from pfas.preprocessing import SpRetardationPreprocessor
+from pfas.preprocessing import SWCAdsorptionPreprocessor
 
 @pytest.fixture(scope="session")
 def configuration():
@@ -70,3 +71,61 @@ def valid_sp_retardation_preprocessor(result_water, sorption_solid_linear):
         bulk_density=1600.0,
         hydro_properties=result_water["hydro_properties"],
     )
+
+@pytest.fixture
+def soil_params(valid_water_preprocessor):
+    """Soil parameters consistent with WaterPreprocessor."""
+    return {
+        "porosity": valid_water_preprocessor.porosity,
+        "van_genuchten_alpha": 1.0,
+        "van_genuchten_n": valid_water_preprocessor.van_genuchten_n,
+        "residual_water_content": valid_water_preprocessor.residual_water_content,
+    }
+
+
+@pytest.fixture
+def awi_swc_based():
+    return {
+        "AWI_type": "SWC-based",
+    }
+
+
+@pytest.fixture
+def awi_guo():
+    return {
+        "AWI_type": "Guo",
+        "Guo": {
+            "guo_x0": 0.1,
+            "guo_x1": 0.5,
+            "guo_x2": 2.0,
+        },
+    }
+
+
+@pytest.fixture
+def valid_swc_adsorption_swc(
+    result_water,
+    soil_params,
+    awi_swc_based,
+):
+    return SWCAdsorptionPreprocessor(
+        hydro_properties=result_water["hydro_properties"],
+        scaling_factor_awi=1.0,
+        AWI=awi_swc_based,
+        soil=soil_params,
+    )
+
+
+@pytest.fixture
+def valid_swc_adsorption_guo(
+    result_water,
+    soil_params,
+    awi_guo,
+):
+    return SWCAdsorptionPreprocessor(
+        hydro_properties=result_water["hydro_properties"],
+        scaling_factor_awi=1.0,
+        AWI=awi_guo,
+        soil=soil_params,
+    )
+
