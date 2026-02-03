@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import numpy as np
 
 from pfas.configuration import read_toml
 from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor
@@ -8,6 +9,8 @@ from pfas.preprocessing import GridGenerator
 from pfas.preprocessing import SpRetardationPreprocessor
 from pfas.preprocessing import SWCAdsorptionPreprocessor
 from pfas.preprocessing import SorptionKawiDirectInput
+from pfas.preprocessing import SimulationRunner
+from pfas.analytical_soln import SimulationGrid, BoundaryConditions
 
 @pytest.fixture(scope="session")
 def configuration():
@@ -154,4 +157,34 @@ def valid_sorption_kawi_direct_input(
         aaw=aaw,
         sorption_solid={},      # optional fields tested elsewhere
         sp_retardation=sp_ret,
+    )
+
+@pytest.fixture
+def valid_simulation_runner(
+    valid_grid_generator,
+    valid_boundary_preprocessor,
+    result_water,
+    valid_sorption_kawi_direct_input,
+):
+    """A valid SimulationRunner instance."""
+
+    # Generate depth and time arrays based on grid generator parameters
+    depth = np.linspace(0, valid_grid_generator.domain_length, int(valid_grid_generator.domain_length / valid_grid_generator.spatial_resolution) + 1)
+    time = np.linspace(0, valid_grid_generator.time_total, int(valid_grid_generator.time_total / valid_grid_generator.time_resolution) + 1)
+
+    # Create SimulationGrid instance
+    grid = SimulationGrid(depth=depth, time=time)
+
+    # Initialize BoundaryConditions properly
+    boundary_conditions_data = valid_boundary_preprocessor.compute()
+    boundary_conditions = boundary_conditions_data["boundary_conditions"]
+
+    return SimulationRunner(
+        grid=grid,
+        bulk_density=1600.0,  # example value in kg/m³
+        boundary_conditions=boundary_conditions,
+        hydro_properties=result_water["hydro_properties"],
+        adsorption=valid_sorption_kawi_direct_input.compute()["adsorption"],
+        kinetic_sorption=False,
+        volume_averaged=False,
     )
