@@ -1,3 +1,4 @@
+# noqa: N806
 """Analytical solution module for PFAS transport modeling.
 
 This module provides data structures and solvers for simulating contaminant
@@ -15,7 +16,7 @@ from pfas.solvers import equilibrium_solver, kinetic_solver
 @dataclass
 class SimulationGrid:
     """Grid for spatial and temporal discretization of the simulation domain.
-    
+
     Parameters
     ----------
     depth : ndarray
@@ -30,7 +31,7 @@ class SimulationGrid:
     @property
     def domain_length(self) -> float:
         """Calculate total domain length.
-        
+
         Returns
         -------
         float
@@ -42,7 +43,7 @@ class SimulationGrid:
 @dataclass
 class BoundaryConditions:
     """Boundary conditions for contaminant source.
-    
+
     Parameters
     ----------
     pulse_time : float
@@ -58,7 +59,7 @@ class BoundaryConditions:
 @dataclass
 class HydrologicalProperties:
     """Hydrological properties of the porous medium.
-    
+
     Parameters
     ----------
     water_content : float
@@ -77,7 +78,7 @@ class HydrologicalProperties:
 @dataclass
 class Adsorption:
     """Adsorption parameters for contaminant-solid interactions.
-    
+
     Parameters
     ----------
     Kd : float
@@ -101,7 +102,7 @@ class Adsorption:
     @property
     def total_retardation(self) -> float:
         """Calculate total retardation factor.
-        
+
         Returns
         -------
         float
@@ -112,7 +113,7 @@ class Adsorption:
     @property
     def betas(self) -> float:
         """Calculate solid-phase sorption parameter.
-        
+
         Returns
         -------
         float
@@ -123,7 +124,7 @@ class Adsorption:
     @property
     def beta(self) -> float:
         """Calculate combined sorption parameter.
-        
+
         Returns
         -------
         float
@@ -135,7 +136,7 @@ class Adsorption:
         )
 
 
-def analytical_soln(
+def analytical_soln( #noqa:PLR0913
     grid: SimulationGrid,
     bulk_density: float,
     boundary_conditions: BoundaryConditions,
@@ -146,13 +147,13 @@ def analytical_soln(
     volume_averaged: bool = False,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64] | None, NDArray[np.float64]]:
     """Solve contaminant transport using analytical solutions.
-    
+
     Computes aqueous and sorbed phase concentrations for PFAS transport through
     the vadose zone using analytical solutions to the advection-dispersion equation
     with retardation. The solution is computed using dimensionless variables:
     Z (dimensionless depth), T (dimensionless time), P (Péclet number),
     and ws (Damköhler number for kinetic sorption).
-    
+
     Parameters
     ----------
     grid : SimulationGrid
@@ -172,7 +173,7 @@ def analytical_soln(
         Default is False.
     volume_averaged : bool, optional
         If True, return volume-averaged concentrations. Default is False.
-    
+
     Returns
     -------
     C1 : ndarray

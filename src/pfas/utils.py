@@ -8,13 +8,13 @@ import numpy as np
 from scipy.special import erfc, iv
 
 
-def ABfunc(Z, T, ws, betas, beta, P, R, Rs, m, cflag):
+def ABfunc(Z, T, ws, betas, beta, P, R, Rs, m, cflag): #noqa: N802, PLR0913, PLR0912
     """Compute A and B functions for kinetic sorption transport equations.
-    
+
     Calculates the A and B functions appearing in Eqs (16-17) of Guo et al (2022)
     for the advection-dispersion equation with kinetic sorption. Uses approximations
     of Goldstein's J functions with modified Bessel functions for efficiency.
-    
+
     Parameters
     ----------
     Z : float or ndarray
@@ -38,10 +38,10 @@ def ABfunc(Z, T, ws, betas, beta, P, R, Rs, m, cflag):
         Number of modified Bessel function terms used in the approximation.
     cflag : int
         Concentration averaging flag:
-        
+
         - 0: volume-averaged concentration
         - 1: flux-averaged concentration
-    
+
     Returns
     -------
     A : float or ndarray
@@ -50,13 +50,12 @@ def ABfunc(Z, T, ws, betas, beta, P, R, Rs, m, cflag):
     B : float or ndarray
         B function value (Eq 19 of Guo et al 2022), representing the
         contribution from kinetic sorption kinetics.
-    
+
     References
     ----------
     Guo et al. (2022). Advection-dispersion equation with kinetic sorption.
     Advances in Water Resources.
     """
-
     # number of cells for the numerical integration
     n = 1001
     # tau cannot be zero, so start from a very small number to avoid the boundaries
@@ -66,7 +65,8 @@ def ABfunc(Z, T, ws, betas, beta, P, R, Rs, m, cflag):
 
     if cflag == 0:
         # volume-averaged concentration
-        g = np.sqrt(P/(np.pi*beta*R*tau))*np.exp(-P*(beta*R*Z-tau)**2/(4*beta*R*tau)) -1/2*(P/(beta*R))*np.exp(P*Z)*erfc(np.sqrt(P/(4*beta*R*tau))*(beta*R*Z+tau))
+        g = np.sqrt(P/(np.pi*beta*R*tau))*np.exp(-P*(beta*R*Z-tau)**2/(4*beta*R*tau))
+        - 1/2*(P/(beta*R))*np.exp(P*Z)*erfc(np.sqrt(P/(4*beta*R*tau))*(beta*R*Z+tau))
     elif cflag == 1:
         # flux-averaged concentration
         g = Z/tau * np.sqrt(P*beta*R/(4*np.pi*tau)) * np.exp(-P*((beta*R*Z-tau)**2) /(4*beta*R*tau))
@@ -80,8 +80,10 @@ def ABfunc(Z, T, ws, betas, beta, P, R, Rs, m, cflag):
         b = ws*(T-tau)/((1-betas)*(Rs+1))
         for i in range(n):
             if a[i] + b[i] > 10:
-               Jab[i] = 1/2*erfc(np.sqrt(a[i]) - np.sqrt(b[i]) - 1/8/np.sqrt(a[i]) - 1/8/np.sqrt(b[i]))
-               Jba[i] = 1/2*erfc(np.sqrt(b[i]) - np.sqrt(a[i]) - 1/8/np.sqrt(b[i]) - 1/8/np.sqrt(a[i]))
+               Jab[i] = 1/2*erfc(np.sqrt(a[i]) - np.sqrt(b[i])
+                                 - 1/8/np.sqrt(a[i]) - 1/8/np.sqrt(b[i]))
+               Jba[i] = 1/2*erfc(np.sqrt(b[i])
+                                 - np.sqrt(a[i]) - 1/8/np.sqrt(b[i]) - 1/8/np.sqrt(a[i]))
             else:
                Iab_sum = 0
                Iba_sum = 0
@@ -103,13 +105,13 @@ def ABfunc(Z, T, ws, betas, beta, P, R, Rs, m, cflag):
     B = np.trapezoid(g*(1-Jba),tau)
     return A, B
 
-def Aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf):
+def aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf): #noqa: PLR0913
     """Compute air-water interfacial area using thermodynamic approach.
-    
+
     Estimates the air-water interfacial area per unit volume of porous medium
     using thermodynamic relations based on capillary pressure and water content,
     following van Genuchten soil water retention characteristics.
-    
+
     Parameters
     ----------
     sigma0 : float
@@ -128,42 +130,40 @@ def Aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf):
         Saturated water content (dimensionless).
     sf : float
         Scaling factor to correct the thermodynamic-based estimate (dimensionless).
-    
+
     Returns
     -------
     Aaw : float
         Air-water interfacial area per unit volume (cm²/cm³).
-    
+
     Notes
     -----
     The function integrates the capillary pressure curve over saturation range
     to estimate the interfacial area. Water properties are assumed:
-    
+
     - Water density: 1000 kg/m³
     - Gravitational acceleration: 9.81 m/s²
     """
-
     rhow = 1000
     g = 9.81
     m = 1 - 1/n
-    Sr = thr/ths
-    Sw = np.linspace(th/ths,1,1000)
-    Pc = lambda Sw: (((1-Sr)/(Sw-Sr))**(1/m) - 1)**(1/n)/alpha/100*rhow*g
+    sr = thr/ths
+    sw = np.linspace(th/ths,1,1000)
+    def pc(sw):
+        return (((1-sr)/(sw-sr))**(1/m) - 1)**(1/n)/alpha/100*rhow*g
 
-    Aaw = 10*np.trapezoid(poro/sigma0*Pc(Sw),Sw)
+    aaw = 10*np.trapezoid(poro/sigma0*pc(sw),sw)
+    aaw = aaw*sf
 
-    Aaw = Aaw*sf
-
-    return Aaw
-
-def Aaw_func_tracer(sw, x2, x1, x0):
+    return aaw
+def aaw_func_tracer(sw, x2, x1, x0):
     """Compute air-water interfacial area using empirical polynomial model.
-    
+
     Estimates air-water interfacial area per unit volume using polynomial
     fitting coefficients derived from tracer experiments or pore-scale imaging.
     This approach provides a simplified, computationally efficient alternative
     to thermodynamic calculations.
-    
+
     Parameters
     ----------
     sw : float or ndarray
@@ -174,18 +174,18 @@ def Aaw_func_tracer(sw, x2, x1, x0):
         Linear coefficient of polynomial fit.
     x0 : float
         Constant coefficient (intercept) of polynomial fit.
-    
+
     Returns
     -------
     Aaw : float or ndarray
         Air-water interfacial area per unit volume (cm²/cm³).
-    
+
     Notes
     -----
     The polynomial model is: Aaw = x2*sw² + x1*sw + x0
-    
+
     This function is useful when empirical coefficients have been determined
     from experimental data for a specific porous medium.
     """
-    Aaw = x2*sw**2 + x1*sw + x0
-    return Aaw
+    aaw = x2*sw**2 + x1*sw + x0
+    return aaw

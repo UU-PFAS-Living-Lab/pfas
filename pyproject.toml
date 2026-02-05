@@ -33,7 +33,7 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 test = [
-	"pytest", "ruff", "mypy", "nbval", "pytest-cov", 
+	"pytest", "ruff", "mypy", "nbval", "pytest-cov", "scipy-stubs", 
 ]
 docs = [
     "sphinx<9.0.0", "sphinx-rtd-theme", "sphinxcontrib-napoleon",
@@ -52,6 +52,13 @@ exclude = ["_version.py", "examples/*"]
 line-length = 100
 lint.select = ["E", "F", "W", "I", "N", "D", "PL", "ARG"]
 lint.ignore = ["PLR2004", "D107", "D105", "D102"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/pfas/analytical_soln.py" = ["N806"]
+"src/pfas/solvers.py" = ["N806", "N803"]    
+"src/pfas/utils.py" = ["N806", "N803"]
+"tests/test_preprocessing.py" = ["N806", "N803"]
+"tests/*" = ["D103", "D100"]
 
 [tool.ruff.lint.pydocstyle]
 convention="numpy"

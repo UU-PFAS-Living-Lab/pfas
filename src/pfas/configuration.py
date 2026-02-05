@@ -1,13 +1,15 @@
 """
 TOML configuration file validator for PFAS transport modeling.
 
-This module provides functionality to read and validate TOML configuration files
-for soil transport simulations, including validation of experimental conditions,
-soil properties, sorption parameters, air-water interface settings, and PFAS properties.
+This module provides functionality to read and validate TOML
+configuration files for soil transport simulations,
+including validation of experimental conditions,
+soil properties, sorption parameters, air-water interface settings,
+and PFAS properties.
 """
 
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 
 try:
     import tomllib
@@ -16,13 +18,43 @@ except ImportError:
 
 
 class Configuration():
+    """A read-only view over a parsed TOML configuration.
+
+    This class wraps a nested dictionary and provides convenient attribute-style access
+    to configuration values. If an attribute is not present on the instance,
+    attribute lookup falls back to a recursive search of the underlying dictionary using
+    :meth:`find`.
+
+    Attributes
+    ----------
+    config_dict : Dict[str, Any]
+        The underlying nested dictionary containing the parsed configuration.
+
+    Methods
+    -------
+    find(key, sub_dict=None)
+        Recursively search for ``key`` inside the configuration dictionary and
+        return the associated value if found, otherwise ``None``.
+
+    Notes
+    -----
+    This class intentionally implements ``__getattribute__`` to allow
+    attribute-style access for keys present in the configuration. Use
+    :func:`read_toml` to construct a ``Configuration`` from a TOML file.
+
+    Example
+    -------
+    >>> config = read_toml(Path("config.toml"))
+    >>> config.domain_length
+    """
+
     def __init__(self, config_dict):
         self.config_dict = config_dict
 
     def __getattribute__(self, key):
         try:
             return super().__getattribute__(key)
-        except AttributeError as e:
+        except AttributeError:
             val = self.find(key)
             if val is None:
                 raise
@@ -44,15 +76,16 @@ class Configuration():
                     return found_value
         return None
 
-def read_toml(path: Path) -> Dict[str, Any]:
+def read_toml(path: Path) -> Configuration:
     """
     Read a TOML configuration file.
 
     Args:
         path: Path to the TOML file
 
-    Returns:
-        Dictionary containing the parsed TOML configuration
+    Returns
+    -------
+        Configuration object wrapping the parsed TOML configuration
     """
     with open(path, "rb") as handle:
         config_dict = tomllib.load(handle)
@@ -66,7 +99,8 @@ def validate_config(config_dict: Dict[str, Any]) -> bool:
     Args:
         config_dict: Configuration dictionary parsed from TOML
 
-    Returns:
+    Returns
+    -------
         True if all validations pass, False otherwise
     """
     validators = [
@@ -89,14 +123,15 @@ def validate_config(config_dict: Dict[str, Any]) -> bool:
     return all(results)
 
 
-def check_toml_experimental_conditions(experimental_conditions_dict: Dict[str, Any]) -> bool:
+def check_toml_experimental_conditions(experimental_conditions_dict: Dict[str, Any]) -> bool: #noqa: PLR0911
     """
     Validate experimental conditions parameters from TOML config.
 
     Args:
         experimental_conditions_dict: Dictionary containing experimental conditions
 
-    Returns:
+    Returns
+    -------
         True if validation passes, False otherwise
     """
     required_keys = ['domain_length', 'spatial_resolution', 'time_total', 'soil_temp']
@@ -158,14 +193,15 @@ def check_toml_experimental_conditions(experimental_conditions_dict: Dict[str, A
     return True
 
 
-def check_toml_soil(soil_dict: Dict[str, Any]) -> bool:
+def check_toml_soil(soil_dict: Dict[str, Any]) -> bool: #noqa: PLR0911
     """
     Validate soil parameters from TOML config.
 
     Args:
         soil_dict: Dictionary containing soil parameters
 
-    Returns:
+    Returns
+    -------
         True if validation passes, False otherwise
     """
     expected_keys = [
@@ -222,8 +258,8 @@ def _validate_numeric_param(
     params: Dict[str, Any],
     param_name: str,
     allow_positive_only: bool = True,
-    min_value: float = None,
-    max_value: float = None
+    min_value: Optional[float] = None,
+    max_value: Optional[float] = None
 ) -> bool:
     """
     Validate a numeric parameter.
@@ -235,7 +271,8 @@ def _validate_numeric_param(
         min_value: Minimum allowed value (inclusive)
         max_value: Maximum allowed value (inclusive)
 
-    Returns:
+    Returns
+    -------
         True if validation passes, False otherwise
     """
     if param_name not in params:
@@ -262,14 +299,15 @@ def _validate_numeric_param(
     return True
 
 
-def check_toml_sorption(sorption_dict: Dict[str, Any]) -> bool:
+def check_toml_sorption(sorption_dict: Dict[str, Any]) -> bool: #noqa: PLR0911
     """
     Validate sorption parameters from TOML config.
 
     Args:
         sorption_dict: Dictionary containing sorption parameters
 
-    Returns:
+    Returns
+    -------
         True if validation passes, False otherwise
     """
     # Check kinetic_sorption flag
@@ -338,7 +376,7 @@ def _validate_kinetic_params(sorption_dict: Dict[str, Any]) -> bool:
     return True
 
 
-def _validate_linear_isotherm(isotherm_params: Dict[str, Any]) -> bool:
+def _validate_linear_isotherm(isotherm_params: Dict[str, Any]) -> bool: #noqa: PLR0911
     """Validate linear isotherm parameters."""
     if 'Kd_method' not in isotherm_params:
         print("Missing required key: Kd_method")
@@ -407,7 +445,8 @@ def check_toml_awi(awi_dict: Dict[str, Any]) -> bool:
     Args:
         awi_dict: Dictionary containing AWI parameters
 
-    Returns:
+    Returns
+    -------
         True if validation passes, False otherwise
     """
     if 'AWI_type' not in awi_dict:
@@ -450,7 +489,8 @@ def check_toml_sorption_awi(sorption_awi_dict: Dict[str, Any]) -> bool:
     Args:
         sorption_awi_dict: Dictionary containing AWI sorption parameters
 
-    Returns:
+    Returns
+    -------
         True if validation passes, False otherwise
     """
     if 'Kawi_method' not in sorption_awi_dict:
@@ -489,7 +529,8 @@ def check_toml_pfas(pfas_dict: Dict[str, Any]) -> bool:
     Args:
         pfas_dict: Dictionary containing PFAS parameters
 
-    Returns:
+    Returns
+    -------
         True if validation passes, False otherwise
     """
     # Check name

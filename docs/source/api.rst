@@ -127,6 +127,6 @@ air-water interface area estimation, and numerical integration support.
 
 .. autofunction:: ABfunc
 
-.. autofunction:: Aaw_func_thermo
+.. autofunction:: aaw_func_thermo
 
-.. autofunction:: Aaw_func_tracer
+.. autofunction:: aaw_func_tracer
