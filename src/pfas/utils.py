@@ -13,7 +13,7 @@ def ABfunc(Z, T, ws, betas, beta, P, R, Rs, m, cflag): #noqa: N802, PLR0913, PLR
 
     Calculates the A and B functions appearing in Eqs (16-17) of Guo et al (2022)
     for the advection-dispersion equation with kinetic sorption. Uses approximations
-    of Goldstein's J functions with modified Bessel functions for efficiency.S
+    of Goldstein's J functions with modified Bessel functions for efficiency.
 
     Parameters
     ----------
