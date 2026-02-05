@@ -9,7 +9,7 @@ and PFAS properties.
 """
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 try:
     import tomllib
@@ -76,7 +76,7 @@ class Configuration():
                     return found_value
         return None
 
-def read_toml(path: Path) -> Dict[str, Any]:
+def read_toml(path: Path) -> Configuration:
     """
     Read a TOML configuration file.
 
@@ -85,7 +85,7 @@ def read_toml(path: Path) -> Dict[str, Any]:
 
     Returns
     -------
-        Dictionary containing the parsed TOML configuration
+        Configuration object wrapping the parsed TOML configuration
     """
     with open(path, "rb") as handle:
         config_dict = tomllib.load(handle)
@@ -258,8 +258,8 @@ def _validate_numeric_param(
     params: Dict[str, Any],
     param_name: str,
     allow_positive_only: bool = True,
-    min_value: float = None,
-    max_value: float = None
+    min_value: Optional[float] = None,
+    max_value: Optional[float] = None
 ) -> bool:
     """
     Validate a numeric parameter.
