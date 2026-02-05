@@ -188,3 +188,45 @@ def valid_simulation_runner(
         kinetic_sorption=False,
         volume_averaged=False,
     )
+
+@pytest.fixture
+def make_simulation_runner(
+    valid_grid_generator,
+    valid_boundary_preprocessor,
+    result_water,
+    valid_sorption_kawi_direct_input,
+):
+    """Factory fixture to create SimulationRunner instances with different parameters."""
+
+    def _make_simulation_runner(kinetic_sorption=False, volume_averaged=False):
+        # Generate depth and time arrays based on grid generator parameters
+        depth = np.linspace(
+            0,
+            valid_grid_generator.domain_length,
+            int(valid_grid_generator.domain_length / valid_grid_generator.spatial_resolution) + 1,
+        )
+        time = np.linspace(
+            0,
+            valid_grid_generator.time_total,
+            int(valid_grid_generator.time_total / valid_grid_generator.time_resolution) + 1,
+        )
+
+        # Create SimulationGrid instance
+        grid = SimulationGrid(depth=depth, time=time)
+
+        # Initialize BoundaryConditions properly
+        boundary_conditions_data = valid_boundary_preprocessor.compute()
+        boundary_conditions = boundary_conditions_data["boundary_conditions"]
+
+        return SimulationRunner(
+            grid=grid,
+            bulk_density=1600.0,  # example value in kg/m³
+            boundary_conditions=boundary_conditions,
+            hydro_properties=result_water["hydro_properties"],
+            adsorption=valid_sorption_kawi_direct_input.compute()["adsorption"],
+            kinetic_sorption=kinetic_sorption,
+            volume_averaged=volume_averaged,
+        )
+
+    return _make_simulation_runner
+
