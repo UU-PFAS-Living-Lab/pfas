@@ -256,6 +256,16 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
         dict
             Dictionary with keys 'sp_retardation' and 'Kd'.
         """
+        linear = self.sorption_solid.get("linear")
+        if not linear:
+            raise ValueError("Missing 'linear' sorption parameters")
+
+        if linear.get("Kd_method") != "direct_input":
+            raise ValueError("Only 'direct_input' Kd_method is supported")
+
+        if "Kd" not in linear:
+            raise ValueError("Missing 'Kd' value for linear sorption")
+        
         if self.sorption_solid["sorption_isotherm"] == "linear":
             linear = self.sorption_solid["linear"]
             if linear["Kd_method"] == "direct_input":
