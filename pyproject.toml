@@ -33,7 +33,7 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 test = [
-	"pytest", "ruff", "mypy", "nbval", "pytest-cov", 
+	"pytest", "ruff", "mypy", "nbval", "pytest-cov", "scipy-stubs", 
 ]
 docs = [
     "sphinx<9.0.0", "sphinx-rtd-theme", "sphinxcontrib-napoleon",
