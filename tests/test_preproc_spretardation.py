@@ -29,6 +29,6 @@ def test_missing_kd_raises(result_water):
         hydro_properties=result_water["hydro_properties"],
     )
 
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError):
         preprocessor.compute()
 
