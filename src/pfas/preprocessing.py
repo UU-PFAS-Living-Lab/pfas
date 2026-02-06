@@ -277,7 +277,7 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
 
         if "Kd" not in linear:
             raise ValueError("Missing 'Kd' value for linear sorption")
-        
+
         if self.sorption_solid["sorption_isotherm"] == "linear":
             linear = self.sorption_solid["linear"]
             if linear["Kd_method"] == "direct_input":
