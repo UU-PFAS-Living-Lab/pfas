@@ -268,6 +268,16 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
         dict
             Dictionary with keys 'sp_retardation' and 'Kd'.
         """
+        linear = self.sorption_solid.get("linear")
+        if not linear:
+            raise ValueError("Missing 'linear' sorption parameters")
+
+        if linear.get("Kd_method") != "direct_input":
+            raise ValueError("Only 'direct_input' Kd_method is supported")
+
+        if "Kd" not in linear:
+            raise ValueError("Missing 'Kd' value for linear sorption")
+
         if self.sorption_solid["sorption_isotherm"] == "linear":
             linear = self.sorption_solid["linear"]
             if linear["Kd_method"] == "direct_input":
@@ -332,7 +342,7 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
             x0 = guo_params["guo_x0"]
             x1 = guo_params["guo_x1"]
             x2 = guo_params["guo_x2"]
-            aaw = aaw_func_tracer(self.theta, x2, x1, x0)
+            aaw = aaw_func_tracer(theta, x2, x1, x0)
         return {"aaw": aaw}
 
 class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid'):
