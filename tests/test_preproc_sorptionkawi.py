@@ -1,7 +1,8 @@
 import pytest
 
-from pfas.preprocessing import SorptionKawiDirectInput
 from pfas.analytical_soln import Adsorption
+from pfas.preprocessing import SorptionKawiDirectInput
+
 
 def test_compute_returns_adsorption(valid_sorption_kawi_direct_input):
     result = valid_sorption_kawi_direct_input.compute()

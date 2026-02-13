@@ -1,7 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from pfas.preprocessing import BoundaryPreprocessor, BoundaryConditions
+from pfas.preprocessing import BoundaryConditions, BoundaryPreprocessor
+
 
 def test_outputs_property(valid_boundary_preprocessor):
     assert valid_boundary_preprocessor.outputs == ["boundary_conditions"]

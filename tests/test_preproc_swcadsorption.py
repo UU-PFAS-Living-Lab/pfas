@@ -1,7 +1,8 @@
-import pytest
-from unittest.mock import patch
 
-from pfas.preprocessing import SWCAdsorptionPreprocessor, HydrologicalProperties
+import pytest
+
+from pfas.preprocessing import SWCAdsorptionPreprocessor
+
 
 def test_compute_swc_based_returns_dict(valid_swc_adsorption_swc):
     result = valid_swc_adsorption_swc.compute()

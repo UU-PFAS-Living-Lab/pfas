@@ -1,8 +1,7 @@
-import pytest
 import numpy as np
+import pytest
 
 from pfas.preprocessing import SimulationRunner
-from pfas.analytical_soln import Adsorption
 
 
 def test_kinetic_sorption_flag(make_simulation_runner):
@@ -55,7 +54,7 @@ def test_invalid_bulk_density():
 def test_extra_fields_forbidden(make_simulation_runner):
     """Test that extra fields are forbidden by Pydantic."""
     runner = make_simulation_runner()
-    
+
     with pytest.raises(ValueError):
         SimulationRunner(
             grid=runner.grid,
@@ -113,7 +112,7 @@ def test_factory_fixture_kinetic_sorption_true(make_simulation_runner):
     assert "C1" in result
     assert "C2" in result
     assert "C_tot" in result
-    
+
     # For kinetic solver: both C1 and C2 should be arrays
     assert isinstance(result["C1"], np.ndarray)
     assert isinstance(result["C2"], np.ndarray)
@@ -131,7 +130,7 @@ def test_factory_fixture_volume_averaged_true(make_simulation_runner):
     assert "C1" in result
     assert "C2" in result
     assert "C_tot" in result
-    
+
     # For equilibrium solver: C1 should be array, C2 should be None
     assert isinstance(result["C1"], np.ndarray)
     assert result["C2"] is None
@@ -149,7 +148,7 @@ def test_factory_fixture_both_true(make_simulation_runner):
     assert "C1" in result
     assert "C2" in result
     assert "C_tot" in result
-    
+
     # For kinetic solver: both C1 and C2 should be arrays
     assert isinstance(result["C1"], np.ndarray)
     assert isinstance(result["C2"], np.ndarray)
@@ -167,7 +166,7 @@ def test_factory_fixture_both_false(make_simulation_runner):
     assert "C1" in result
     assert "C2" in result
     assert "C_tot" in result
-    
+
     # For equilibrium solver: C1 should be array, C2 should be None
     assert isinstance(result["C1"], np.ndarray)
     assert result["C2"] is None

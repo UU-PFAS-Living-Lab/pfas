@@ -1,7 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from pfas.preprocessing import WaterPreprocessor, HydrologicalProperties
+from pfas.preprocessing import HydrologicalProperties, WaterPreprocessor
+
 
 def test_outputs_property(valid_water_preprocessor):
     assert valid_water_preprocessor.outputs == ["hydro_properties"]
