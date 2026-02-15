@@ -1,3 +1,5 @@
+
+
 """Utility functions for PFAS analytical solver.
 
 This module provides helper functions for kinetic sorption calculations,
@@ -105,6 +107,7 @@ def ABfunc(Z, T, ws, betas, beta, P, R, Rs, m, cflag): #noqa: N802, PLR0913, PLR
     B = np.trapezoid(g*(1-Jba),tau)
     return A, B
 
+
 def aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf): #noqa: PLR0913
     """Compute air-water interfacial area using thermodynamic approach.
 
@@ -156,6 +159,7 @@ def aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf): #noqa: PLR0913
     aaw = aaw*sf
 
     return aaw
+
 def aaw_func_tracer(sw, x2, x1, x0):
     """Compute air-water interfacial area using empirical polynomial model.
 
@@ -189,3 +193,79 @@ def aaw_func_tracer(sw, x2, x1, x0):
     """
     aaw = x2*sw**2 + x1*sw + x0
     return aaw
+
+
+def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
+    """Calculate distribution coefficient using Fabregat-Palau (2021) model.
+
+    Computes the soil-water distribution coefficient (Kd) for PFAS compounds
+    based on the number of perfluorinated carbons and soil organic carbon
+    and silt-clay content.
+
+    Parameters
+    ----------
+    n_CFx : int
+        Number of perfluorinated carbons (CF2 groups) in the PFAS molecule.
+    f_oc : float
+        Fraction of organic carbon in soil (dimensionless, 0-1).
+    f_silt_clay : float
+        Fraction of silt and clay in soil (dimensionless, 0-1).
+
+    Returns
+    -------
+    Kd : float
+        Distribution coefficient (L/kg).
+
+    References
+    ----------
+    Fabregat-Palau et al. (2021). Modelling the sorption behaviour of
+    perfluoroalkyl acids in soils.
+    """
+    k_oc = k_oc_fabregat_palau2021(n_CFx)
+    k_silt_clay = k_sc_fabregat_palau2021(n_CFx)
+    Kd = k_oc * f_oc + k_silt_clay * f_silt_clay
+    return Kd
+
+
+def k_sc_fabregat_palau2021(n_CFx):
+    """Calculate silt-clay sorption coefficient (Fabregat-Palau 2021).
+
+    Parameters
+    ----------
+    n_CFx : int
+        Number of perfluorinated carbons (CF2 groups).
+
+    Returns
+    -------
+    k_sc : float
+        Silt-clay sorption coefficient (L/kg).
+
+    References
+    ----------
+    Fabregat-Palau et al. (2021). Modelling the sorption behaviour of
+    perfluoroalkyl acids in soils.
+    """
+    k_sc = 10 ** (0.32 * n_CFx - 1.7)
+    return k_sc
+
+
+def k_oc_fabregat_palau2021(n_CFx):
+    """Calculate organic carbon sorption coefficient (Fabregat-Palau 2021).
+
+    Parameters
+    ----------
+    n_CFx : int
+        Number of perfluorinated carbons (CF2 groups).
+
+    Returns
+    -------
+    k_oc : float
+        Organic carbon sorption coefficient (L/kg).
+
+    References
+    ----------
+    Fabregat-Palau et al. (2021). Modelling the sorption behaviour of
+    perfluoroalkyl acids in soils.
+    """
+    k_oc = 10 ** (0.41 * n_CFx - 0.7)
+    return k_oc

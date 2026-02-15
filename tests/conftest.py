@@ -1,16 +1,20 @@
 from pathlib import Path
 
-import pytest
 import numpy as np
+import pytest
 
+from pfas.analytical_soln import SimulationGrid
 from pfas.configuration import read_toml
-from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor
-from pfas.preprocessing import GridGenerator
-from pfas.preprocessing import SpRetardationPreprocessor
-from pfas.preprocessing import SWCAdsorptionPreprocessor
-from pfas.preprocessing import SorptionKawiDirectInput
-from pfas.preprocessing import SimulationRunner
-from pfas.analytical_soln import SimulationGrid, BoundaryConditions
+from pfas.preprocessing import (
+    BoundaryPreprocessor,
+    GridGenerator,
+    SimulationRunner,
+    SorptionKawiDirectInput,
+    SpRetardationPreprocessor,
+    SWCAdsorptionPreprocessor,
+    WaterPreprocessor,
+)
+
 
 @pytest.fixture(scope="session")
 def configuration():
@@ -167,7 +171,6 @@ def valid_simulation_runner(
     valid_sorption_kawi_direct_input,
 ):
     """A valid SimulationRunner instance."""
-
     # Generate depth and time arrays based on grid generator parameters
     depth = np.linspace(0, valid_grid_generator.domain_length, int(valid_grid_generator.domain_length / valid_grid_generator.spatial_resolution) + 1)
     time = np.linspace(0, valid_grid_generator.time_total, int(valid_grid_generator.time_total / valid_grid_generator.time_resolution) + 1)
