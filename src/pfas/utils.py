@@ -269,3 +269,38 @@ def k_oc_fabregat_palau2021(n_CFx):
     """
     k_oc = 10 ** (0.41 * n_CFx - 0.7)
     return k_oc
+
+def kd_freundlich(C_rep, K_freund, n_freund):  # noqa: N802
+    """Calculate distribution coefficient using the Freundlich sorption model.
+
+    Computes the soil-water distribution coefficient (Kd) from a Freundlich
+    isotherm, which describes non-linear sorption onto soil.
+
+    The Freundlich isotherm is defined as:
+        S = K_freund * C^n_freund
+    which gives a concentration-dependent Kd:
+        Kd = K_freund * C_rep^(n_freund - 1)
+
+    For C_rep = 0, Kd reduces to K_freund (equivalent to C_rep = 1).
+
+    Parameters
+    ----------
+    C_rep : float
+        Representative aqueous-phase concentration [mg/L].
+        If zero, Kd is returned as K_freund (C_rep = 1 assumed).
+    K_freund : float
+        Freundlich capacity coefficient [(mg/kg) / (mg/L)^n_freund].
+    n_freund : float
+        Freundlich exponent [-]. n_freund < 1 indicates favourable
+        (concave) sorption; n_freund = 1 recovers linear (Kd) sorption.
+
+    Returns
+    -------
+    Kd : float
+        Concentration-dependent distribution coefficient [L/kg].
+
+    """
+    if C_rep == 0:
+        return K_freund
+    Kd = K_freund * C_rep ** (n_freund - 1)
+    return Kd
