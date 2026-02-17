@@ -1,4 +1,4 @@
-# cleaned_pyfas_data.py
+"""Cleaned.pyfas data."""
 # Auto‑generated PFAS, soil, and sorption parameter data
 # All values are plain numbers or (value, "unit") tuples
 # All nested structures are represented as tuples of (field, value) pairs
@@ -10,10 +10,19 @@ Usage:
 from cleaned_pyfas_data import PFASs, soils, spa_matrix
 
 PFASs.keys()
-dict_keys(['TFA', 'PFBA', 'PFBS', 'PFPeA', 'PFHxA', 'PFHxS', 'PFHpA', 'PFOA', 'PFOS', 'PFNA', 'PFDA', 'HFPO-DA'])
+dict_keys(['TFA', 'PFBA', 'PFBS', 'PFPeA',
+           'PFHxA', 'PFHxS', 'PFHpA', 'PFOA',
+           'PFOS', 'PFNA', 'PFDA', 'HFPO-DA'])
 
 soils.keys()
-dict_keys(['Accusand', 'Vinton soil', 'Schoonenburgse Heuvel - sand', 'Schoonenburgse Heuvel - peat', 'Silva et al. (2020) - loam', 'Silva et al. (2020) - Loamy sand', 'Staring-B01', 'Staring-O01', 'Staring-O02', 'Staring-O03', 'Staring-O04', 'Staring-O05', 'Staring-O06', 'Staring-O07', 'Staring-O08', 'Staring-O09', 'Staring-O10', 'Staring-O11', 'Staring-O12', 'Staring-O13', 'Staring-O14', 'Staring-O15', 'Staring-O16', 'Staring-O17', 'Staring-O18'])
+dict_keys(['Accusand', 'Vinton soil', 'Schoonenburgse Heuvel - sand',
+           'Schoonenburgse Heuvel - peat', 'Silva et al. (2020) - loam',
+           'Silva et al. (2020) - Loamy sand', 'Staring-B01',
+           'Staring-O01', 'Staring-O02', 'Staring-O03', 'Staring-O04',
+           'Staring-O05', 'Staring-O06', 'Staring-O07', 'Staring-O08',
+           'Staring-O09', 'Staring-O10', 'Staring-O11', 'Staring-O12',
+           'Staring-O13', 'Staring-O14', 'Staring-O15', 'Staring-O16',
+           'Staring-O17', 'Staring-O18'])
 
 spa_matrix.keys()
 dict_keys(['Accusand', 'Vinton soil'])
