@@ -19,6 +19,7 @@ def _():
     from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner
     from pfas.configuration import read_toml
     from pfas.model import Model
+    from pfas.data_loader import load_dataset
     from matplotlib import pyplot as plt
     import marimo as mo
     return (
@@ -29,6 +30,7 @@ def _():
         SorptionKawiDirectInput,
         SpRetardationPreprocessor,
         WaterPreprocessor,
+        load_dataset,
         mo,
         plt,
     )
@@ -45,9 +47,11 @@ def _(mo):
 
 
 @app.cell
-def _():
-    from pfas.cleaned_pyfas_data import PFASs, soils, spa_matrix
+def _(load_dataset):
 
+    PFASs = load_dataset("PFASs", "src/pfas/data")
+    soils = load_dataset("soils", "src/pfas/data")
+    spa_matrix = load_dataset("spa_matrix", "src/pfas/data")
     # See what's available
     print("Available PFAS compounds:")
     print(list(PFASs.keys()))
@@ -82,24 +86,23 @@ def _(PFASs, soils, spa_matrix):
     # Unpack van Genuchten parameters (stored as tuple of (field, value) pairs)
     vg_params = dict(soil["van_genuchten"])   # convert to dict for easy access
     print("\nVan Genuchten parameters:")
-    for field, value in soil["van_genuchten"]:
-        print(f"  {field}: {value}")
+    print(vg_params)
 
     # Pull scalar soil values used in the simulation
-    bulk_dens   = soil["rho_b"][0]           # numeric value only (g/cm³)
+    bulk_dens   = soil["rho_b"]  ["value"]         # numeric value only (g/cm³)
     porosity    = soil["porosity"]
     vg_n        = vg_params["n"]
     theta_r     = soil["theta_r"]
-    vg_alpha    = vg_params["alpha"][0]      # numeric value (1/cm)
+    vg_alpha    = vg_params["alpha"]["value"]    # numeric value (1/cm)
     dispersivity = 1.5                       # not present for Accusand, use default
     C_rep = 1 #indication of nonlinearity for freundlich sorption, can be between 0 and 1
     # Check for solid phase adsorption paraeters available:
     if soil_name in spa_matrix and pfas_name in spa_matrix[soil_name]:
         spa = dict(spa_matrix[soil_name][pfas_name])
-        freundlich_k = spa["Freundlich_K"][0]   # numeric value
+        freundlich_k = spa["Freundlich_K"]["value"]   # numeric value
         freundlich_n = spa["Freundlich_N"]
         frac_int = spa["frac_instant_adsorption"]
-        rate_const = spa["kinetic_adsorption_rate"][0]
+        rate_const = spa["kinetic_adsorption_rate"]
         print(f"\nSorption parameters (spa_matrix) for {pfas_name} in {soil_name}:")
         print(f"  Freundlich K : {freundlich_k}")
         print(f"  Freundlich N : {freundlich_n}")
@@ -171,7 +174,7 @@ def _(
     # Step 2: Compute water flow / hydraulic properties
     water_prep = WaterPreprocessor(
         average_infiltration_rate=1.5,
-        hydraulic_conductivity=soil["K_sat"][0],   # pulled from soil data
+        hydraulic_conductivity=soil["K_sat"]["value"],   # pulled from soil data
         porosity=porosity,
         dispersivity=dispersivity,
         van_genuchten_n=vg_n,
