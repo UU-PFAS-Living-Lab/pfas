@@ -1,38 +1,22 @@
 import json
-import os
+from importlib import resources
 
 
 VALID_DATASETS = {"PFASs", "soils", "spa_matrix"}
 
 
-def load_dataset(name, data_dir="data"):
+def load_dataset(name):
     """
-    Load one of the JSON datasets.
-
-    Parameters
-    ----------
-    name : str
-        One of: "PFASs", "soils", "spa_matrix"
-    data_dir : str
-        Folder containing JSON files (default="data")
-
-    Returns
-    -------
-    dict
+    Load one of the packaged JSON datasets.
     """
 
     if name not in VALID_DATASETS:
         raise ValueError(
-            f"Invalid dataset name '{name}'. "
+            f"Invalid dataset '{name}'. "
             f"Choose from: {sorted(VALID_DATASETS)}"
         )
 
-    path = os.path.join(data_dir, f"{name}.json")
+    package = "pfas.data"
 
-    if not os.path.exists(path):
-        raise FileNotFoundError(
-            f"{path} not found. Did you run export_to_json.py?"
-        )
-
-    with open(path, "r", encoding="utf-8") as f:
+    with resources.files(package).joinpath(f"{name}.json").open("r", encoding="utf-8") as f:
         return json.load(f)
