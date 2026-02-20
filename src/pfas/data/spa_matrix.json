@@ -1,0 +1,90 @@
+{
+    "Accusand": {
+        "PFPeA": {
+            "Freundlich_K": {
+                "value": 0.0211,
+                "unit": "(mg/kg)/(mg/L)**0.87"
+            },
+            "Freundlich_N": 0.87,
+            "frac_instant_adsorption": 0.4,
+            "kinetic_adsorption_rate": {
+                "value": 5.9,
+                "unit": "1/h"
+            }
+        },
+        "PFHxS": {
+            "Freundlich_K": {
+                "value": 0.0213,
+                "unit": "(mg/kg)/(mg/L)**0.81"
+            },
+            "Freundlich_N": 0.81,
+            "frac_instant_adsorption": 0.1,
+            "kinetic_adsorption_rate": {
+                "value": 3.1,
+                "unit": "1/h"
+            }
+        },
+        "PFOA": {
+            "Freundlich_K": {
+                "value": 0.1,
+                "unit": "mg/kg/(mg/L)**0.87"
+            },
+            "Freundlich_N": 0.87,
+            "frac_instant_adsorption": 0.4,
+            "kinetic_adsorption_rate": {
+                "value": 5.9,
+                "unit": "1/h"
+            }
+        },
+        "PFOS": {
+            "Freundlich_K": {
+                "value": 0.15,
+                "unit": "mg/kg/(mg/L)**0.81"
+            },
+            "Freundlich_N": 0.81,
+            "frac_instant_adsorption": 0.1,
+            "kinetic_adsorption_rate": {
+                "value": 3.1,
+                "unit": "1/h"
+            }
+        }
+    },
+    "Vinton soil": {
+        "PFPeA": {
+            "Freundlich_K": {
+                "value": 0.122,
+                "unit": "(mg/kg)/(mg/L)**0.87"
+            },
+            "Freundlich_N": 0.87,
+            "frac_instant_adsorption": 0.16,
+            "kinetic_adsorption_rate": {
+                "value": 0.9,
+                "unit": "1/h"
+            }
+        },
+        "PFHxS": {
+            "Freundlich_K": {
+                "value": 0.156,
+                "unit": "(mg/kg)/(mg/L)**0.77"
+            },
+            "Freundlich_N": 0.77,
+            "frac_instant_adsorption": 0.16,
+            "kinetic_adsorption_rate": {
+                "value": 0.9,
+                "unit": "1/h"
+            }
+        },
+        "PFOA": {
+            "Freundlich_K": {
+                "value": 0.58,
+                "unit": "(mg/kg)/(mg/L)**0.87"
+            },
+            "Freundlich_N": 0.87,
+            "frac_instant_adsorption": 0.16,
+            "kinetic_adsorption_rate": {
+                "value": 0.9,
+                "unit": "1/h"
+            }
+        }
+    }
+}
