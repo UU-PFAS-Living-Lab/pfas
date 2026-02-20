@@ -19,7 +19,6 @@ def _():
     from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner
     from pfas.configuration import read_toml
     from pfas.model import Model
-    from pfas.data_loader import load_dataset
     from matplotlib import pyplot as plt
     import marimo as mo
     return (
@@ -30,7 +29,6 @@ def _():
         SorptionKawiDirectInput,
         SpRetardationPreprocessor,
         WaterPreprocessor,
-        load_dataset,
         mo,
         plt,
     )
@@ -47,11 +45,12 @@ def _(mo):
 
 
 @app.cell
-def _(load_dataset):
+def _():
+    from pfas.data_loader import load_dataset
 
-    PFASs = load_dataset("PFASs", "src/pfas/data")
-    soils = load_dataset("soils", "src/pfas/data")
-    spa_matrix = load_dataset("spa_matrix", "src/pfas/data")
+    PFASs = load_dataset("PFASs")
+    soils = load_dataset("soils")
+    spa_matrix = load_dataset("spa_matrix")
     # See what's available
     print("Available PFAS compounds:")
     print(list(PFASs.keys()))
