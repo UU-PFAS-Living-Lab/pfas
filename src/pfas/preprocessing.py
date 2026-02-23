@@ -10,9 +10,8 @@ The preprocessors handle calculations for:
 - Water flow properties
 - Boundary conditions
 - Spatial and temporal grids
-- Solid-phase retardation
+- Adsorption parameters (solid-phase and air-water interface)
 - Air-water interface adsorption
-- Sorption coefficients
 - Simulation execution
 
 Classes
@@ -23,12 +22,11 @@ BoundaryPreprocessor
     Calculates boundary conditions for contaminant input.
 GridGenerator
     Generates spatial and temporal discretization grids.
-SpRetardationPreprocessor
-    Computes solid-phase retardation factors.
 SWCAdsorptionPreprocessor
     Calculates air-water interface area using thermodynamic relations.
-SorptionKawiDirectInput
-    Computes adsorption parameters for air-water interface.
+AdsorptionCollector
+    Consolidates solid-phase and air-water interface sorption parameters
+    into a single Adsorption object.
 SimulationRunner
     Executes the analytical solution with preprocessed parameters.
 
@@ -119,14 +117,16 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
             Dictionary with key 'hydro_properties' containing a
             HydrologicalProperties instance with theta, v, and D values.
         """
-        kr = self.average_infiltration_rate/self.hydraulic_conductivity
-        m = 1 - 1/self.van_genuchten_n
+        kr = self.average_infiltration_rate / self.hydraulic_conductivity
+        m = 1 - 1 / self.van_genuchten_n
+
         def relperm(se):
             return se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
+
         se = fsolve(relperm, self.init_sat)
         theta = se[0] * (self.porosity - self.residual_water_content) + self.residual_water_content
-        v = self.average_infiltration_rate/theta
-        d = v*self.dispersivity
+        v = self.average_infiltration_rate / theta
+        d = v * self.dispersivity
         return {"hydro_properties": HydrologicalProperties(theta, v, d)}
 
     @property
@@ -172,7 +172,8 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
             BoundaryConditions instance.
         """
         contaminant_release_rate_per_second = (
-            self.solute_concentration_influx * self.average_infiltration_rate / self.pulse_duration)
+            self.solute_concentration_influx * self.average_infiltration_rate / self.pulse_duration
+        )
         bc = BoundaryConditions(self.pulse_duration, contaminant_release_rate_per_second)
         return {"boundary_conditions": bc}
 
@@ -220,16 +221,89 @@ class GridGenerator(BaseModel, validate_assignment=True, extra='forbid'):
             Dictionary with key 'grid' containing a SimulationGrid instance
             with depth and time arrays.
         """
-        grid_depth = np.linspace(self.spatial_resolution/2.0,
-                                 self.domain_length-self.spatial_resolution/2.0,
-                                 int(self.domain_length/self.spatial_resolution))
-        grid_time = np.linspace(0, self.time_total, int(self.time_total/self.time_resolution+0.5))
+        grid_depth = np.linspace(
+            self.spatial_resolution / 2.0,
+            self.domain_length - self.spatial_resolution / 2.0,
+            int(self.domain_length / self.spatial_resolution),
+        )
+        grid_time = np.linspace(
+            0, self.time_total, int(self.time_total / self.time_resolution + 0.5)
+        )
         return {"grid": SimulationGrid(grid_depth, grid_time)}
 
     @property
     def outputs(self):
         """List of output keys from compute() method."""
         return ["grid"]
+
+
+class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
+    """
+    Calculate air-water interface area using thermodynamic relations.
+
+    Uses van Genuchten soil water characteristic curve to estimate
+    air-water interfacial area from water saturation.
+
+    Parameters
+    ----------
+    hydro_properties : HydrologicalProperties
+        Hydraulic properties from WaterPreprocessor.
+    sigma0 : float, optional
+        Surface tension of water (N/m). Default is 0.072.
+    scaling_factor_awi : float
+        Scaling factor for air-water interface area (dimensionless).
+    AWI : dict
+        Dictionary specifying AWI method and associated parameters.
+    soil : dict
+        Dictionary containing soil parameters: 'porosity', 'van_genuchten_alpha',
+        'van_genuchten_n', and 'residual_water_content'.
+
+    Attributes
+    ----------
+    outputs : list of str
+        List containing 'aaw'.
+    """
+
+    hydro_properties: HydrologicalProperties
+    sigma0: Annotated[float, Gt(0)] = 0.072
+    scaling_factor_awi: Annotated[float, Gt(0)]
+    AWI: dict
+    soil: dict
+
+    def compute(self):
+        """
+        Calculate air-water interfacial area.
+
+        Returns
+        -------
+        dict
+            Dictionary with key 'aaw' containing the calculated
+            air-water interfacial area (m²/m³).
+        """
+        poro = self.soil["porosity"]
+        alpha = self.soil["van_genuchten_alpha"]
+        n_vg = self.soil["van_genuchten_n"]
+        theta = self.hydro_properties.water_content
+        thetar = self.soil["residual_water_content"]
+        thetas = poro
+
+        if self.AWI["AWI_type"] == "SWC-based":
+            aaw = aaw_func_thermo(
+                self.sigma0, poro, alpha, n_vg, theta, thetar, thetas, self.scaling_factor_awi
+            )
+        elif self.AWI["AWI_type"] == "Guo":
+            guo_params = self.AWI["Guo"]
+            x0 = guo_params["guo_x0"]
+            x1 = guo_params["guo_x1"]
+            x2 = guo_params["guo_x2"]
+            aaw = aaw_func_tracer(theta, x2, x1, x0)
+
+        return {"aaw": aaw}
+
+    @property
+    def outputs(self):
+        """List of output keys from compute() method."""
+        return ["aaw"]
 
 
 class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
@@ -281,69 +355,15 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
         if self.sorption_solid["sorption_isotherm"] == "linear":
             linear = self.sorption_solid["linear"]
             if linear["Kd_method"] == "direct_input":
-                Kd = linear["Kd"] # noqa: N806
+                Kd = linear["Kd"]  # noqa: N806
         sp_retardation = (self.bulk_density * Kd) / self.hydro_properties.water_content
         return {"sp_retardation": sp_retardation, "Kd": Kd}
 
     @property
     def outputs(self):
         """List of output keys from compute() method."""
-        return ["sp_retardation"]
+        return ["sp_retardation", "Kd"]
 
-
-class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
-    """
-    Calculate air-water interface area using thermodynamic relations.
-
-    Uses van Genuchten soil water characteristic curve to estimate
-    air-water interfacial area from water saturation.
-
-    Parameters
-    ----------
-    hydro_properties : HydrologicalProperties
-        Hydraulic properties from WaterPreprocessor.
-    sigma0 : float, optional
-        Surface tension of water (N/m). Default is 0.072.
-    scaling_factor_awi : float
-        Scaling factor for air-water interface area (dimensionless).
-    soil : dict
-        Dictionary containing soil parameters: 'porosity', 'van_genuchten_alpha',
-        'van_genuchten_n', and 'residual_water_content'.
-    """
-
-    hydro_properties: HydrologicalProperties
-    sigma0: Annotated[float, Gt(0)] = 0.072
-    scaling_factor_awi: Annotated[float, Gt(0)]
-    AWI: dict
-    soil: dict
-
-    def compute(self):
-        """
-        Calculate air-water interfacial area.
-
-        Returns
-        -------
-        dict
-            Dictionary with key 'aaw' containing the calculated
-            air-water interfacial area (m²/m³).
-        """
-        poro = self.soil["porosity"]
-        alpha = self.soil["van_genuchten_alpha"]
-        n_vg = self.soil["van_genuchten_n"]
-        theta = self.hydro_properties.water_content
-        thetar = self.soil["residual_water_content"]
-        thetas = poro
-
-        if self.AWI["AWI_type"] == "SWC-based":
-            aaw = aaw_func_thermo(self.sigma0, poro, alpha, n_vg, theta, thetar, thetas,
-                                  self.scaling_factor_awi)
-        elif self.AWI["AWI_type"] == "Guo":
-            guo_params = self.AWI["Guo"]
-            x0 = guo_params["guo_x0"]
-            x1 = guo_params["guo_x1"]
-            x2 = guo_params["guo_x2"]
-            aaw = aaw_func_tracer(theta, x2, x1, x0)
-        return {"aaw": aaw}
 
 class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid'):
     """
@@ -362,10 +382,6 @@ class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid
         Solid-phase partition coefficient (m³/kg).
     aaw : float
         Air-water interfacial area (m²/m³).
-    sorption_solid : dict
-        Dictionary containing solid-phase sorption parameters.
-    sp_retardation : float
-        Solid-phase retardation factor (dimensionless).
 
     Attributes
     ----------
@@ -375,34 +391,93 @@ class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid
 
     kaw: float
     hydro_properties: HydrologicalProperties
-    Kd: float
     aaw: float
-    sorption_solid: dict
-    sp_retardation: float
 
     def compute(self):
         """
-        Calculate air-water interface retardation.
+        Calculate air-water interface retardation factor.
 
         Returns
         -------
         dict
-            Dictionary with key 'adsorption' containing an Adsorption instance
-            with all sorption parameters.
+            Dictionary with key 'awi_retardation'.
         """
         awi_retardation = (self.kaw * self.aaw) / self.hydro_properties.water_content
-        return {"adsorption": Adsorption(
-            Kd=self.Kd,
-            rate_const=self.sorption_solid.get("rate_const", 0.0),
-            frac_int=self.sorption_solid.get("fraction_instantaneous", 1.0),
-            sp_retardation=self.sp_retardation,
-            awi_retardation=awi_retardation,
-        )}
+        return {"awi_retardation": awi_retardation}
 
     @property
     def outputs(self):
         """List of output keys from compute() method."""
         return ["awi_retardation"]
+
+
+class AdsorptionCollector(BaseModel, validate_assignment=True, extra='forbid'):
+    """
+    Assemble the final Adsorption object from preprocessor outputs.
+
+    Collects the results of SpRetardationPreprocessor and
+    SorptionKawiDirectInput (and any future adsorption preprocessors)
+    and assembles them into the Adsorption instance required by
+    SimulationRunner.
+
+    Parameters
+    ----------
+    Kd : float
+        Solid-phase partition coefficient (m³/kg) from SpRetardationPreprocessor.
+    sp_retardation : float
+        Solid-phase retardation factor from SpRetardationPreprocessor.
+    awi_retardation : float
+        Air-water interface retardation factor from SorptionKawiDirectInput.
+    sorption_solid : dict
+        Dictionary containing solid-phase sorption parameters. Used to extract
+        'rate_const' and 'fraction_instantaneous' for the Adsorption object.
+
+    Attributes
+    ----------
+    outputs : list of str
+        List containing 'adsorption'.
+
+    Examples
+    --------
+    >>> collector = AdsorptionCollector(
+    ...     Kd=0.001,
+    ...     sp_retardation=3.75,
+    ...     awi_retardation=0.5,
+    ...     sorption_solid={"rate_const": 0.0, "fraction_instantaneous": 1.0},
+    ... )
+    >>> result = collector.compute()
+    >>> 'adsorption' in result
+    True
+    """
+
+    Kd: float  # noqa: N815
+    sp_retardation: float
+    awi_retardation: float
+    sorption_solid: dict
+
+    def compute(self):
+        """
+        Assemble the Adsorption object.
+
+        Returns
+        -------
+        dict
+            Dictionary with key 'adsorption' containing an Adsorption instance.
+        """
+        return {
+            "adsorption": Adsorption(
+                Kd=self.Kd,
+                rate_const=self.sorption_solid.get("rate_const", 0.0),
+                frac_int=self.sorption_solid.get("fraction_instantaneous", 1.0),
+                sp_retardation=self.sp_retardation,
+                awi_retardation=self.awi_retardation,
+            )
+        }
+
+    @property
+    def outputs(self):
+        """List of output keys from compute() method."""
+        return ["adsorption"]
 
 
 class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
@@ -414,18 +489,29 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
     all preprocessed input parameters to compute contaminant concentrations
     in water and solid phases over space and time.
 
+    AdsorptionCollector is run internally -- the user only needs to supply
+    the outputs of the individual adsorption preprocessors (sp_retardation,
+    Kd, awi_retardation) and sorption_solid directly.
+
     Parameters
     ----------
     grid : SimulationGrid
         Spatial and temporal discretization from GridGenerator.
     bulk_density : float
-        Soil bulk density (kg/m³). Must be positive.
+        Soil bulk density (kg/m3). Must be positive.
     boundary_conditions : BoundaryConditions
         Boundary conditions from BoundaryPreprocessor.
     hydro_properties : HydrologicalProperties
         Hydraulic properties from WaterPreprocessor.
-    adsorption : Adsorption
-        Adsorption parameters from SorptionKawiDirectInput.
+    sp_retardation : float
+        Solid-phase retardation factor from SpRetardationPreprocessor.
+    Kd : float
+        Solid-phase partition coefficient (m3/kg) from SpRetardationPreprocessor.
+    awi_retardation : float
+        Air-water interface retardation factor from SorptionKawiDirectInput.
+    sorption_solid : dict
+        Solid-phase sorption parameters, used to extract 'rate_const' and
+        'fraction_instantaneous'.
     kinetic_sorption : bool
         Whether to use kinetic (True) or equilibrium (False) sorption.
     volume_averaged : bool
@@ -436,16 +522,34 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
     bulk_density: Annotated[float, Gt(0)]
     boundary_conditions: BoundaryConditions
     hydro_properties: HydrologicalProperties
-    adsorption: Adsorption
+    sorption_solid: dict
+    awi_retardation: float
     kinetic_sorption: bool
     volume_averaged: bool
+
+    def _collect_adsorption(self) -> Adsorption:
+        """Assemble the Adsorption object via SpRetardationPreprocessor and AdsorptionCollector."""
+        sp_results = SpRetardationPreprocessor(
+            sorption_solid=self.sorption_solid,
+            bulk_density=self.bulk_density,
+            hydro_properties=self.hydro_properties,
+        ).compute()
+
+        result = AdsorptionCollector(
+            Kd=sp_results["Kd"],
+            sp_retardation=sp_results["sp_retardation"],
+            awi_retardation=self.awi_retardation,
+            sorption_solid=self.sorption_solid,
+        ).compute()
+        return result["adsorption"]
 
     def compute(self):
         """
         Run the analytical solution.
 
-        Solves the advection-dispersion equation with retardation for PFAS
-        transport through the vadose zone.
+        Assembles adsorption parameters internally before solving the
+        advection-dispersion equation with retardation for PFAS transport
+        through the vadose zone.
 
         Returns
         -------
@@ -459,16 +563,17 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
             - 'C_tot' : ndarray
                 Total concentration (mg/L bulk volume)
         """
-        initial_contaminant_concentration = np.zeros(len(self.grid.depth)) #noqa : E501 #this should be input instead of defined
-        C1, C2, C_tot = analytical_soln( # noqa: N806
+        adsorption = self._collect_adsorption()
+        initial_contaminant_concentration = np.zeros(len(self.grid.depth))
+        C1, C2, C_tot = analytical_soln(  # noqa: N806
             grid=self.grid,
             bulk_density=self.bulk_density,
             boundary_conditions=self.boundary_conditions,
             initial_contaminant_concentration=initial_contaminant_concentration,
             hydro_properties=self.hydro_properties,
-            adsorption=self.adsorption,
+            adsorption=adsorption,
             kinetic=self.kinetic_sorption,
-            volume_averaged=self.volume_averaged
+            volume_averaged=self.volume_averaged,
         )
 
         return {
