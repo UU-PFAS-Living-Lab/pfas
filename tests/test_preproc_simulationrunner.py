@@ -7,15 +7,12 @@ from pfas.analytical_soln import Adsorption
 
 def test_kinetic_sorption_flag(make_simulation_runner):
     """Test that the kinetic_sorption flag affects the computation."""
-    # First with kinetic sorption as False
     runner_equilibrium = make_simulation_runner(kinetic_sorption=False)
     result_equilibrium = runner_equilibrium.compute()
 
-    # Now with kinetic sorption as True
     runner_kinetic = make_simulation_runner(kinetic_sorption=True)
     result_kinetic = runner_kinetic.compute()
 
-    # If the kinetic sorption changes the results, there should be a difference
     assert not np.array_equal(result_equilibrium["C1"], result_kinetic["C1"])
     assert not np.array_equal(result_equilibrium["C2"], result_kinetic["C2"])
     assert not np.array_equal(result_equilibrium["C_tot"], result_kinetic["C_tot"])
@@ -23,17 +20,13 @@ def test_kinetic_sorption_flag(make_simulation_runner):
 
 def test_volume_averaging_flag(make_simulation_runner):
     """Test that the volume_averaged flag affects the computation."""
-    # First with volume_averaged as False
-    runner_non_avg = make_simulation_runner(volume_averaged=False, kinetic_sorption = True)
+    runner_non_avg = make_simulation_runner(volume_averaged=False, kinetic_sorption=True)
     result_non_avg = runner_non_avg.compute()
 
-    # Now with volume_averaged as True
-    runner_avg = make_simulation_runner(volume_averaged=True, kinetic_sorption = True)
+    runner_avg = make_simulation_runner(volume_averaged=True, kinetic_sorption=True)
     result_avg = runner_avg.compute()
 
-    # If the volume averaging flag changes the results, there should be a difference
     assert not np.array_equal(result_non_avg["C1"], result_avg["C1"])
-    #NOTE: Again C2 gives problems
     assert not np.array_equal(result_non_avg["C2"], result_avg["C2"])
     assert not np.array_equal(result_non_avg["C_tot"], result_avg["C_tot"])
 
@@ -46,7 +39,8 @@ def test_invalid_bulk_density():
             bulk_density=-1600.0,  # invalid (should be positive)
             boundary_conditions={},
             hydro_properties={},
-            adsorption={},
+            sorption_solid={},
+            awi_retardation=0.0,
             kinetic_sorption=False,
             volume_averaged=False,
         )
@@ -55,14 +49,15 @@ def test_invalid_bulk_density():
 def test_extra_fields_forbidden(make_simulation_runner):
     """Test that extra fields are forbidden by Pydantic."""
     runner = make_simulation_runner()
-    
+
     with pytest.raises(ValueError):
         SimulationRunner(
             grid=runner.grid,
             bulk_density=1600.0,
             boundary_conditions=runner.boundary_conditions,
             hydro_properties=runner.hydro_properties,
-            adsorption=runner.adsorption,
+            sorption_solid=runner.sorption_solid,
+            awi_retardation=runner.awi_retardation,
             kinetic_sorption=False,
             volume_averaged=False,
             extra_field=123,  # This should raise a ValueError (Pydantic's `extra='forbid'`)
@@ -74,7 +69,6 @@ def test_boundary_conditions(make_simulation_runner):
     runner = make_simulation_runner()
     result = runner.compute()
 
-    # For now, let's check if boundary_conditions are correctly included in the input
     assert "boundary_conditions" in runner.__dict__
 
 
@@ -108,13 +102,11 @@ def test_factory_fixture_kinetic_sorption_true(make_simulation_runner):
     assert runner.kinetic_sorption is True
     assert runner.volume_averaged is False
 
-    # Verify computation works
     result = runner.compute()
     assert "C1" in result
     assert "C2" in result
     assert "C_tot" in result
-    
-    # For kinetic solver: both C1 and C2 should be arrays
+
     assert isinstance(result["C1"], np.ndarray)
     assert isinstance(result["C2"], np.ndarray)
 
@@ -126,13 +118,11 @@ def test_factory_fixture_volume_averaged_true(make_simulation_runner):
     assert runner.kinetic_sorption is False
     assert runner.volume_averaged is True
 
-    # Verify computation works
     result = runner.compute()
     assert "C1" in result
     assert "C2" in result
     assert "C_tot" in result
-    
-    # For equilibrium solver: C1 should be array, C2 should be None
+
     assert isinstance(result["C1"], np.ndarray)
     assert result["C2"] is None
 
@@ -144,13 +134,11 @@ def test_factory_fixture_both_true(make_simulation_runner):
     assert runner.kinetic_sorption is True
     assert runner.volume_averaged is True
 
-    # Verify computation works
     result = runner.compute()
     assert "C1" in result
     assert "C2" in result
     assert "C_tot" in result
-    
-    # For kinetic solver: both C1 and C2 should be arrays
+
     assert isinstance(result["C1"], np.ndarray)
     assert isinstance(result["C2"], np.ndarray)
 
@@ -162,12 +150,10 @@ def test_factory_fixture_both_false(make_simulation_runner):
     assert runner.kinetic_sorption is False
     assert runner.volume_averaged is False
 
-    # Verify computation works
     result = runner.compute()
     assert "C1" in result
     assert "C2" in result
     assert "C_tot" in result
-    
-    # For equilibrium solver: C1 should be array, C2 should be None
+
     assert isinstance(result["C1"], np.ndarray)
     assert result["C2"] is None

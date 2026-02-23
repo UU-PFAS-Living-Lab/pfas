@@ -76,66 +76,67 @@ def _(
 ):
     # Step 1: Generate the grid
     grid_gen = GridGenerator(
-            domain_length=60,
-            spatial_resolution=1.0,
-            time_resolution=100,
-            time_total=5000
-        )
+        domain_length=60,
+        spatial_resolution=1.0,
+        time_resolution=100,
+        time_total=5000
+    )
     grid_results = grid_gen.compute()
 
     # Step 2: Compute water flow properties
     water_prep = WaterPreprocessor(
-            average_infiltration_rate=1.5,
-            hydraulic_conductivity=6,
-            porosity=0.34,
-            dispersivity=1.5,
-            van_genuchten_n=1.31,
-            init_sat=0.2,
-            residual_water_content=0.04
-        )
+        average_infiltration_rate=1.5,
+        hydraulic_conductivity=6,
+        porosity=0.34,
+        dispersivity=1.5,
+        van_genuchten_n=1.31,
+        init_sat=0.2,
+        residual_water_content=0.04
+    )
     water_results = water_prep.compute()
 
     # Step 3: Setup boundary conditions
     boundary_prep = BoundaryPreprocessor(
-            average_infiltration_rate=1.5,
-            solute_concentration_influx=10.0,
-            pulse_duration=2000
-        )
+        average_infiltration_rate=1.5,
+        solute_concentration_influx=10.0,
+        pulse_duration=2000
+    )
     boundary_results = boundary_prep.compute()
 
     # Step 4: Compute solid phase retardation
+    sorption_solid = {
+        "kinetic_sorption": True,
+        "sorption_isotherm": "linear",
+        "kinetic": {
+            "frac_int": 0.3,
+            "rate_const": 0.01
+        },
+        "linear": {
+            "Kd_method": "direct_input",
+            "Kd": 5.0
+        },
+    }
     sp_retard = SpRetardationPreprocessor(
-            sorption_solid={
-                "kinetic_sorption": True,
-                "sorption_isotherm": "linear",
-                "kinetic": {
-                    "frac_int": 0.3,
-                    "rate_const": 0.01
-                },
-                "linear": {
-                    "Kd_method": "direct_input",
-                    "Kd": 5.0
-            },
-            },
-            bulk_density=bulk_dens,
-            hydro_properties=water_results["hydro_properties"]
-        )
+        sorption_solid=sorption_solid,
+        bulk_density=bulk_dens,
+        hydro_properties=water_results["hydro_properties"]
+    )
     sp_results = sp_retard.compute()
 
     # Step 5: Compute AWI adsorption
     swc_adsorp = SWCAdsorptionPreprocessor(
-            hydro_properties=water_results["hydro_properties"],
-            sigma0=71,
-            scaling_factor_awi=1.0,
-            AWI={
-                "AWI_type": "SWC-based",
-                "SWC-based": {
-                    "scaling_factor_awi": 1.0
-                },
+        hydro_properties=water_results["hydro_properties"],
+        sigma0=71,
+        scaling_factor_awi=1.0,
+        AWI={
+            "AWI_type": "SWC-based",
+            "SWC-based": {
+                "scaling_factor_awi": 1.0
             },
-            soil={
+        },
+        soil={
             "bulk_density": bulk_dens,
-            "porosity": water_prep.porosity,  # Access attribute
+            "porosity": water_prep.porosity,
             "van_genuchten_alpha": 0.019,
             "van_genuchten_n": water_prep.van_genuchten_n,
             "saturated_water_content": 0.34,
@@ -143,44 +144,29 @@ def _(
             "hydraulic_conductivity": water_prep.hydraulic_conductivity,
             "dispersivity": water_prep.dispersivity
         }
-        )
+    )
     awi_results = swc_adsorp.compute()
 
-    #Step 6: Compute Kawi sorption
+    # Step 6: Compute Kawi sorption
     kawi_sorp = SorptionKawiDirectInput(
-            kaw=0.5,
-            hydro_properties=water_results["hydro_properties"],
-            Kd=sp_results["Kd"],
-            aaw=awi_results["aaw"],
-            sorption_solid={
-                "kinetic_sorption": True,
-                "sorption_isotherm": "linear",
-                "kinetic": {
-                    "frac_int": 0.3,
-                    "rate_const": 0.01
-                },
-                "linear": {
-                    "Kd_method": "direct_input",
-                    "Kd": 1.2
-                }
-            },
-            sp_retardation=sp_results["sp_retardation"]
+        kaw=0.5,
+        hydro_properties=water_results["hydro_properties"],
+        aaw=awi_results["aaw"],
     )
     kawi_results = kawi_sorp.compute()
 
-        # Step 7: Run simulation
+    # Step 7: Run simulation
     sim_runner = SimulationRunner(
-            grid=grid_results["grid"],
-            bulk_density=bulk_dens,
-            boundary_conditions=boundary_results["boundary_conditions"],
-            hydro_properties=water_results["hydro_properties"],
-            adsorption=kawi_results["adsorption"],
-            kinetic_sorption=True,
-            volume_averaged=False
+        grid=grid_results["grid"],
+        bulk_density=bulk_dens,
+        boundary_conditions=boundary_results["boundary_conditions"],
+        hydro_properties=water_results["hydro_properties"],
+        awi_retardation=kawi_results["awi_retardation"],
+        sorption_solid=sorption_solid,
+        kinetic_sorption=True,
+        volume_averaged=False
     )
     final_results = sim_runner.compute()
-
-
     print("Simulation completed successfully!")
     return final_results, grid_results
 
