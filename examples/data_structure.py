@@ -189,9 +189,7 @@ def _(
         pulse_duration=2000,
     )
     boundary_results = boundary_prep.compute()
-
-    sp_retard = SpRetardationPreprocessor(
-        sorption_solid={
+    sorption_solid = {
             "kinetic_sorption": use_spa,
             "sorption_isotherm": "linear",
             "kinetic": {
@@ -202,7 +200,11 @@ def _(
                 "Kd_method": "direct_input",
                 "Kd": kd_freundlich(C_rep, freundlich_k, freundlich_n),
             },
-        },
+    }
+
+    
+    sp_retard = SpRetardationPreprocessor(
+        sorption_solid= sorption_solid,
         bulk_density=bulk_dens,
         hydro_properties=water_results["hydro_properties"],
     )
@@ -233,24 +235,11 @@ def _(
     awi_results = swc_adsorp.compute()
 
     # Step 6: Kawi sorption
+    # Step 6: Compute Kawi sorption
     kawi_sorp = SorptionKawiDirectInput(
-            kaw=0.5,
-            hydro_properties=water_results["hydro_properties"],
-            Kd=sp_results["Kd"],
-            aaw=awi_results["aaw"],
-            sorption_solid={
-                "kinetic_sorption": use_spa,
-                "sorption_isotherm": "linear",
-                "kinetic": {
-                    "frac_int": frac_int,
-                    "rate_const": rate_const,
-                },
-                "linear": {
-                    "Kd_method": "direct_input",
-                    "Kd": kd_freundlich(C_rep, freundlich_k, freundlich_n),
-                    },
-                },
-            sp_retardation=sp_results["sp_retardation"]
+        kaw=0.5,
+        hydro_properties=water_results["hydro_properties"],
+        aaw=awi_results["aaw"],
     )
     kawi_results = kawi_sorp.compute()
 
@@ -260,9 +249,10 @@ def _(
         bulk_density=bulk_dens,
         boundary_conditions=boundary_results["boundary_conditions"],
         hydro_properties=water_results["hydro_properties"],
-        adsorption=kawi_results["adsorption"],
+        awi_retardation=kawi_results["awi_retardation"],
+        sorption_solid=sorption_solid,
         kinetic_sorption=True,
-        volume_averaged=False,
+        volume_averaged=False
     )
     final_results = sim_runner.compute()
     return final_results, grid_results
