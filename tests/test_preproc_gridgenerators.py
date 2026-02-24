@@ -1,8 +1,8 @@
 import pytest
-import numpy as np
 from pydantic import ValidationError
 
 from pfas.preprocessing import GridGenerator, SimulationGrid
+
 
 def test_outputs_property(valid_grid_generator):
     assert valid_grid_generator.outputs == ["grid"]

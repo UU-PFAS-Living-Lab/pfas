@@ -47,6 +47,9 @@ dev = ["pfas[test,docs,examples]"]
 [tool.setuptools_scm]
 write_to = "src/pfas/_version.py"
 
+[tool.setuptools.package-data]
+pfas = ["data/*.json"]
+
 [tool.ruff]
 exclude = ["_version.py", "examples/*"]
 line-length = 100

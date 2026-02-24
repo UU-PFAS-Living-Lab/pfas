@@ -1,8 +1,7 @@
-import pytest
 import numpy as np
+import pytest
 
 from pfas.preprocessing import SimulationRunner
-from pfas.analytical_soln import Adsorption
 
 
 def test_kinetic_sorption_flag(make_simulation_runner):
@@ -107,6 +106,7 @@ def test_factory_fixture_kinetic_sorption_true(make_simulation_runner):
     assert "C2" in result
     assert "C_tot" in result
 
+    # For kinetic solver: both C1 and C2 should be arrays
     assert isinstance(result["C1"], np.ndarray)
     assert isinstance(result["C2"], np.ndarray)
 
