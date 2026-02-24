@@ -148,19 +148,14 @@ def valid_sorption_solid_awi():
 @pytest.fixture
 def valid_sorption_kawi_direct_input(
     result_water,
-    valid_sp_retardation_preprocessor,
     valid_swc_adsorption_swc,
 ):
     aaw = valid_swc_adsorption_swc.compute()["aaw"]
-    sp_ret = valid_sp_retardation_preprocessor.compute()["sp_retardation"]
 
     return SorptionKawiDirectInput(
         kaw=0.5,
         hydro_properties=result_water["hydro_properties"],
-        Kd=0.8,
         aaw=aaw,
-        sorption_solid={},      # optional fields tested elsewhere
-        sp_retardation=sp_ret,
     )
 
 @pytest.fixture
@@ -169,25 +164,24 @@ def valid_simulation_runner(
     valid_boundary_preprocessor,
     result_water,
     valid_sorption_kawi_direct_input,
+    sorption_solid_linear,
 ):
     """A valid SimulationRunner instance."""
     # Generate depth and time arrays based on grid generator parameters
     depth = np.linspace(0, valid_grid_generator.domain_length, int(valid_grid_generator.domain_length / valid_grid_generator.spatial_resolution) + 1)
     time = np.linspace(0, valid_grid_generator.time_total, int(valid_grid_generator.time_total / valid_grid_generator.time_resolution) + 1)
 
-    # Create SimulationGrid instance
     grid = SimulationGrid(depth=depth, time=time)
-
-    # Initialize BoundaryConditions properly
-    boundary_conditions_data = valid_boundary_preprocessor.compute()
-    boundary_conditions = boundary_conditions_data["boundary_conditions"]
+    boundary_conditions = valid_boundary_preprocessor.compute()["boundary_conditions"]
+    awi_result = valid_sorption_kawi_direct_input.compute()
 
     return SimulationRunner(
         grid=grid,
-        bulk_density=1600.0,  # example value in kg/m³
+        bulk_density=1600.0,
         boundary_conditions=boundary_conditions,
         hydro_properties=result_water["hydro_properties"],
-        adsorption=valid_sorption_kawi_direct_input.compute()["adsorption"],
+        awi_retardation=awi_result["awi_retardation"],
+        sorption_solid=sorption_solid_linear,
         kinetic_sorption=False,
         volume_averaged=False,
     )
@@ -198,11 +192,9 @@ def make_simulation_runner(
     valid_boundary_preprocessor,
     result_water,
     valid_sorption_kawi_direct_input,
+    sorption_solid_linear,
 ):
-    """Factory fixture to create SimulationRunner instances with different parameters."""
-
     def _make_simulation_runner(kinetic_sorption=False, volume_averaged=False):
-        # Generate depth and time arrays based on grid generator parameters
         depth = np.linspace(
             0,
             valid_grid_generator.domain_length,
@@ -214,22 +206,19 @@ def make_simulation_runner(
             int(valid_grid_generator.time_total / valid_grid_generator.time_resolution) + 1,
         )
 
-        # Create SimulationGrid instance
         grid = SimulationGrid(depth=depth, time=time)
-
-        # Initialize BoundaryConditions properly
-        boundary_conditions_data = valid_boundary_preprocessor.compute()
-        boundary_conditions = boundary_conditions_data["boundary_conditions"]
+        boundary_conditions = valid_boundary_preprocessor.compute()["boundary_conditions"]
+        awi_result = valid_sorption_kawi_direct_input.compute()
 
         return SimulationRunner(
             grid=grid,
-            bulk_density=1600.0,  # example value in kg/m³
+            bulk_density=1600.0,
             boundary_conditions=boundary_conditions,
             hydro_properties=result_water["hydro_properties"],
-            adsorption=valid_sorption_kawi_direct_input.compute()["adsorption"],
+            awi_retardation=awi_result["awi_retardation"],
+            sorption_solid=sorption_solid_linear,
             kinetic_sorption=kinetic_sorption,
             volume_averaged=volume_averaged,
         )
 
     return _make_simulation_runner
-
