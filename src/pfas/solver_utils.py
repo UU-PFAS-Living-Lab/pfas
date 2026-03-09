@@ -42,7 +42,7 @@ class DimensionlessParams(NamedTuple):
         Dimensionless pulse duration (-), T0 = t_pulse * v / L.
     P : float
         Péclet number (-), P = v * L / D.
-    ws : float or None
+    omega : float or None
         Damköhler number for kinetic sorption (-).
         None when kinetic=False.
     """
@@ -51,7 +51,7 @@ class DimensionlessParams(NamedTuple):
     T: NDArray[np.float64]
     T0: float
     P: float
-    ws: float | None
+    omega: float | None
 
 
 def compute_dimensionless_params(
@@ -78,14 +78,14 @@ def compute_dimensionless_params(
         `.dispersion_coefficient` (m²/s).
     adsorption : Adsorption, optional
         Adsorption parameters. Required when kinetic=True. Must have
-        `.rate_const`, `.betas`, `.sp_retardation`.
+        `.rate_const`, `.beta_s`, `.sp_retardation`.
     kinetic : bool, optional
-        If True, also compute the Damköhler number `ws`. Default is False.
+        If True, also compute the Damköhler number `omega`. Default is False.
 
     Returns
     -------
     DimensionlessParams
-        Named tuple containing Z, T, T0, P, and ws (None if kinetic=False).
+        Named tuple containing Z, T, T0, P, and omega (None if kinetic=False).
 
     Raises
     ------
@@ -111,17 +111,17 @@ def compute_dimensionless_params(
     T0 = boundary_conditions.pulse_time * (v / L)
     P = v * L / D
 
-    ws = None
+    omega = None
     if kinetic:
-        ws = (
+        omega = (
             adsorption.rate_const
-            * (1 - adsorption.betas)
+            * (1 - adsorption.beta_s)
             * (1 + adsorption.sp_retardation)
             * L
             / v
         )
 
-    return DimensionlessParams(Z=Z, T=T, T0=T0, P=P, ws=ws)
+    return DimensionlessParams(Z=Z, T=T, T0=T0, P=P, omega=omega)
 
 
 # ---------------------------------------------------------------------------
@@ -139,25 +139,40 @@ def _bvp_flux_bc(
 ) -> NDArray[np.float64]:
     """BVP solution for flux (third-type) upper boundary condition.
 
-    Analytical solution to the 1D ADE with a constant flux boundary condition
-    at the inlet, evaluated over dimensionless depth Z. Corresponds to bc=2
-    in van Genuchten & Alves (1982).
+    Analytical solution to the 1D ADE with a constant step input at the inlet
+    using a flux (third-type) boundary condition, evaluated over dimensionless
+    depth Z. This is the kernel A1(Z,T) used in pulse superposition in the
+    equilibrium solver.
+
+    The solution is:
+
+        C(Z,T) = 0.5 * erfc(arg * (RZ - T))
+                 + sqrt(PT / pi R) * exp(-arg^2 * (RZ - T)^2)
+                 - 0.5 * (1 + PZ + PT/R) * exp(PZ) * erfc(arg * (RZ + T))
+
+    where arg = sqrt(P / 4RT).
 
     Parameters
     ----------
     T : float
-        Dimensionless time.
+        Dimensionless time, T = vt/L.
     R : float
         Retardation factor.
     Z : ndarray
-        Dimensionless depth.
+        Dimensionless depth, Z = z/L.
     P : float
-        Péclet number.
+        Péclet number, P = vL/D.
 
     Returns
     -------
     ndarray
         Dimensionless concentration profile at time T.
+
+    References
+    ----------
+    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
+    No. 137, USDA-ARS. Table 2.1, Case A2 (third-type inlet BC, semi-infinite
+    domain). Equivalent to van Genuchten & Alves (1982), eq. B2.
     """
     arg = np.sqrt(0.25 * P / R / T)
 
@@ -176,25 +191,39 @@ def _bvp_resident_bc(
 ) -> NDArray[np.float64]:
     """BVP solution for resident (first-type) upper boundary condition.
 
-    Analytical solution to the 1D ADE with a constant resident concentration
-    boundary condition at the inlet, evaluated over dimensionless depth Z.
-    Corresponds to bc=1 in van Genuchten & Alves (1982).
+    Analytical solution to the 1D ADE with a constant step input at the inlet
+    using a resident (first-type) boundary condition, evaluated over
+    dimensionless depth Z. This is the kernel A1(Z,T) for the first-type BC
+    used in pulse superposition in the equilibrium solver.
+
+    The solution is:
+
+        C(Z,T) = 0.5 * erfc(arg * (RZ - T))
+                 + 0.5 * exp(PZ) * erfc(arg * (RZ + T))
+
+    where arg = sqrt(P / 4RT).
 
     Parameters
     ----------
     T : float
-        Dimensionless time.
+        Dimensionless time, T = vt/L.
     R : float
         Retardation factor.
     Z : ndarray
-        Dimensionless depth.
+        Dimensionless depth, Z = z/L.
     P : float
-        Péclet number.
+        Péclet number, P = vL/D.
 
     Returns
     -------
     ndarray
         Dimensionless concentration profile at time T.
+
+    References
+    ----------
+    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
+    No. 137, USDA-ARS. Table 2.1, Case A1 (first-type inlet BC, semi-infinite
+    domain). Equivalent to van Genuchten & Alves (1982), eq. B1.
     """
     arg = np.sqrt(0.25 * P / R / T)
 
@@ -220,38 +249,56 @@ def _ivp_eq(
     R: float,
     Z: float,
     P: float,
-    kesi: NDArray[np.float64],
+    xi: NDArray[np.float64],
 ) -> NDArray[np.float64]:
-    """IVP integrand for equilibrium sorption.
+    """IVP integrand for equilibrium sorption (Green's function kernel).
 
-    Computes the concentration kernel for the initial value problem under
-    equilibrium sorption, integrated over the initial condition profile.
+    Computes the Green's function kernel G(Z, T, xi) for the superposition
+    integral over a non-zero initial concentration profile Ci(xi):
+
+        C^I(Z, T) = integral_0^1 G(Z, T, xi) * Ci(xi) dxi
+
+    The kernel combines two Gaussian terms (direct and image source) and an
+    erfc term arising from the flux boundary condition at Z=0:
+
+        G(Z,T,xi) = [ exp(-(R(Z-xi)-T)^2 / (4TR/P))
+                      + exp(-P*xi - (R(Z+xi)-T)^2 / (4TR/P)) ]
+                    / (2*sqrt(pi*T/PR))
+                    - P/2 * exp(PZ) * erfc((R(Z+xi)+T) / (2*sqrt(TR/P)))
 
     Parameters
     ----------
     T : float
-        Dimensionless time.
+        Dimensionless time, T = vt/L.
     R : float
         Retardation factor.
     Z : float
-        Dimensionless depth (scalar, single evaluation point).
+        Dimensionless depth at evaluation point (scalar).
     P : float
-        Péclet number.
-    kesi : ndarray
-        Dimensionless depth coordinate for the initial concentration profile.
+        Péclet number, P = vL/D.
+    xi : ndarray
+        Dimensionless depth coordinate (ξ) stepping over the initial
+        concentration profile. Corresponds to ξ in van Genuchten & Alves (1982).
 
     Returns
     -------
     ndarray
-        Kernel values over kesi for numerical integration.
+        Kernel values G(Z, T, xi) over xi, for numerical integration via trapz.
+
+    References
+    ----------
+    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
+    No. 137, USDA-ARS. Table 2.2, Case A2 (third-type inlet BC, semi-infinite
+    domain, arbitrary initial condition). Equivalent to van Genuchten &
+    Alves (1982), eq. C2.
     """
     return (
         (
-            np.exp(-((R * Z - R * kesi - T) ** 2) / (4 * T * R / P))
-            + np.exp(-P * kesi - (R * Z + R * kesi - T) ** 2 / (4 * T * R / P))
+            np.exp(-((R * Z - R * xi - T) ** 2) / (4 * T * R / P))
+            + np.exp(-P * xi - (R * Z + R * xi - T) ** 2 / (4 * T * R / P))
         )
         / (2 * np.sqrt(np.pi * T / P / R))
-        - P / 2 * np.exp(P * Z) * erfc((R * Z + R * kesi + T) / (2 * np.sqrt(T * R / P)))
+        - P / 2 * np.exp(P * Z) * erfc((R * Z + R * xi + T) / (2 * np.sqrt(T * R / P)))
     )
 
 
@@ -264,42 +311,62 @@ def _ivp_neq(  # noqa: PLR0913
     R: float,
     Z: float,
     P: float,
-    kesi: NDArray[np.float64],
+    xi: NDArray[np.float64],
     beta: float,
 ) -> NDArray[np.float64]:
-    """IVP integrand for non-equilibrium (kinetic) sorption.
+    """IVP integrand for non-equilibrium (kinetic) sorption (Green's function kernel).
 
-    Computes the concentration kernel for the initial value problem under
-    kinetic sorption, integrated over the initial condition profile.
+    Computes the Green's function kernel G_neq(Z, T, xi) for the superposition
+    integral over a non-zero initial concentration profile Ci(xi) under kinetic
+    sorption conditions:
+
+        C^I_1(Z, T) = integral_0^1 G_neq(Z, T, xi) * Ci(xi) dxi
+
+    The kernel is the nonequilibrium analogue of the equilibrium IVP kernel,
+    with the effective retardation modified by the kinetic partitioning
+    coefficient beta:
+
+        G_neq(Z,T,xi) = [ exp(-P*beta*R*(Z-xi-T/(betaR))^2 / (4T))
+                          + exp(-P*xi - P*beta*R*(Z+xi-T/(betaR))^2 / (4T)) ]
+                        / (2*sqrt(pi*T / (beta*R*P)))
+                        - P/2 * exp(PZ) * erfc((Z+xi+T/(betaR)) / (2*sqrt(T/(betaR*P))))
 
     Parameters
     ----------
     T : float
-        Dimensionless time.
+        Dimensionless time, T = vt/L.
     R : float
         Retardation factor for aqueous phase.
     Z : float
-        Dimensionless depth (scalar).
+        Dimensionless depth at evaluation point (scalar).
     P : float
-        Péclet number.
-    kesi : ndarray
-        Dimensionless depth coordinate for the initial concentration profile.
+        Péclet number, P = vL/D.
+    xi : ndarray
+        Dimensionless depth coordinate (ξ) stepping over the initial
+        concentration profile.
     beta : float
-        Kinetic sorption retardation factor.
+        Kinetic sorption partitioning coefficient (beta = 1 - (1-f)*Kd*rhob/theta).
 
     Returns
     -------
     ndarray
-        Kernel values over kesi for numerical integration.
+        Kernel values G_neq(Z, T, xi) over xi, for numerical integration via trapz.
+
+    References
+    ----------
+    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
+    No. 137, USDA-ARS. Table 3.2, Case A2 (third-type inlet BC, semi-infinite
+    domain, nonequilibrium IVP). Equivalent to Toride et al. (1993), Water
+    Resour. Res. 29(7), eq. for nonequilibrium IVP Green's function.
     """
     return (
         (
-            np.exp(-P * beta * R * (Z - kesi - T / (beta * R)) ** 2 / (4 * T))
-            + np.exp(-kesi * P - P * beta * R * (Z + kesi - T / (beta * R)) ** 2 / (4 * T))
+            np.exp(-P * beta * R * (Z - xi - T / (beta * R)) ** 2 / (4 * T))
+            + np.exp(-xi * P - P * beta * R * (Z + xi - T / (beta * R)) ** 2 / (4 * T))
         )
         / (2 * np.sqrt(np.pi * T / (beta * R * P)))
         - P / 2 * np.exp(P * Z)
-        * erfc((Z + kesi + T / (beta * R)) / (2 * np.sqrt(T / (beta * R) / P)))
+        * erfc((Z + xi + T / (beta * R)) / (2 * np.sqrt(T / (beta * R) / P)))
     )
 
 
@@ -307,11 +374,11 @@ def _kinetic_kernel_aqueous(  # noqa: PLR0913
     T: float,
     R: float,
     tau: NDArray[np.float64],
-    Rs: float,
-    Fs: float,
+    R_s: float,
+    f: float,
     beta: float,
-    betas: float,
-    ws: float,
+    beta_s: float,
+    omega: float,
 ) -> NDArray[np.float64]:
     """Bessel function convolution kernel for aqueous phase kinetic sorption.
 
@@ -321,42 +388,48 @@ def _kinetic_kernel_aqueous(  # noqa: PLR0913
     Parameters
     ----------
     T : float
-        Dimensionless time.
+        Dimensionless time, T = vt/L.
     R : float
-        Retardation factor.
+        Retardation factor, R = 1 + rho_b * Kd / theta.
     tau : ndarray
-        Integration time variable.
-    Rs : float
-        Solid phase retardation factor.
-    Fs : float
-        Fraction of sorption sites kinetically controlled (0 to 1).
+        Dimensionless integration time variable (τ), 0 <= τ <= T.
+    R_s : float
+        Retardation factor for kinetic sorption sites (R_s in CXTFIT Table 3.1).
+    f : float
+        Fraction of sorption sites at equilibrium (f in CXTFIT Table 3.1),
+        0 <= f <= 1.
     beta : float
-        Total kinetic sorption retardation factor.
-    betas : float
-        Kinetic sorption retardation factor for solid phase.
-    ws : float
-        Damköhler number for kinetic sorption.
+        Dimensionless partitioning coefficient (β in CXTFIT Table 3.1).
+    beta_s : float
+        Partitioning coefficient for the solid phase (β_s in CXTFIT Table 3.1).
+    omega : float
+        Dimensionless mass transfer coefficient (ω in CXTFIT Table 3.1).
 
     Returns
     -------
     ndarray
-        Kernel values over tau for numerical integration.
+        Kernel values H_0(τ; T) over tau for numerical integration (Table 3.4).
+
+    References
+    ----------
+    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
+    No. 137, USDA-ARS. Table 3.4, kernel H_0 for aqueous phase IVP convolution.
     """
     iv_arg = (
-        2 * ws / (1 - betas) / (1 + Rs)
-        * np.sqrt(Rs * (1 - Fs) * (T - tau) * tau)
+        2 * omega / (1 - beta_s) / (1 + R_s)
+        * np.sqrt(R_s * (1 - f) * (T - tau) * tau)
         / (beta * R)
     )
 
     return (
-        Rs * (1 - Fs) / (beta * R)
+        R_s * (1 - f) / (beta * R)
         * np.exp(
-            -ws * (T - tau) / (1 - betas) / (1 + Rs)
-            - ws * tau * (1 - Fs) * Rs / (1 - betas) / (beta * R) / (1 + Rs)
+            -omega * (T - tau) / (1 - beta_s) / (1 + R_s)
+            - omega * tau * (1 - f) * R_s / (1 - beta_s) / (beta * R) / (1 + R_s)
         )
         * (
             iv(0, iv_arg)
-            + iv(1, iv_arg) * tau / np.sqrt(Rs * (1 - Fs) * (T - tau) * tau / (beta * R))
+            + iv(1, iv_arg) * tau / np.sqrt(R_s * (1 - f) * (T - tau) * tau / (beta * R))
         )
     )
 
@@ -365,11 +438,11 @@ def _kinetic_kernel_sorbed(  # noqa: PLR0913
     T: float,
     R: float,
     tau: NDArray[np.float64],
-    Rs: float,
-    Fs: float,
+    R_s: float,
+    f: float,
     beta: float,
-    betas: float,
-    ws: float,
+    beta_s: float,
+    omega: float,
 ) -> NDArray[np.float64]:
     """Bessel function convolution kernel for sorbed phase kinetic sorption.
 
@@ -379,40 +452,46 @@ def _kinetic_kernel_sorbed(  # noqa: PLR0913
     Parameters
     ----------
     T : float
-        Dimensionless time.
+        Dimensionless time, T = vt/L.
     R : float
-        Retardation factor.
+        Retardation factor, R = 1 + rho_b * Kd / theta.
     tau : ndarray
-        Integration time variable.
-    Rs : float
-        Solid phase retardation factor.
-    Fs : float
-        Fraction of sorption sites kinetically controlled (0 to 1).
+        Dimensionless integration time variable (τ), 0 <= τ <= T.
+    R_s : float
+        Retardation factor for kinetic sorption sites (R_s in CXTFIT Table 3.1).
+    f : float
+        Fraction of sorption sites at equilibrium (f in CXTFIT Table 3.1),
+        0 <= f <= 1.
     beta : float
-        Total kinetic sorption retardation factor.
-    betas : float
-        Kinetic sorption retardation factor for solid phase.
-    ws : float
-        Damköhler number for kinetic sorption.
+        Dimensionless partitioning coefficient (β in CXTFIT Table 3.1).
+    beta_s : float
+        Partitioning coefficient for the solid phase (β_s in CXTFIT Table 3.1).
+    omega : float
+        Dimensionless mass transfer coefficient (ω in CXTFIT Table 3.1).
 
     Returns
     -------
     ndarray
-        Kernel values over tau for numerical integration.
+        Kernel values H_s(τ; T) over tau for numerical integration (Table 3.4).
+
+    References
+    ----------
+    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
+    No. 137, USDA-ARS. Table 3.4, kernel H_s for sorbed phase IVP convolution.
     """
     iv_arg = (
-        2 * ws / (1 - betas) / (1 + Rs)
-        * np.sqrt(Rs * (1 - Fs) * (T - tau) * tau)
+        2 * omega / (1 - beta_s) / (1 + R_s)
+        * np.sqrt(R_s * (1 - f) * (T - tau) * tau)
         / (beta * R)
     )
 
     return (
         np.exp(
-            -ws * (T - tau) / (1 - betas) / (1 + Rs)
-            - ws * tau * (1 - Fs) * Rs / (1 - betas) / (beta * R) / (1 + Rs)
+            -omega * (T - tau) / (1 - beta_s) / (1 + R_s)
+            - omega * tau * (1 - f) * R_s / (1 - beta_s) / (beta * R) / (1 + R_s)
         )
         * (
             iv(0, iv_arg)
-            + np.sqrt(Rs * (1 - Fs) * (T - tau) / (beta * R) / tau) * iv(1, iv_arg)
+            + np.sqrt(R_s * (1 - f) * (T - tau) / (beta * R) / tau) * iv(1, iv_arg)
         )
     )

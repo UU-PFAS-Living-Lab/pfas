@@ -96,11 +96,11 @@ def equilibrium_solver(  # noqa: PLR0913
             )
 
     if max(Ci) != 0:
-        kesi = np.linspace(0, 1, len(Ci))
+        xi = np.linspace(0, 1, len(Ci))
         for ti in range(len(T)):
             for zi in range(len(Z)):
                 C1_ivp[zi, ti] = np.trapz(
-                    _ivp_eq(T[ti], R, Z[zi], P, kesi) * Ci, kesi
+                    _ivp_eq(T[ti], R, Z[zi], P, xi) * Ci, xi
                 )
 
     C1 = C1_bvp + C1_ivp
@@ -114,11 +114,11 @@ def kinetic_solver(  # noqa: PLR0913
     dim: DimensionlessParams,
     C10: float,
     Ci: NDArray[np.float64],
-    betas: float,
+    beta_s: float,
     beta: float,
     cflag: bool,
-    Rs: float,
-    Fs: float,
+    R_s: float,
+    f: float,
     Kd: float,
     theta: float,
     rhob: float,
@@ -136,20 +136,20 @@ def kinetic_solver(  # noqa: PLR0913
         Retardation factor for aqueous phase.
     dim : DimensionlessParams
         Dimensionless parameters from :func:`compute_dimensionless_params`.
-        Uses `.Z`, `.T`, `.P`, `.T0`, and `.ws`.
+        Uses `.Z`, `.T`, `.P`, `.T0`, and `.omega`.
     C10 : float
         Normalized constant boundary concentration during pulse.
     Ci : ndarray of shape (n_depth,)
         Normalized initial concentration profile with depth.
-    betas : float
+    beta_s : float
         Kinetic sorption retardation factor for solid phase.
     beta : float
         Total kinetic sorption retardation factor.
     cflag : bool
         If True, return volume-averaged concentrations.
-    Rs : float
+    R_s : float
         Solid phase retardation factor.
-    Fs : float
+    f : float
         Fraction of sorption sites kinetically controlled (0 to 1).
     Kd : float
         Distribution coefficient for sorption (L/kg).
@@ -167,7 +167,7 @@ def kinetic_solver(  # noqa: PLR0913
     C_tot : ndarray of shape (len(Z), len(T))
         Total concentration (mg/L bulk volume).
     """
-    Z, T, T0, P, ws = dim.Z, dim.T, dim.T0, dim.P, dim.ws
+    Z, T, T0, P, omega = dim.Z, dim.T, dim.T0, dim.P, dim.omega
     m = 30  # number of modified Bessel function terms
 
     C1_bvp = np.zeros((len(Z), len(T)))
@@ -179,51 +179,51 @@ def kinetic_solver(  # noqa: PLR0913
         for j in range(len(T)):
             if T[j] <= T0:
                 C1_bvp[i, j], C2_bvp[i, j] = utils.ABfunc(
-                    Z[i], T[j], ws, betas, beta, P, R, Rs, m, cflag
+                    Z[i], T[j], omega, beta_s, beta, P, R, R_s, m, cflag
                 )
             else:
                 C1_bvp[i, j], C2_bvp[i, j] = utils.ABfunc(
-                    Z[i], T[j], ws, betas, beta, P, R, Rs, m, cflag
+                    Z[i], T[j], omega, beta_s, beta, P, R, R_s, m, cflag
                 )
-                A, B = utils.ABfunc(Z[i], T[j] - T0, ws, betas, beta, P, R, Rs, m, cflag)
+                A, B = utils.ABfunc(Z[i], T[j] - T0, omega, beta_s, beta, P, R, R_s, m, cflag)
                 C1_bvp[i, j] -= A
                 C2_bvp[i, j] -= B
 
             if max(Ci) != 0:
-                kesi = np.linspace(0, 1, len(Ci))
+                xi = np.linspace(0, 1, len(Ci))
                 tau = np.linspace(0, T[j], 100)
 
-                GfuncT = np.trapz(_ivp_neq(T[j], R, Z[i], P, kesi, beta) * Ci, kesi)
+                GfuncT = np.trapz(_ivp_neq(T[j], R, Z[i], P, xi, beta) * Ci, xi)
 
-                if betas == 1:
+                if beta_s == 1:
                     C1_ivp[i, j] = GfuncT
                 else:
                     C1_ivp[i, j] = (
-                        np.exp(-ws * T[j] * (1 - Fs) * Rs / (1 - betas) / (beta * R) / (1 + Rs))
+                        np.exp(-omega * T[j] * (1 - f) * R_s / (1 - beta_s) / (beta * R) / (1 + R_s))
                         * GfuncT
                     )
                     C2_ivp[i, j] = (
-                        (1 - Fs) * Kd * Ci[i]
-                        * np.exp(-ws * T[j] / (1 - betas) / (1 + Rs))
+                        (1 - f) * Kd * Ci[i]
+                        * np.exp(-omega * T[j] / (1 - beta_s) / (1 + R_s))
                     )
                     Gfunctau = np.zeros((len(tau), 1))
                     for k in range(1, len(tau) - 1):
                         Gfunctau[k] = np.trapz(
-                            _ivp_neq(tau[k], R, Z[i], P, kesi, beta) * Ci, kesi
+                            _ivp_neq(tau[k], R, Z[i], P, xi, beta) * Ci, xi
                         )
-                    C1_ivp[i, j] += ws / (1 - betas) / (1 + Rs) * np.trapz(
-                        _kinetic_kernel_aqueous(T[j], R, tau[1:-1], Rs, Fs, beta, betas, ws)
+                    C1_ivp[i, j] += omega / (1 - beta_s) / (1 + R_s) * np.trapz(
+                        _kinetic_kernel_aqueous(T[j], R, tau[1:-1], R_s, f, beta, beta_s, omega)
                         * Gfunctau[1:-1],
                         tau[1:-1],
                     )
-                    C2_ivp[i, j] += ws / (1 - betas) / (1 + Rs) * (1 - Fs) * Kd * np.trapz(
-                        _kinetic_kernel_sorbed(T[j], R, tau[1:-1], Rs, Fs, beta, betas, ws)
+                    C2_ivp[i, j] += omega / (1 - beta_s) / (1 + R_s) * (1 - f) * Kd * np.trapz(
+                        _kinetic_kernel_sorbed(T[j], R, tau[1:-1], R_s, f, beta, beta_s, omega)
                         * Gfunctau[1:-1],
                         tau[1:-1],
                     )
 
     C1_bvp = C10 * C1_bvp
-    C2_bvp = (1 - Fs) * Kd * C10 * C2_bvp
+    C2_bvp = (1 - f) * Kd * C10 * C2_bvp
     C1 = C1_bvp + C1_ivp
     C2 = C2_bvp + C2_ivp
     C_tot = C1 * beta * R * theta + rhob * C2
@@ -265,7 +265,7 @@ def analytical_soln(  # noqa: PLR0913
         `.dispersion_coefficient` (m²/s), and `.water_content` (-).
     adsorption : Adsorption
         Adsorption parameters. Must have `.total_retardation`, `.Kd`,
-        `.sp_retardation`, `.frac_int`, `.beta`, and `.betas`. When
+        `.sp_retardation`, `.frac_int`, `.beta`, and `.beta_s`. When
         kinetic=True, also requires `.rate_const`.
     kinetic : bool, optional
         If True, use the kinetic sorption model (:func:`kinetic_solver`),
@@ -305,7 +305,7 @@ def analytical_soln(  # noqa: PLR0913
             dim,
             boundary_conditions.contaminant_release_rate,
             initial_contaminant_concentration,
-            adsorption.betas,
+            adsorption.beta_s,
             adsorption.beta,
             volume_averaged,
             adsorption.sp_retardation,

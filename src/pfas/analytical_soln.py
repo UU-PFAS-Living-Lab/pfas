@@ -111,7 +111,7 @@ class Adsorption:
         return self.sp_retardation + self.awi_retardation
 
     @property
-    def betas(self) -> float:
+    def beta_s(self) -> float:
         """Calculate solid-phase sorption parameter.
 
         Returns
@@ -131,7 +131,7 @@ class Adsorption:
             Dimensionless parameter accounting for both solid-phase and AWI sorption.
         """
         return (
-            (self.betas * (1 + self.sp_retardation) + self.awi_retardation)
+            (self.beta_s * (1 + self.sp_retardation) + self.awi_retardation)
             / (1 + self.sp_retardation + self.awi_retardation)
         )
 
@@ -213,7 +213,7 @@ def analytical_soln(  # noqa: PLR0913
             dim,
             boundary_conditions.contaminant_release_rate,
             initial_contaminant_concentration,
-            adsorption.betas,
+            adsorption.beta_s,
             adsorption.beta,
             volume_averaged,
             adsorption.sp_retardation,
