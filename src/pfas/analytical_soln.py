@@ -210,13 +210,9 @@ def analytical_soln(  # noqa: PLR0913
     if kinetic:
         C1, C2, C_tot = kinetic_solver(
             adsorption.total_retardation,
-            dim.Z,
-            dim.T,
-            dim.Pec,
-            dim.T0,
+            dim,
             boundary_conditions.contaminant_release_rate,
             initial_contaminant_concentration,
-            dim.ws,
             adsorption.betas,
             adsorption.beta,
             volume_averaged,
@@ -225,14 +221,11 @@ def analytical_soln(  # noqa: PLR0913
             adsorption.Kd,
             hydro_properties.water_content,
             bulk_density,
-        )
+    )
     else:
         C1, C_tot = equilibrium_solver(
             adsorption.total_retardation,
-            dim.Z,
-            dim.T,
-            dim.Pec,
-            dim.T0,
+            dim,
             boundary_conditions.contaminant_release_rate,
             initial_contaminant_concentration,
             hydro_properties.water_content,

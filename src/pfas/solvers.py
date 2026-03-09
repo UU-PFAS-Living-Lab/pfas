@@ -30,7 +30,7 @@ import numpy as np
 from scipy.special import erfc, iv
 
 from pfas import utils
-
+from pfas.solver_utils import DimensionlessParams
 
 def eqbvpfunc(T, R, Z, pec):
     """
@@ -227,8 +227,7 @@ def hs2func(T, R, tau, Rs, Fs, beta, betas, ws): #noqa: PLR0913
             * iv(1, iv_arg_2)
         )
     )
-
-def equilibrium_solver(R, Z, T, pec, T0, C10, Ci, theta): #noqa: PLR0913
+def equilibrium_solver(R, dim: DimensionlessParams, C10, Ci, theta):  # noqa: PLR0913
     """
     Solve advection-dispersion equation with equilibrium sorption.
 
@@ -244,14 +243,10 @@ def equilibrium_solver(R, Z, T, pec, T0, C10, Ci, theta): #noqa: PLR0913
     ----------
     R : float
         Retardation factor accounting for sorption equilibrium.
-    Z : ndarray
-        Dimensionless depth nodes (0 to 1).
-    T : ndarray
-        Dimensionless time points.
-    pec : float
-        Peclet number (ratio of advection to dispersion).
-    T0 : float
-        Dimensionless pulse duration of contaminant input.
+    dim : DimensionlessParams
+        Dimensionless parameters computed by :func:`compute_dimensionless_params`.
+        Uses `.Z` (dimensionless depth), `.T` (dimensionless time),
+        `.P` (Péclet number), and `.T0` (dimensionless pulse duration).
     C10 : float
         Normalized constant boundary concentration during pulse.
     Ci : ndarray
@@ -266,28 +261,29 @@ def equilibrium_solver(R, Z, T, pec, T0, C10, Ci, theta): #noqa: PLR0913
     C_tot : ndarray
         Total concentration (mg/L bulk volume) with shape (len(Z), len(T)).
     """
-    # Solution for the boundary value problem
-    # Define the solution for a constant boundary condition as a function
+    Z, T, T0, P = dim.Z, dim.T, dim.T0, dim.P
+
     C1_bvp = np.zeros((len(Z), len(T)))
     C1_ivp = np.zeros((len(Z), len(T)))
+
     for i in range(len(T)):
         if T[i] <= T0:
-            C1_bvp[:, i] = C10 * eqbvpfunc(T[i], R, Z, pec)
+            C1_bvp[:, i] = C10 * eqbvpfunc(T[i], R, Z, P)
         else:
-            C1_bvp[:, i] = C10 * eqbvpfunc(T[i], R, Z, pec) - C10 * eqbvpfunc(T[i] - T0, R, Z, pec)
+            C1_bvp[:, i] = C10 * eqbvpfunc(T[i], R, Z, P) - C10 * eqbvpfunc(T[i] - T0, R, Z, P)
         if max(Ci) != 0:
-            # Solution for the initial value problem
             for ti in range(len(T)):
                 for zi in range(len(Z)):
                     kesi = np.linspace(0, 1, len(Ci))
-                    C1_ivp[zi, ti] = np.trapz(eqivpfunc(T[ti], R, Z[zi], pec, kesi) * Ci, kesi)
-        C1 = C1_bvp + C1_ivp
-        #C2 = C2_bvp + C2_ivp
-        C_tot = C1*R*theta #+ rhob*C2 #TODO
+                    C1_ivp[zi, ti] = np.trapz(eqivpfunc(T[ti], R, Z[zi], P, kesi) * Ci, kesi)
+
+    C1 = C1_bvp + C1_ivp
+    C_tot = C1 * R * theta
+
     return C1, C_tot
 
 
-def kinetic_solver(R, Z, T, pec, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd, theta, rhob): #noqa: PLR0913
+def kinetic_solver(R, dim: DimensionlessParams, C10, Ci, betas, beta, cflag, Rs, Fs, Kd, theta, rhob):  # noqa: PLR0913
     """
     Solve advection-dispersion equation with kinetic (time-dependent) sorption.
 
@@ -305,26 +301,21 @@ def kinetic_solver(R, Z, T, pec, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd
     ----------
     R : float
         Retardation factor for aqueous phase.
-    Z : ndarray
-        Dimensionless depth nodes (0 to 1).
-    T : ndarray
-        Dimensionless time points.
-    pec : float
-        Peclet number.
-    T0 : float
-        Dimensionless pulse duration of contaminant input.
+    dim : DimensionlessParams
+        Dimensionless parameters computed by :func:`compute_dimensionless_params`.
+        Uses `.Z` (dimensionless depth), `.T` (dimensionless time),
+        `.P` (Péclet number), `.T0` (dimensionless pulse duration),
+        and `.ws` (Damköhler number for kinetic sorption).
     C10 : float
         Normalized constant boundary concentration during pulse.
     Ci : ndarray
         Normalized initial concentration profile with depth.
-    ws : float
-        Kinetic sorption rate coefficient.
     betas : float
         Kinetic sorption retardation factor for solid phase.
     beta : float
-        Total kinetic sorption retardation factor
+        Total kinetic sorption retardation factor.
     cflag : int
-        Configuration flag for volume-averaged (1) concentrations?
+        Configuration flag for volume-averaged (1) concentrations.
     Rs : float
         Solid phase retardation factor.
     Fs : float
@@ -345,33 +336,33 @@ def kinetic_solver(R, Z, T, pec, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd
     C_tot : ndarray
         Total concentration (mg/L bulk volume) with shape (len(Z), len(T)).
     """
-    # Initialize solutions for the aqueous concentration for BVP and IVP problems
+    Z, T, T0, P, ws = dim.Z, dim.T, dim.T0, dim.P, dim.ws
+
     C1_bvp = np.zeros((len(Z), len(T)))
     C1_ivp = np.zeros((len(Z), len(T)))
-    # Initialize solutions for adsorbed concentration at the kinetic sorption domain
     C2_bvp = np.zeros((len(Z), len(T)))
     C2_ivp = np.zeros((len(Z), len(T)))
-    m = 30  # number of modified bessel function terms used
+    m = 30  # number of modified Bessel function terms used
+
     for i in range(len(Z)):
         for j in range(len(T)):
-            # Solution for the boundary value problem
             if T[j] <= T0:
                 C1_bvp[i, j], C2_bvp[i, j] = utils.ABfunc(
-                    Z[i], T[j], ws, betas, beta, pec, R, Rs, m, cflag
+                    Z[i], T[j], ws, betas, beta, P, R, Rs, m, cflag
                 )
             elif T[j] > T0:
                 C1_bvp[i, j], C2_bvp[i, j] = utils.ABfunc(
-                    Z[i], T[j], ws, betas, beta, pec, R, Rs, m, cflag
+                    Z[i], T[j], ws, betas, beta, P, R, Rs, m, cflag
                 )
-                A, B = utils.ABfunc(Z[i], T[j] - T0, ws, betas, beta, pec, R, Rs, m, cflag)
+                A, B = utils.ABfunc(Z[i], T[j] - T0, ws, betas, beta, P, R, Rs, m, cflag)
                 C1_bvp[i, j] = C1_bvp[i, j] - A
                 C2_bvp[i, j] = C2_bvp[i, j] - B
+
             if max(Ci) != 0:
-                # Solution for the initial value problem
                 kesi = np.linspace(0, 1, len(Ci))
                 tau = np.linspace(0, T[j], 100)
 
-                GfuncT = np.trapz(neqivpfunc(T[j], R, Z[i], pec, kesi, beta) * Ci, kesi)
+                GfuncT = np.trapz(neqivpfunc(T[j], R, Z[i], P, kesi, beta) * Ci, kesi)
                 if betas == 1:
                     C1_ivp[i, j] = GfuncT
                 else:
@@ -384,21 +375,24 @@ def kinetic_solver(R, Z, T, pec, T0, C10, Ci, ws, betas, beta, cflag, Rs, Fs, Kd
                     )
                     Gfunctau = np.zeros((len(tau), 1))
                     for k in range(1, len(tau) - 1):
-                        Gfunctau[k] = np.trapz(neqivpfunc(tau[k], R, Z[i], pec, kesi, beta)
-                                                * Ci, kesi)
+                        Gfunctau[k] = np.trapz(
+                            neqivpfunc(tau[k], R, Z[i], P, kesi, beta) * Ci, kesi
+                        )
                     C1_ivp[i, j] = C1_ivp[i, j] + ws / (1 - betas) / (1 + Rs) * np.trapz(
                         hfunc(T[j], R, tau[1:-1], Rs, Fs, beta, betas, ws) * Gfunctau[1:-1],
-                        tau[1:-1]
+                        tau[1:-1],
                     )
                     C2_ivp[i, j] = C2_ivp[i, j] + ws / (1 - betas) / (1 + Rs) * (
                         1 - Fs
-                    ) * Kd * np.trapz(hs2func(T[j], R, tau[1:-1], Rs, Fs, beta, betas, ws)
-                                      * Gfunctau[1:-1], tau[1:-1])
+                    ) * Kd * np.trapz(
+                        hs2func(T[j], R, tau[1:-1], Rs, Fs, beta, betas, ws) * Gfunctau[1:-1],
+                        tau[1:-1],
+                    )
 
-    # Convert dimensionless C1_bvp and C2_bvp to original dimensions
     C1_bvp = C10 * C1_bvp
     C2_bvp = (1 - Fs) * Kd * C10 * C2_bvp
     C1 = C1_bvp + C1_ivp
     C2 = C2_bvp + C2_ivp
-    C_tot = C1*beta*R*theta + rhob*C2
+    C_tot = C1 * beta * R * theta + rhob * C2
+
     return C1, C2, C_tot
