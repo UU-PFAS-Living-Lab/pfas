@@ -99,7 +99,7 @@ def _(
     boundary_prep = BoundaryPreprocessor(
         average_infiltration_rate=1.5,
         solute_concentration_influx=10.0,
-        pulse_duration=2000
+        pulse_intervals=[(0, 2000)]
     )
     boundary_results = boundary_prep.compute()
 
