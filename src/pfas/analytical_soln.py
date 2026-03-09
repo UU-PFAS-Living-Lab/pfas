@@ -42,18 +42,31 @@ class SimulationGrid:
 
 @dataclass
 class BoundaryConditions:
-    """Boundary conditions for contaminant source.
+    """Boundary conditions for contaminant transport.
 
     Parameters
     ----------
-    pulse_time : float
-        Duration of the contaminant pulse at the boundary (s).
-    contaminant_release_rate : float or ndarray
-        Rate of contaminant release at the boundary (C10) (mg/L·s).
+    pulse_intervals : list of (float, float)
+        Inlet concentration on/off periods in physical time (s).
+        Each tuple defines one active pulse period (t_start, t_end).
+        Examples:
+        - Continuous step:   ``[(0, np.inf)]``
+        - Pulse from t=0:    ``[(0, 5000)]``
+        - Delayed pulse:     ``[(2000, 5000)]``
+        - Multiple pulses:   ``[(0, 1000), (3000, 5000)]``
+    contaminant_release_rate : float
+        Contaminant mass flux at the inlet boundary (mg/m²/s).
     """
 
-    pulse_time: float
-    contaminant_release_rate: NDArray[np.float64] | float
+    def __init__(
+        self,
+        pulse_intervals: list[tuple[float, float]],
+        contaminant_release_rate: float,
+    ) -> None:
+        self.pulse_intervals = pulse_intervals
+        self.contaminant_release_rate = contaminant_release_rate
+
+
 
 
 @dataclass
@@ -161,8 +174,9 @@ def analytical_soln(  # noqa: PLR0913
     bulk_density : float
         Bulk density of the porous medium (kg/L).
     boundary_conditions : BoundaryConditions
-        Contaminant source boundary conditions. Must have `.pulse_time` (s)
-        and `.contaminant_release_rate`.
+        Contaminant source boundary conditions. Must have `.pulse_intervals`
+        (list of (t_start, t_end) tuples in seconds) and
+        `.contaminant_release_rate`.
     initial_contaminant_concentration : ndarray of shape (n_depth,)
         Initial aqueous concentration distribution in the domain (mg/L).
     hydro_properties : HydrologicalProperties
@@ -170,7 +184,7 @@ def analytical_soln(  # noqa: PLR0913
         `.dispersion_coefficient` (m²/s), and `.water_content` (-).
     adsorption : Adsorption
         Adsorption parameters. Must have `.total_retardation`, `.Kd`,
-        `.sp_retardation`, `.frac_int`, `.beta`, and `.betas`. When
+        `.sp_retardation`, `.frac_int`, `.beta`, and `.beta_s`. When
         kinetic=True, also requires `.rate_const`.
     kinetic : bool, optional
         If True, use the kinetic (non-equilibrium) sorption model and call
@@ -201,6 +215,7 @@ def analytical_soln(  # noqa: PLR0913
         grid,
         boundary_conditions,
         hydro_properties,
+        pulse_intervals=boundary_conditions.pulse_intervals,
         adsorption=adsorption,
         kinetic=kinetic,
     )
@@ -221,7 +236,7 @@ def analytical_soln(  # noqa: PLR0913
             adsorption.Kd,
             hydro_properties.water_content,
             bulk_density,
-    )
+        )
     else:
         C1, C_tot = equilibrium_solver(
             adsorption.total_retardation,

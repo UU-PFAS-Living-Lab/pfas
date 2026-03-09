@@ -14,6 +14,8 @@ References
 ----------
 van Genuchten & Alves (1982): Analytical solutions of the one-dimensional
 convective-dispersive solute transport equation.
+Toride, Leij & van Genuchten (1995): The CXTFIT Code, Version 2.0,
+USDA Research Report No. 137.
 """
 
 from __future__ import annotations
@@ -38,18 +40,23 @@ class DimensionlessParams(NamedTuple):
         Dimensionless depth (-), Z = z / L.
     T : ndarray
         Dimensionless time (-), T = t * v / L.
-    T0 : float
-        Dimensionless pulse duration (-), T0 = t_pulse * v / L.
+    pulses : list of (float, float)
+        Dimensionless pulse intervals [(T_start, T_end), ...].
+        Each tuple defines one on/off period of the inlet concentration.
+        Use ``(0, np.inf)`` for a continuous step input.
+        Use ``[(0, T0)]`` for a pulse starting at T=0 of duration T0.
+        Use ``[(T_start, T_end)]`` for a delayed pulse.
+        Multiple tuples superimpose several pulses.
     P : float
         Péclet number (-), P = v * L / D.
     omega : float or None
-        Damköhler number for kinetic sorption (-).
+        Dimensionless mass transfer coefficient (ω, CXTFIT Table 3.1).
         None when kinetic=False.
     """
 
     Z: NDArray[np.float64]
     T: NDArray[np.float64]
-    T0: float
+    pulses: list[tuple[float, float]]
     P: float
     omega: float | None
 
@@ -58,6 +65,7 @@ def compute_dimensionless_params(
     grid,
     boundary_conditions,
     hydro_properties,
+    pulse_intervals: list[tuple[float, float]],
     adsorption=None,
     kinetic: bool = False,
 ) -> DimensionlessParams:
@@ -65,6 +73,8 @@ def compute_dimensionless_params(
 
     Converts physical grid, flow, and transport parameters into the
     dimensionless form required by the equilibrium and kinetic solvers.
+    Pulse intervals in physical time (seconds) are converted to dimensionless
+    time T = t * v / L.
 
     Parameters
     ----------
@@ -72,10 +82,16 @@ def compute_dimensionless_params(
         Spatial and temporal discretization. Must have `.depth` (m) and
         `.time` (s) arrays.
     boundary_conditions : BoundaryConditions
-        Contaminant source boundary conditions. Must have `.pulse_time` (s).
+        Contaminant source boundary conditions.
     hydro_properties : HydrologicalProperties
         Hydrological properties. Must have `.pore_velocity` (m/s) and
         `.dispersion_coefficient` (m²/s).
+    pulse_intervals : list of (float, float)
+        Inlet concentration on/off periods in physical time (s), e.g.:
+        - Step input:               ``[(0, np.inf)]``
+        - Pulse from t=0:           ``[(0, 5000)]``
+        - Delayed pulse:            ``[(2000, 5000)]``
+        - Multiple pulses:          ``[(0, 1000), (3000, 5000)]``
     adsorption : Adsorption, optional
         Adsorption parameters. Required when kinetic=True. Must have
         `.rate_const`, `.beta_s`, `.sp_retardation`.
@@ -85,7 +101,7 @@ def compute_dimensionless_params(
     Returns
     -------
     DimensionlessParams
-        Named tuple containing Z, T, T0, P, and omega (None if kinetic=False).
+        Named tuple containing Z, T, pulses (dimensionless), P, and omega.
 
     Raises
     ------
@@ -93,6 +109,8 @@ def compute_dimensionless_params(
         If pore_velocity or dispersion_coefficient is zero.
     ValueError
         If kinetic=True but adsorption is None.
+    ValueError
+        If any pulse interval has t_start >= t_end.
     """
     v = hydro_properties.pore_velocity
     D = hydro_properties.dispersion_coefficient
@@ -103,13 +121,24 @@ def compute_dimensionless_params(
         raise ValueError("Dispersion coefficient must be non-zero.")
     if kinetic and adsorption is None:
         raise ValueError("Adsorption parameters required when kinetic=True.")
+    for t_start, t_end in pulse_intervals:
+        if t_start >= t_end:
+            raise ValueError(
+                f"Invalid pulse interval ({t_start}, {t_end}): "
+                "t_start must be strictly less than t_end."
+            )
 
     L = grid.depth[-1]
+    scale = v / L
 
     Z = grid.depth / L
-    T = grid.time * (v / L)
-    T0 = boundary_conditions.pulse_time * (v / L)
-    P = v * L / D
+    T = grid.time * scale
+
+    # Convert physical pulse intervals to dimensionless time
+    pulses = [
+        (t_start * scale, t_end * scale if t_end != np.inf else np.inf)
+        for t_start, t_end in pulse_intervals
+    ]
 
     omega = None
     if kinetic:
@@ -121,7 +150,7 @@ def compute_dimensionless_params(
             / v
         )
 
-    return DimensionlessParams(Z=Z, T=T, T0=T0, P=P, omega=omega)
+    return DimensionlessParams(Z=Z, T=T, pulses=pulses, P=v * L / D, omega=omega)
 
 
 # ---------------------------------------------------------------------------
@@ -345,7 +374,7 @@ def _ivp_neq(  # noqa: PLR0913
         Dimensionless depth coordinate (ξ) stepping over the initial
         concentration profile.
     beta : float
-        Kinetic sorption partitioning coefficient (beta = 1 - (1-f)*Kd*rhob/theta).
+        Dimensionless partitioning coefficient (β in CXTFIT Table 3.1).
 
     Returns
     -------
