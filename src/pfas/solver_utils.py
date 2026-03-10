@@ -4,7 +4,8 @@ This module contains:
 - Dimensionless parameter computation and the :class:`DimensionlessParams` container
 - BVP helper functions for equilibrium sorption (one per boundary condition type)
 - IVP helper functions for equilibrium and kinetic sorption
-- Kinetic sorption convolution kernels (Bessel function based)
+- Kinetic sorption BVP functions (Goldstein J-function + Bessel approximation)
+- Kinetic sorption IVP convolution kernels H₀ and Hₛ (Bessel function based, CXTFIT Table 3.4)
 
 The high-level solvers in ``solvers.py`` import from here. To add a new boundary
 condition, implement a helper with the signature ``f(T, R, Z, P) -> ndarray`` and
@@ -16,6 +17,11 @@ van Genuchten & Alves (1982): Analytical solutions of the one-dimensional
 convective-dispersive solute transport equation.
 Toride, Leij & van Genuchten (1995): The CXTFIT Code, Version 2.0,
 USDA Research Report No. 137.
+van Genuchten, M. Th. (1981): Non-Equilibrium Transport Parameters from
+Miscible Displacement Experiments. Research Report No. 119, USDA-ARS.
+Lindstrom, F.T. and Stone, W.J. (1974): On the start up or initial phase
+of linear mass transport of chemicals in a water saturated sorbing porous
+medium. Soil Science Society of America Proceedings.
 """
 
 from __future__ import annotations
@@ -24,7 +30,13 @@ from typing import NamedTuple
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy.integrate import quad
 from scipy.special import erfc, iv
+
+
+# Number of modified Bessel function series terms for the Goldstein J-function
+# approximation following Lindstrom and Stone (1974).
+_BESSEL_TERMS: int = 30
 
 
 # ---------------------------------------------------------------------------
@@ -312,7 +324,7 @@ def _ivp_eq(
     Returns
     -------
     ndarray
-        Kernel values G(Z, T, xi) over xi, for numerical integration via trapz.
+        Kernel values G(Z, T, xi) over xi, for numerical integration via trapezoid.
 
     References
     ----------
@@ -332,7 +344,7 @@ def _ivp_eq(
 
 
 # ---------------------------------------------------------------------------
-# IVP and convolution helpers — kinetic sorption
+# IVP helpers — kinetic (non-equilibrium) sorption
 # ---------------------------------------------------------------------------
 
 def _ivp_neq(  # noqa: PLR0913
@@ -379,7 +391,7 @@ def _ivp_neq(  # noqa: PLR0913
     Returns
     -------
     ndarray
-        Kernel values G_neq(Z, T, xi) over xi, for numerical integration via trapz.
+        Kernel values G_neq(Z, T, xi) over xi, for numerical integration via trapezoid.
 
     References
     ----------
@@ -399,7 +411,7 @@ def _ivp_neq(  # noqa: PLR0913
     )
 
 
-def _kinetic_kernel_aqueous(  # noqa: PLR0913
+def _H0(  # noqa: PLR0913
     T: float,
     R: float,
     tau: NDArray[np.float64],
@@ -409,40 +421,47 @@ def _kinetic_kernel_aqueous(  # noqa: PLR0913
     beta_s: float,
     omega: float,
 ) -> NDArray[np.float64]:
-    """Bessel function convolution kernel for aqueous phase kinetic sorption.
+    """Bessel function convolution kernel H₀(τ; T) for the aqueous phase kinetic IVP.
 
-    Computes the kernel function used in the convolution integral for the
-    aqueous phase concentration under kinetic sorption conditions.
+    Computes the kernel H₀(τ; T) appearing in the convolution integral for
+    the aqueous phase concentration C₁ under kinetic sorption conditions
+    (CXTFIT Table 3.4). Used to evaluate the time-history contribution to C₁
+    from non-zero initial conditions:
+
+        C1_ivp += (ω / ((1-β_s)·(1+R_s))) · ∫₀ᵀ H₀(τ; T) · G(Z, τ) dτ
+
+    where G(Z, τ) is the nonequilibrium IVP Green's function :func:`_ivp_neq`
+    evaluated at intermediate times τ (stored in G_Ztau).
 
     Parameters
     ----------
     T : float
         Dimensionless time, T = vt/L.
     R : float
-        Retardation factor, R = 1 + rho_b * Kd / theta.
+        Overall retardation factor, R = 1 + ρ_b·Kd/θ.
     tau : ndarray
-        Dimensionless integration time variable (τ), 0 <= τ <= T.
+        Dimensionless integration time variable (τ), 0 < τ < T.
     R_s : float
-        Retardation factor for kinetic sorption sites (R_s in CXTFIT Table 3.1).
+        Retardation factor for kinetic sorption sites (CXTFIT Table 3.1).
     f : float
-        Fraction of sorption sites at equilibrium (f in CXTFIT Table 3.1),
-        0 <= f <= 1.
+        Fraction of sorption sites at instantaneous equilibrium (CXTFIT
+        Table 3.1), 0 <= f <= 1.
     beta : float
-        Dimensionless partitioning coefficient (β in CXTFIT Table 3.1).
+        Dimensionless partitioning coefficient β (CXTFIT Table 3.1).
     beta_s : float
-        Partitioning coefficient for the solid phase (β_s in CXTFIT Table 3.1).
+        Solid-phase partitioning coefficient β_s (CXTFIT Table 3.1).
     omega : float
-        Dimensionless mass transfer coefficient (ω in CXTFIT Table 3.1).
+        Dimensionless mass transfer coefficient ω (CXTFIT Table 3.1).
 
     Returns
     -------
     ndarray
-        Kernel values H_0(τ; T) over tau for numerical integration (Table 3.4).
+        Kernel values H₀(τ; T) over tau for numerical integration.
 
     References
     ----------
     Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 3.4, kernel H_0 for aqueous phase IVP convolution.
+    No. 137, USDA-ARS. Table 3.4, kernel H₀ for aqueous phase IVP convolution.
     """
     iv_arg = (
         2 * omega / (1 - beta_s) / (1 + R_s)
@@ -463,7 +482,7 @@ def _kinetic_kernel_aqueous(  # noqa: PLR0913
     )
 
 
-def _kinetic_kernel_sorbed(  # noqa: PLR0913
+def _Hs(  # noqa: PLR0913
     T: float,
     R: float,
     tau: NDArray[np.float64],
@@ -473,40 +492,47 @@ def _kinetic_kernel_sorbed(  # noqa: PLR0913
     beta_s: float,
     omega: float,
 ) -> NDArray[np.float64]:
-    """Bessel function convolution kernel for sorbed phase kinetic sorption.
+    """Bessel function convolution kernel Hₛ(τ; T) for the sorbed phase kinetic IVP.
 
-    Computes the kernel function used in the convolution integral for the
-    sorbed phase concentration under kinetic sorption conditions.
+    Computes the kernel Hₛ(τ; T) appearing in the convolution integral for
+    the sorbed phase concentration C₂ under kinetic sorption conditions
+    (CXTFIT Table 3.4). Used to evaluate the time-history contribution to C₂
+    from non-zero initial conditions:
+
+        C2_ivp += (ω / ((1-β_s)·(1+R_s))) · (1-f)·Kd · ∫₀ᵀ Hₛ(τ; T) · G(Z, τ) dτ
+
+    where G(Z, τ) is the nonequilibrium IVP Green's function :func:`_ivp_neq`
+    evaluated at intermediate times τ (stored in G_Ztau).
 
     Parameters
     ----------
     T : float
         Dimensionless time, T = vt/L.
     R : float
-        Retardation factor, R = 1 + rho_b * Kd / theta.
+        Overall retardation factor, R = 1 + ρ_b·Kd/θ.
     tau : ndarray
-        Dimensionless integration time variable (τ), 0 <= τ <= T.
+        Dimensionless integration time variable (τ), 0 < τ < T.
     R_s : float
-        Retardation factor for kinetic sorption sites (R_s in CXTFIT Table 3.1).
+        Retardation factor for kinetic sorption sites (CXTFIT Table 3.1).
     f : float
-        Fraction of sorption sites at equilibrium (f in CXTFIT Table 3.1),
-        0 <= f <= 1.
+        Fraction of sorption sites at instantaneous equilibrium (CXTFIT
+        Table 3.1), 0 <= f <= 1.
     beta : float
-        Dimensionless partitioning coefficient (β in CXTFIT Table 3.1).
+        Dimensionless partitioning coefficient β (CXTFIT Table 3.1).
     beta_s : float
-        Partitioning coefficient for the solid phase (β_s in CXTFIT Table 3.1).
+        Solid-phase partitioning coefficient β_s (CXTFIT Table 3.1).
     omega : float
-        Dimensionless mass transfer coefficient (ω in CXTFIT Table 3.1).
+        Dimensionless mass transfer coefficient ω (CXTFIT Table 3.1).
 
     Returns
     -------
     ndarray
-        Kernel values H_s(τ; T) over tau for numerical integration (Table 3.4).
+        Kernel values Hₛ(τ; T) over tau for numerical integration.
 
     References
     ----------
     Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 3.4, kernel H_s for sorbed phase IVP convolution.
+    No. 137, USDA-ARS. Table 3.4, kernel Hₛ for sorbed phase IVP convolution.
     """
     iv_arg = (
         2 * omega / (1 - beta_s) / (1 + R_s)
@@ -524,3 +550,296 @@ def _kinetic_kernel_sorbed(  # noqa: PLR0913
             + np.sqrt(R_s * (1 - f) * (T - tau) / (beta * R) / tau) * iv(1, iv_arg)
         )
     )
+
+
+# ---------------------------------------------------------------------------
+# BVP helpers — kinetic (non-equilibrium) sorption
+# Transport kernel, Goldstein J-function, and A₁/A₂ BVP solutions
+# (CXTFIT eqs. 3.21–3.22; van Genuchten, 1981)
+# ---------------------------------------------------------------------------
+
+def _FT(
+    tau: float | NDArray[np.float64],
+    Z: float,
+    P: float,
+    R: float,
+    beta: float,
+    volume_averaged: bool,
+) -> float | NDArray[np.float64]:
+    """Green's function transport kernel Γ₁ᴺ(Z, τ) for the nonequilibrium BVP.
+
+    Computes the advection-dispersion kernel appearing in the integrands of
+    A₁ and A₂ (CXTFIT eqs. 3.21–3.22) at dimensionless depth Z.
+    Corresponds to FT(τ) in van Genuchten (1981).
+
+    Two forms are available depending on the concentration averaging mode:
+
+    Volume-averaged (resident) concentration — bc=2 in van Genuchten (1981):
+
+        FT(Z, τ) = sqrt(P / (π·βR·τ)) · exp(-P·(βRZ - τ)² / (4βRτ))
+                   - (P / 2βR) · exp(PZ) · erfc(sqrt(P / (4βRτ)) · (βRZ + τ))
+
+    Flux-averaged concentration — bc=1 in van Genuchten (1981):
+
+        FT(Z, τ) = (Z/τ) · sqrt(P·βR / (4π·τ)) · exp(-P·(βRZ - τ)² / (4βRτ))
+
+    Parameters
+    ----------
+    tau : float or ndarray
+        Dimensionless integration variable (0 < τ < T).
+    Z : float
+        Dimensionless depth, Z = z/L.
+    P : float
+        Péclet number P = vL/D.
+    R : float
+        Overall retardation factor R = 1 + ρ_b·Kd/θ.
+    beta : float
+        Dimensionless partitioning coefficient β (CXTFIT Table 3.1).
+    volume_averaged : bool
+        If True, use the volume-averaged (resident) concentration kernel.
+        If False, use the flux-averaged concentration kernel.
+
+    Returns
+    -------
+    float or ndarray
+        Transport kernel value(s) at tau.
+
+    References
+    ----------
+    van Genuchten (1981), eq. for FT (Research Report No. 119, USDA-ARS).
+    CXTFIT eq. 3.21, kernel Γ₁ᴺ(Z, τ).
+    """
+    R_beta = beta * R
+    term0 = np.sqrt(P / (np.pi * R_beta * tau))
+    term1 = np.exp(-0.25 * P / R_beta / tau * (R_beta * Z - tau) ** 2)
+    term2 = np.exp(P * Z) * erfc(np.sqrt(0.25 * P / R_beta / tau) * (R_beta * Z + tau))
+
+    if volume_averaged:
+        # Resident (volume-averaged) concentration — bc=2 in van Genuchten (1981)
+        return term0 * term1 - 0.5 * (P / R_beta) * term2
+    else:
+        # Flux-averaged concentration — bc=1 in van Genuchten (1981)
+        return (Z / tau) * np.sqrt(0.25 * P * R_beta / (np.pi * tau)) * term1
+
+
+def _goldstein_J(
+    a: float,
+    b: float,
+    m: int = _BESSEL_TERMS,
+) -> tuple[float, float]:
+    """Evaluate Goldstein's J-function J(a,b) and J(b,a) via Bessel series.
+
+    Approximates Goldstein's J-function (Goldstein, 1953) using modified
+    Bessel functions Iⱼ following Lindstrom and Stone (1974), with an
+    erfc-based asymptotic expansion for large arguments (a+b > 10).
+    Returns both J(a,b) and J(b,a) as needed for A₁ and A₂ respectively
+    (CXTFIT eqs. 3.21–3.22, Table 3.4).
+
+    For a + b > 10 the asymptotic approximation is used:
+
+        J(a,b) ≈ 0.5 · erfc(√a - √b - 1/(8√a) - 1/(8√b))
+
+    Otherwise the modified Bessel series is evaluated:
+
+        J(a,b) = exp(-a-b) · Σⱼ (b/a)^(j/2) · Iⱼ(2√(ab))   [if a ≥ b]
+        J(a,b) = 1 - exp(-a-b) · Σⱼ (a/b)^(j/2) · Iⱼ(2√(ab))  [if a < b]
+
+    Parameters
+    ----------
+    a : float
+        First argument: a = ω·τ / (β·R) (CXTFIT Table 3.4).
+    b : float
+        Second argument: b = ω·(T-τ) / ((1-β_s)·(R_s+1)) (CXTFIT Table 3.4).
+    m : int, optional
+        Number of Bessel function series terms. Default is ``_BESSEL_TERMS`` (30).
+
+    Returns
+    -------
+    Jab : float
+        J(a, b) — used in the A₁ integrand (equilibrium phase, eq. 3.21).
+    Jba : float
+        J(b, a) — used in the A₂ integrand (nonequilibrium phase, eq. 3.22).
+
+    References
+    ----------
+    Goldstein, S. (1953). Proc. R. Soc. London A, 219, 151–171.
+    Lindstrom, F.T. and Stone, W.J. (1974). Soil Sci. Soc. Am. Proc.
+    CXTFIT Table 3.4.
+    """
+    if a + b > 10:
+        Jab = 0.5 * erfc(
+            np.sqrt(a) - np.sqrt(b)
+            - 1 / (8 * np.sqrt(a)) - 1 / (8 * np.sqrt(b))
+        )
+        Jba = 0.5 * erfc(
+            np.sqrt(b) - np.sqrt(a)
+            - 1 / (8 * np.sqrt(b)) - 1 / (8 * np.sqrt(a))
+        )
+    else:
+        Iab_sum = 0.0
+        Iba_sum = 0.0
+        sqrt_ab = 2 * np.sqrt(a * b)
+        if a >= b:
+            ratio = b / a
+            for j in range(m):
+                Iab_sum += ratio ** (j / 2.0) * iv(j, sqrt_ab)
+            for j in range(1, m + 1):
+                Iba_sum += ratio ** (j / 2.0) * iv(j, sqrt_ab)
+            Jab = np.exp(-a - b) * Iab_sum
+            Jba = 1.0 - np.exp(-a - b) * Iba_sum
+        else:
+            ratio = a / b
+            for j in range(1, m + 1):
+                Iab_sum += ratio ** (j / 2.0) * iv(j, sqrt_ab)
+            for j in range(m):
+                Iba_sum += ratio ** (j / 2.0) * iv(j, sqrt_ab)
+            Jab = 1.0 - np.exp(-a - b) * Iab_sum
+            Jba = np.exp(-a - b) * Iba_sum
+
+    return Jab, Jba
+
+
+def _bvp_neq_integrand(  # noqa: PLR0913
+    tau: float,
+    T: float,
+    Z: float,
+    P: float,
+    R: float,
+    R_s: float,
+    beta: float,
+    beta_s: float,
+    omega: float,
+    volume_averaged: bool,
+    m: int,
+) -> tuple[float, float]:
+    """Integrand for the nonequilibrium BVP integrals A₁ and A₂.
+
+    Evaluates FT(Z, τ)·J(a,b) and FT(Z, τ)·[1-J(b,a)] at a single tau value,
+    as appearing in CXTFIT eqs. 3.21–3.22. Separated from :func:`_bvp_neq`
+    to allow use with ``scipy.integrate.quad`` for adaptive quadrature.
+
+    The arguments to the Goldstein J-function are (CXTFIT Table 3.4):
+
+        a = ω·τ / (β·R)
+        b = ω·(T-τ) / ((1-β_s)·(R_s+1))
+
+    Parameters
+    ----------
+    tau : float
+        Dimensionless integration variable (0 < τ < T).
+    T : float
+        Dimensionless time.
+    Z : float
+        Dimensionless depth, Z = z/L.
+    P : float
+        Péclet number.
+    R : float
+        Overall retardation factor.
+    R_s : float
+        Retardation factor for kinetic sorption sites.
+    beta : float
+        Dimensionless partitioning coefficient β (CXTFIT Table 3.1).
+    beta_s : float
+        Solid-phase partitioning coefficient β_s (CXTFIT Table 3.1).
+    omega : float
+        Dimensionless mass transfer coefficient ω (CXTFIT Table 3.1).
+    volume_averaged : bool
+        Concentration averaging mode passed to :func:`_FT`.
+    m : int
+        Number of Bessel series terms passed to :func:`_goldstein_J`.
+
+    Returns
+    -------
+    integrand_A1 : float
+        FT(Z, τ) · J(a, b) — integrand for A₁ (eq. 3.21, equilibrium phase).
+    integrand_A2 : float
+        FT(Z, τ) · [1 - J(b, a)] — integrand for A₂ (eq. 3.22, nonequilibrium phase).
+    """
+    ft = _FT(tau, Z, P, R, beta, volume_averaged)
+
+    if beta_s == 1:
+        Jab, Jba = 1.0, 1.0
+    else:
+        a = omega * tau / (beta * R)
+        b = omega * (T - tau) / ((1 - beta_s) * (R_s + 1))
+        Jab, Jba = _goldstein_J(a, b, m)
+
+    return ft * Jab, ft * (1.0 - Jba)
+
+
+def _bvp_neq(  # noqa: PLR0913
+    Z: float,
+    T: float,
+    omega: float,
+    beta_s: float,
+    beta: float,
+    P: float,
+    R: float,
+    R_s: float,
+    m: int = _BESSEL_TERMS,
+    volume_averaged: bool = True,
+) -> tuple[float, float]:
+    """Compute A₁ and A₂: nonequilibrium BVP solutions (CXTFIT eqs. 3.21–3.22).
+
+    Evaluates the equilibrium-phase (A₁, k=1) and nonequilibrium-phase (A₂, k=2)
+    BVP solutions for the nonequilibrium ADE with first-order kinetic sorption,
+    via adaptive quadrature (``scipy.integrate.quad``) over the product of the
+    transport kernel :func:`_FT` and Goldstein's J-function :func:`_goldstein_J`.
+
+    The integrals are (CXTFIT eqs. 3.21–3.22):
+
+        A₁(Z,T) = ∫₀ᵀ FT(τ) · J(a, b) dτ
+
+        A₂(Z,T) = (ω / (ω+μ₂)) · ∫₀ᵀ FT(τ) · [1 - J(b, a)] dτ
+
+    where a and b are defined in CXTFIT Table 3.4 and FT is the transport
+    kernel from van Genuchten (1981), evaluated at depth Z.
+
+    Parameters
+    ----------
+    Z : float
+        Dimensionless depth (Z = z/L).
+    T : float
+        Dimensionless time (T = vt/L).
+    omega : float
+        Dimensionless mass transfer coefficient ω (CXTFIT Table 3.1).
+    beta_s : float
+        Solid-phase partitioning coefficient β_s (CXTFIT Table 3.1).
+        Set to 1 for fully equilibrium sorption (no kinetic sites).
+    beta : float
+        Dimensionless partitioning coefficient β (CXTFIT Table 3.1).
+    P : float
+        Péclet number P = vL/D.
+    R : float
+        Overall retardation factor R = 1 + ρ_b·Kd/θ.
+    R_s : float
+        Retardation factor for kinetic sorption sites (CXTFIT Table 3.1).
+    m : int, optional
+        Number of Bessel function series terms for :func:`_goldstein_J`.
+        Default is ``_BESSEL_TERMS`` (30).
+    volume_averaged : bool, optional
+        If True, use volume-averaged (resident) concentration kernel in
+        :func:`_FT`. Default is True.
+
+    Returns
+    -------
+    A1 : float
+        Equilibrium-phase BVP contribution, k=1 (CXTFIT eq. 3.21).
+    A2 : float
+        Nonequilibrium-phase BVP contribution, k=2 (CXTFIT eq. 3.22).
+
+    References
+    ----------
+    Toride, Leij & van Genuchten (1995). CXTFIT Version 2.0. Research Report
+    No. 137, USDA-ARS. Eqs. (3.20)–(3.22), Table 3.1, Table 3.4.
+
+    van Genuchten, M. Th. (1981). Research Report No. 119, USDA-ARS.
+
+    Lindstrom, F.T. and Stone, W.J. (1974). Soil Sci. Soc. Am. Proc.
+    """
+    args = (T, Z, P, R, R_s, beta, beta_s, omega, volume_averaged, m)
+
+    A1 = quad(lambda tau: _bvp_neq_integrand(tau, *args)[0], 1e-10, T - 1e-10)[0]
+    A2 = quad(lambda tau: _bvp_neq_integrand(tau, *args)[1], 1e-10, T - 1e-10)[0]
+
+    return A1, A2

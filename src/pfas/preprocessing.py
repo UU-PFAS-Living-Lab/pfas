@@ -35,7 +35,7 @@ SimulationRunner
 from typing import Annotated
 
 import numpy as np
-from annotated_types import Gt, Interval
+from annotated_types import Ge, Gt, Interval
 from pydantic import BaseModel, field_validator
 from scipy.optimize import fsolve
 
@@ -148,7 +148,8 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     average_infiltration_rate : float
         Average water infiltration rate (m/s). Must be positive.
     solute_concentration_influx : float
-        Solute concentration in infiltrating water (mg/L). Must be positive.
+    Solute concentration in infiltrating water (mg/L). Must be non-negative.
+    Use 0 for clean water infiltration with no PFAS input.
     pulse_intervals : list of (float, float)
         Inlet concentration on/off periods in physical time (s).
         Each tuple (t_start, t_end) defines one active pulse period.
@@ -165,7 +166,7 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     """
 
     average_infiltration_rate: Annotated[float, Gt(0)]
-    solute_concentration_influx: Annotated[float, Gt(0)]
+    solute_concentration_influx: Annotated[float, Ge(0)]
     pulse_intervals: list[tuple[float, float]]
 
     @field_validator("pulse_intervals")

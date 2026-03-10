@@ -14,14 +14,15 @@ Main functions
 import numpy as np
 from numpy.typing import NDArray
 
-from pfas import utils
 from pfas.solver_utils import (
-    DimensionlessParams,
+    _BESSEL_TERMS,
     _BVP_FUNCTIONS,
+    _bvp_neq,
+    _H0,
+    _Hs,
     _ivp_eq,
     _ivp_neq,
-    _kinetic_kernel_aqueous,
-    _kinetic_kernel_sorbed,
+    DimensionlessParams,
     compute_dimensionless_params,
 )
 
@@ -29,14 +30,14 @@ from pfas.solver_utils import (
 def equilibrium_solver(  # noqa: PLR0913
     R: float,
     dim: DimensionlessParams,
-    C10: float,
+    C0: float,
     Ci: NDArray[np.float64],
     theta: float,
     bc: str = "flux",
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Solve advection-dispersion equation with equilibrium sorption.
 
-    Computes aqueous and total concentrations for contaminant transport
+    Computes aqueous and total concentrations for PFAS transport
     through porous media assuming instantaneous sorption equilibrium, using
     analytical solutions to the ADE. The solution combines contributions from
     the boundary value problem (BVP) and, when non-zero initial conditions are
@@ -70,9 +71,8 @@ def equilibrium_solver(  # noqa: PLR0913
     dim : DimensionlessParams
         Dimensionless parameters from :func:`compute_dimensionless_params`.
         Uses `.Z`, `.T`, `.P`, and `.pulses`.
-    C10 : float
-        Normalized inlet concentration during active pulse periods
-        (C0 in CXTFIT notation).
+    C0 : float
+        Normalised inlet concentration during active pulse periods (mg/L).
     Ci : ndarray of shape (n_depth,)
         Normalized initial concentration profile Ci(Z) (mg/L).
         Pass an array of zeros if there is no initial contamination.
@@ -119,15 +119,15 @@ def equilibrium_solver(  # noqa: PLR0913
         # subtract a backward step at T_end (Heaviside superposition).
         for T_start, T_end in pulses:
             if Ti > T_start:
-                C1_bvp[:, i] += C10 * bvp_func(Ti - T_start, R, Z, P)
+                C1_bvp[:, i] += C0 * bvp_func(Ti - T_start, R, Z, P)
             if T_end != np.inf and Ti > T_end:
-                C1_bvp[:, i] -= C10 * bvp_func(Ti - T_end, R, Z, P)
+                C1_bvp[:, i] -= C0 * bvp_func(Ti - T_end, R, Z, P)
 
     if max(Ci) != 0:
         xi = np.linspace(0, 1, len(Ci))
         for ti, Ti in enumerate(T):
             for zi, Zi in enumerate(Z):
-                C1_ivp[zi, ti] = np.trapz(_ivp_eq(Ti, R, Zi, P, xi) * Ci, xi)
+                C1_ivp[zi, ti] = np.trapezoid(_ivp_eq(Ti, R, Zi, P, xi) * Ci, xi)
 
     C1 = C1_bvp + C1_ivp
     C_tot = C1 * R * theta
@@ -138,52 +138,70 @@ def equilibrium_solver(  # noqa: PLR0913
 def kinetic_solver(  # noqa: PLR0913
     R: float,
     dim: DimensionlessParams,
-    C10: float,
+    C0: float,
     Ci: NDArray[np.float64],
     beta_s: float,
     beta: float,
-    cflag: bool,
+    volume_averaged: bool,
     R_s: float,
     f: float,
     Kd: float,
     theta: float,
-    rhob: float,
+    rho_b: float,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """Solve advection-dispersion equation with kinetic (time-dependent) sorption.
 
     Computes aqueous and sorbed phase concentrations for contaminant transport
-    with first-order kinetic sorption, using modified Bessel function solutions.
-    Handles both the boundary value problem (BVP) and the initial value problem
-    (IVP) for non-zero initial conditions. Pulse superposition over multiple
-    intervals follows the same Heaviside approach as :func:`equilibrium_solver`.
+    with first-order kinetic sorption, using modified Bessel function solutions
+    (van Genuchten, 1981). Handles both the boundary value problem (BVP) and
+    the initial value problem (IVP) for non-zero initial conditions. Pulse
+    superposition over multiple intervals follows the same Heaviside approach
+    as :func:`equilibrium_solver`.
+
+    The two-site and two-region nonequilibrium models reduce to the same
+    dimensionless transport form (CXTFIT eq. 3.5–3.6), parameterised by β and
+    ω. The BVP solution uses :func:`_bvp_neq`, which evaluates A₁ and A₂
+    (CXTFIT eqs. 3.21–3.22) via adaptive quadrature over the product of the
+    transport kernel :func:`_FT` and Goldstein's J-function approximated with
+    ``_BESSEL_TERMS`` modified Bessel function terms (Lindstrom & Stone, 1974).
+    The IVP convolution integral is evaluated numerically via the trapezoidal
+    rule over both space (xi) and time (tau), using the H₀ and Hₛ kernels
+    from CXTFIT Table 3.4 (:func:`_H0`, :func:`_Hs`). The Green's function
+    G(Z, τ) (:func:`_ivp_neq`) is pre-evaluated at intermediate times τ
+    (stored as G_Ztau) and at the current time T (G_ZT).
 
     Parameters
     ----------
     R : float
-        Retardation factor for aqueous phase.
+        Overall retardation factor, R = 1 + ρ_b·Kd/θ (CXTFIT Table 3.1).
     dim : DimensionlessParams
         Dimensionless parameters from :func:`compute_dimensionless_params`.
-        Uses `.Z`, `.T`, `.P`, `.pulses`, and `.omega`.
-    C10 : float
-        Normalized inlet concentration during active pulse periods.
+        Uses `.Z`, `.T`, `.P`, `.pulses`, and `.omega` (ω).
+    C0 : float
+        Normalised inlet concentration during active pulse periods (mg/L).
     Ci : ndarray of shape (n_depth,)
-        Normalized initial concentration profile with depth.
+        Normalised initial aqueous concentration profile with depth (mg/L).
+        Pass an array of zeros if there is no initial contamination.
     beta_s : float
-        Partitioning coefficient for the solid phase (β_s, CXTFIT Table 3.1).
+        Solid-phase partitioning coefficient β_s (CXTFIT Table 3.1).
+        Equal to 1 for the fully equilibrium case (no kinetic sites).
     beta : float
-        Dimensionless partitioning coefficient (β, CXTFIT Table 3.1).
-    cflag : bool
-        If True, return volume-averaged concentrations.
+        Dimensionless partitioning coefficient β (CXTFIT Table 3.1).
+        Ratio of equilibrium sorption capacity to total sorption capacity.
+    volume_averaged : bool
+        If True, use volume-averaged (resident) concentrations in the BVP
+        kernel :func:`_FT`. If False, use flux-averaged concentrations.
     R_s : float
-        Retardation factor for kinetic sorption sites (R_s, CXTFIT Table 3.1).
+        Retardation factor for kinetic sorption sites, R_s (CXTFIT Table 3.1).
     f : float
-        Fraction of sorption sites at equilibrium (f, CXTFIT Table 3.1).
+        Fraction of sorption sites at instantaneous equilibrium (CXTFIT
+        Table 3.1). f=1 reduces to full equilibrium; f=0 to fully kinetic.
     Kd : float
-        Distribution coefficient for sorption (L/kg).
+        Linear distribution coefficient (L/kg).
     theta : float
         Volumetric water content (-).
-    rhob : float
-        Bulk density of soil (kg/L).
+    rho_b : float
+        Bulk density of the porous medium ρ_b (kg/L).
 
     Returns
     -------
@@ -192,10 +210,21 @@ def kinetic_solver(  # noqa: PLR0913
     C2 : ndarray of shape (len(Z), len(T))
         Sorbed phase concentration (mg/kg).
     C_tot : ndarray of shape (len(Z), len(T))
-        Total concentration (mg/L bulk volume).
+        Total concentration (mg/L bulk volume),
+        C_tot = C1·β·R·θ + ρ_b·C2.
+
+    References
+    ----------
+    van Genuchten, M. Th. (1981). Non-Equilibrium Transport Parameters from
+    Miscible Displacement Experiments. Research Report No. 119, USDA-ARS,
+    US Salinity Laboratory, Riverside, CA.
+
+    Toride, Leij & van Genuchten (1995). CXTFIT Version 2.0. Research Report
+    No. 137, USDA-ARS. Chapter 3, eqs. (3.5)–(3.6), (3.20)–(3.22), Table 3.1.
+
+    Lindstrom, F.T. and Stone, W.J. (1974). Soil Sci. Soc. Am. Proc.
     """
     Z, T, pulses, P, omega = dim.Z, dim.T, dim.pulses, dim.P, dim.omega
-    m = 30  # number of modified Bessel function terms
 
     C1_bvp = np.zeros((len(Z), len(T)))
     C1_ivp = np.zeros((len(Z), len(T)))
@@ -205,55 +234,67 @@ def kinetic_solver(  # noqa: PLR0913
     for i, Zi in enumerate(Z):
         for j, Tj in enumerate(T):
 
-            # Pulse superposition over all intervals
+            # Pulse superposition over all intervals (CXTFIT eq. 3.20):
+            # A₁ (equilibrium phase) and A₂ (nonequilibrium phase) BVP solutions
+            # are evaluated via _bvp_neq and superimposed using the Heaviside approach.
             for T_start, T_end in pulses:
                 if Tj > T_start:
-                    A, B = utils.ABfunc(Zi, Tj - T_start, omega, beta_s, beta, P, R, R_s, m, cflag)
-                    C1_bvp[i, j] += A
-                    C2_bvp[i, j] += B
+                    A_eq, A_neq = _bvp_neq(
+                        Zi, Tj - T_start, omega, beta_s, beta, P, R, R_s,
+                        _BESSEL_TERMS, volume_averaged,
+                    )
+                    C1_bvp[i, j] += A_eq
+                    C2_bvp[i, j] += A_neq
                 if T_end != np.inf and Tj > T_end:
-                    A, B = utils.ABfunc(Zi, Tj - T_end, omega, beta_s, beta, P, R, R_s, m, cflag)
-                    C1_bvp[i, j] -= A
-                    C2_bvp[i, j] -= B
+                    A_eq, A_neq = _bvp_neq(
+                        Zi, Tj - T_end, omega, beta_s, beta, P, R, R_s,
+                        _BESSEL_TERMS, volume_averaged,
+                    )
+                    C1_bvp[i, j] -= A_eq
+                    C2_bvp[i, j] -= A_neq
 
             if max(Ci) != 0:
                 xi = np.linspace(0, 1, len(Ci))
                 tau = np.linspace(0, Tj, 100)
 
-                GfuncT = np.trapz(_ivp_neq(Tj, R, Zi, P, xi, beta) * Ci, xi)
+                # G(Z, T): Green's function integral at current time T (CXTFIT Table 3.2)
+                G_ZT = np.trapezoid(_ivp_neq(Tj, R, Zi, P, xi, beta) * Ci, xi)
 
                 if beta_s == 1:
-                    C1_ivp[i, j] = GfuncT
+                    C1_ivp[i, j] = G_ZT
                 else:
                     C1_ivp[i, j] = (
                         np.exp(-omega * Tj * (1 - f) * R_s / (1 - beta_s) / (beta * R) / (1 + R_s))
-                        * GfuncT
+                        * G_ZT
                     )
                     C2_ivp[i, j] = (
                         (1 - f) * Kd * Ci[i]
                         * np.exp(-omega * Tj / (1 - beta_s) / (1 + R_s))
                     )
-                    Gfunctau = np.zeros((len(tau), 1))
+                    # G(Z, τ): Green's function at intermediate times for convolution
+                    G_Ztau = np.zeros(len(tau))
                     for k in range(1, len(tau) - 1):
-                        Gfunctau[k] = np.trapz(
+                        G_Ztau[k] = np.trapezoid(
                             _ivp_neq(tau[k], R, Zi, P, xi, beta) * Ci, xi
                         )
-                    C1_ivp[i, j] += omega / (1 - beta_s) / (1 + R_s) * np.trapz(
-                        _kinetic_kernel_aqueous(Tj, R, tau[1:-1], R_s, f, beta, beta_s, omega)
-                        * Gfunctau[1:-1],
+                    C1_ivp[i, j] += omega / (1 - beta_s) / (1 + R_s) * np.trapezoid(
+                        _H0(Tj, R, tau[1:-1], R_s, f, beta, beta_s, omega)
+                        * G_Ztau[1:-1],
                         tau[1:-1],
                     )
-                    C2_ivp[i, j] += omega / (1 - beta_s) / (1 + R_s) * (1 - f) * Kd * np.trapz(
-                        _kinetic_kernel_sorbed(Tj, R, tau[1:-1], R_s, f, beta, beta_s, omega)
-                        * Gfunctau[1:-1],
-                        tau[1:-1],
+                    C2_ivp[i, j] += (
+                        omega / (1 - beta_s) / (1 + R_s) * (1 - f) * Kd * np.trapezoid(
+                            _Hs(Tj, R, tau[1:-1], R_s, f, beta, beta_s, omega)
+                            * G_Ztau[1:-1],
+                            tau[1:-1],
+                        )
                     )
 
-    C1_bvp = C10 * C1_bvp
-    C2_bvp = (1 - f) * Kd * C10 * C2_bvp
+    C1_bvp = C0 * C1_bvp
+    C2_bvp = (1 - f) * Kd * C0 * C2_bvp
     C1 = C1_bvp + C1_ivp
     C2 = C2_bvp + C2_ivp
-    C_tot = C1 * beta * R * theta + rhob * C2
+    C_tot = C1 * beta * R * theta + rho_b * C2
 
     return C1, C2, C_tot
 
@@ -306,8 +347,9 @@ def analytical_soln(  # noqa: PLR0913
         which returns a separate sorbed phase C2. If False (default), use
         the equilibrium model (:func:`equilibrium_solver`), and C2 is None.
     volume_averaged : bool, optional
-        If True, return volume-averaged concentrations. Only used by the
-        kinetic solver. Default is False.
+        If True, use volume-averaged (resident) concentrations in the kinetic
+        BVP kernel. If False (default), use flux-averaged concentrations.
+        Only used by the kinetic solver.
 
     Returns
     -------

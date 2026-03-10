@@ -26,7 +26,7 @@ surface_tension = 71 #dyn/cm now sigma0
 [soil]
 soil_name = "S1"  # for future use
 soil_type = "sandy loam"  # for future use/staring soil database: can the other parameters be derived from this?
-bulk_density = 1.6  # g/cm^3 rhob
+bulk_density = 1.6  # g/cm^3 rho_b
 porosity = 0.43  # poro 
 van_genuchten_alpha = 0.019  # 1/cm #alpha
 van_genuchten_n = 1.31  # n_vg
