@@ -241,14 +241,14 @@ def kinetic_solver(  # noqa: PLR0913
                 if Tj > T_start:
                     A_eq, A_neq = _bvp_neq(
                         Zi, Tj - T_start, omega, beta_s, beta, P, R, R_s,
-                        _BESSEL_TERMS, volume_averaged,
+                        volume_averaged=volume_averaged,
                     )
                     C1_bvp[i, j] += A_eq
                     C2_bvp[i, j] += A_neq
                 if T_end != np.inf and Tj > T_end:
                     A_eq, A_neq = _bvp_neq(
                         Zi, Tj - T_end, omega, beta_s, beta, P, R, R_s,
-                        _BESSEL_TERMS, volume_averaged,
+                        volume_averaged=volume_averaged,
                     )
                     C1_bvp[i, j] -= A_eq
                     C2_bvp[i, j] -= A_neq

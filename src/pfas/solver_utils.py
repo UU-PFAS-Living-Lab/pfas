@@ -839,7 +839,27 @@ def _bvp_neq(  # noqa: PLR0913
     """
     args = (T, Z, P, R, R_s, beta, beta_s, omega, volume_averaged, m)
 
-    A1 = quad(lambda tau: _bvp_neq_integrand(tau, *args)[0], 1e-10, T - 1e-10)[0]
-    A2 = quad(lambda tau: _bvp_neq_integrand(tau, *args)[1], 1e-10, T - 1e-10)[0]
+    # The Gaussian in _FT peaks sharply near tau = beta*R*Z. Passing this as
+    # a breakpoint tells quad to subdivide around the peak and avoids
+    # systematic underestimation of the integral for narrow peaks.
+    tau_peak = beta * R * Z
+    points = [tau_peak] if 1e-10 < tau_peak < T - 1e-10 else []
+
+    A1 = quad(
+        lambda tau: _bvp_neq_integrand(tau, *args)[0],
+        1e-10, T - 1e-10,
+        points=points,
+        limit=200,
+        epsabs=1e-8,
+        epsrel=1e-8,
+    )[0]
+    A2 = quad(
+        lambda tau: _bvp_neq_integrand(tau, *args)[1],
+        1e-10, T - 1e-10,
+        points=points,
+        limit=200,
+        epsabs=1e-8,
+        epsrel=1e-8,
+    )[0]
 
     return A1, A2
