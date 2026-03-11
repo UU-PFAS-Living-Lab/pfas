@@ -151,24 +151,67 @@ def kinetic_solver(  # noqa: PLR0913
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """Solve advection-dispersion equation with kinetic (time-dependent) sorption.
 
-    Computes aqueous and sorbed phase concentrations for contaminant transport
-    with first-order kinetic sorption, using modified Bessel function solutions
-    (van Genuchten, 1981). Handles both the boundary value problem (BVP) and
-    the initial value problem (IVP) for non-zero initial conditions. Pulse
-    superposition over multiple intervals follows the same Heaviside approach
-    as :func:`equilibrium_solver`.
+    Computes aqueous (C₁) and sorbed phase (C₂) concentrations for contaminant
+    transport with first-order kinetic sorption. The total solution combines
+    boundary value problem (BVP) and initial value problem (IVP) contributions:
 
-    The two-site and two-region nonequilibrium models reduce to the same
-    dimensionless transport form (CXTFIT eq. 3.5–3.6), parameterised by β and
-    ω. The BVP solution uses :func:`_bvp_neq`, which evaluates A₁ and A₂
-    (CXTFIT eqs. 3.21–3.22) via adaptive quadrature over the product of the
-    transport kernel :func:`_FT` and Goldstein's J-function approximated with
-    ``_BESSEL_TERMS`` modified Bessel function terms (Lindstrom & Stone, 1974).
-    The IVP convolution integral is evaluated numerically via the trapezoidal
-    rule over both space (xi) and time (tau), using the H₀ and Hₛ kernels
-    from CXTFIT Table 3.4 (:func:`_H0`, :func:`_Hs`). The Green's function
-    G(Z, τ) (:func:`_ivp_neq`) is pre-evaluated at intermediate times τ
-    (stored as G_Ztau) and at the current time T (G_ZT).
+        C(Z,T) = C^B(Z,T) + C^I(Z,T)
+
+    **BVP term — CXTFIT eq. 3.20**
+
+    Pulse superposition using the Heaviside approach over each interval
+    (T_start, T_end) in ``dim.pulses``:
+
+        C^B(Z,T) = Σₖ [ H(T - Tₛ,ₖ)·A₁(Z, T-Tₛ,ₖ) - H(T - Tₑ,ₖ)·A₁(Z, T-Tₑ,ₖ) ]
+
+    where A₁ (aqueous, ``C1_bvp``) and A₂ (sorbed, ``C2_bvp``) are evaluated
+    via :func:`_bvp_neq` (CXTFIT eqs. 3.21–3.22). Dimensional scaling applied
+    after the loop (CXTFIT eq. 3.20):
+
+        C1_bvp ← C0 · C1_bvp
+        C2_bvp ← (1-f) · Kd · C0 · C2_bvp
+
+    **IVP term — CXTFIT eqs. 3.31, 3.32 / Table 3.4**
+
+    When ``beta_s == 1`` (no kinetic sites), the IVP reduces to the equilibrium
+    Green's function at current time T:
+
+        C1_ivp = G(Z, T)
+
+    When ``beta_s != 1``, the IVP splits into three contributions:
+
+    1. Initial aqueous concentration contribution, modified by inter-phase mass
+       transfer (CXTFIT eq. 3.23, first term). The exponential prefactor
+       represents the fraction of the initial aqueous concentration remaining
+       in the aqueous phase at time T as mass transfers to kinetic sorption sites:
+
+        C1_ivp = exp( -ω·T·(1-f)·Rₛ / ((1-βₛ)·β·R·(1+Rₛ)) ) · G(Z, T)
+
+    2. Initial sorbed concentration contribution, modified by inter-phase mass
+       transfer (CXTFIT eq. 3.24, first term). The exponential prefactor
+       represents the fraction of the initial sorbed concentration remaining
+       at kinetic sorption sites at time T as mass transfers back to the
+       aqueous phase:
+
+        C2_ivp = (1-f)·Kd·Cᵢ · exp( -ω·T / ((1-βₛ)·(1+Rₛ)) )
+
+    3. Convolution integrals over intermediate times τ ∈ (0, T), using the
+       H₀ and Hₛ kernels from CXTFIT Table 3.4 (eqs. 3.31-3.32, second terms;
+       derived from van Genuchten (1981) Appendix B):
+
+        C1_ivp += ω/((1-βₛ)·(1+Rₛ)) · ∫₀ᵀ H₀(T,τ) · G(Z,τ) dτ
+        C2_ivp += ω/((1-βₛ)·(1+Rₛ)) · (1-f)·Kd · ∫₀ᵀ Hₛ(T,τ) · G(Z,τ) dτ
+
+       where G(Z,τ) = ∫₀¹ G_neq(Z, τ, ξ)·Cᵢ(ξ) dξ is pre-evaluated at 100
+       equally spaced τ points via :func:`_ivp_neq` and the trapezoidal rule, 
+       with solutions for G(Z,τ) from Table 3.3.
+
+    **Total concentration — CXTFIT eq. 3.6 / van Genuchten (1981) eq. 2**
+
+        C_tot = θ·β·R·C₁ + ρ_b·C₂
+
+    reflecting partitioning between the mobile aqueous phase (scaled by β·R·θ)
+    and the kinetic sorbed phase (scaled by ρ_b).
 
     Parameters
     ----------
@@ -184,7 +227,7 @@ def kinetic_solver(  # noqa: PLR0913
         Pass an array of zeros if there is no initial contamination.
     beta_s : float
         Solid-phase partitioning coefficient β_s (CXTFIT Table 3.1).
-        Equal to 1 for the fully equilibrium case (no kinetic sites).
+        Set to 1 for the fully equilibrium case (no kinetic sites).
     beta : float
         Dimensionless partitioning coefficient β (CXTFIT Table 3.1).
         Ratio of equilibrium sorption capacity to total sorption capacity.
@@ -211,16 +254,17 @@ def kinetic_solver(  # noqa: PLR0913
         Sorbed phase concentration (mg/kg).
     C_tot : ndarray of shape (len(Z), len(T))
         Total concentration (mg/L bulk volume),
-        C_tot = C1·β·R·θ + ρ_b·C2.
+        C_tot = θ·β·R·C₁ + ρ_b·C₂  (CXTFIT eq. 3.6).
+
 
     References
     ----------
     van Genuchten, M. Th. (1981). Non-Equilibrium Transport Parameters from
-    Miscible Displacement Experiments. Research Report No. 119, USDA-ARS,
-    US Salinity Laboratory, Riverside, CA.
+    Miscible Displacement Experiments. Research Report No. 119, USDA-ARS.
+    Eqs. 2, 14; Appendix B (H₀, Hₛ kernel derivation).
 
     Toride, Leij & van Genuchten (1995). CXTFIT Version 2.0. Research Report
-    No. 137, USDA-ARS. Chapter 3, eqs. (3.5)–(3.6), (3.20)–(3.22), Table 3.1.
+    No. 137, USDA-ARS. Eqs. 3.6, 3.20–3.24; Tables 3.1, 3.4.
 
     Lindstrom, F.T. and Stone, W.J. (1974). Soil Sci. Soc. Am. Proc.
     """

@@ -47,3 +47,30 @@ The "utils" module
    :undoc-members:
    :show-inheritance:
    :member-order: bysource
+
+The "data_loader" module
+-------------------------
+
+.. automodule:: pfas.data_loader
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :member-order: bysource
+
+The "configuration" module
+---------------------------
+
+.. automodule:: pfas.configuration
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :member-order: bysource
+
+The "solver_utils" module
+--------------------------
+
+.. automodule:: pfas.solver_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :member-order: bysource
