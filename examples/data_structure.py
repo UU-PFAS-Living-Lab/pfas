@@ -252,7 +252,7 @@ def _(
         awi_retardation=kawi_results["awi_retardation"],
         sorption_solid=sorption_solid,
         kinetic_sorption=True,
-        volume_averaged=False
+        volume_averaged=True
     )
     final_results = sim_runner.compute()
     return final_results, grid_results

@@ -11,7 +11,7 @@ init_sat = 0.2 # [-] se0
 initial_solute_concentration = 0.0 #mg/L #vector matching length/spatial resolution
 [experimental_conditions.boundary]
 average_infiltration_rate = 0.5 #cm/s (q)
-pulse_intervals=[(0, 2000)] #seconds
+pulse_intervals=[[0, 2000]] #seconds
 solute_concentration_influx = 10.0 #mg/L
 
 #TODO or input PFAS_tot?
