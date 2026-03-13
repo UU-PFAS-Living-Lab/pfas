@@ -4,7 +4,7 @@ def ratio_to_si(value, unit):
     """
     Convert units like 'L/kg', 'mL/g' to SI.
     """
-    volume_units = {'L': 1e-3, 'mL': 1e-6, 'm³': 1}  # all to m³
+    volume_units = {'L': 1e-3, 'mL': 1e-6, 'm**3': 1}  # all to m³
     mass_units = {'kg': 1, 'g': 1e-3}  # all to kg
 
     if '/' in unit:
@@ -12,7 +12,7 @@ def ratio_to_si(value, unit):
         # Convert numerator
         if num in volume_units:
             value *= volume_units[num]
-            num = 'm³'
+            num = 'm**3'
         # Convert denominator
         if denom in mass_units:
             value /= 1  # value already per kg after adjusting numerator
