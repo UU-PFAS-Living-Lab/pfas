@@ -854,7 +854,7 @@ def _bvp_neq(  # noqa: PLR0913, N806, N803
     tau_peak = beta * R * Z
     points = [tau_peak] if 1e-10 < tau_peak < T - 1e-10 else []
 
-  
+
     A1 = quad(
         lambda tau: _bvp_neq_integrand(tau, *args)[0],
         1e-10, T - 1e-10,

@@ -11,9 +11,10 @@ Main functions
 - :func:`analytical_soln` — top-level entry point dispatching to the above
 """
 
+from typing import cast
+
 import numpy as np
 from numpy.typing import NDArray
-from typing import cast
 
 from pfas.solver_utils import (
     _BVP_FUNCTIONS,
