@@ -10,8 +10,9 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from pfas.solver_utils import compute_dimensionless_params
 from pfas.solvers import equilibrium_solver, kinetic_solver
-from pfas.solver_utils import compute_dimensionless_params 
+
 
 @dataclass
 class SimulationGrid:
@@ -49,7 +50,9 @@ class BoundaryConditions:
     pulse_intervals : list of (float, float)
         Inlet concentration on/off periods in physical time (s).
         Each tuple defines one active pulse period (t_start, t_end).
-        Examples:
+
+    Examples
+    --------
         - Continuous step:   ``[(0, np.inf)]``
         - Pulse from t=0:    ``[(0, 5000)]``
         - Delayed pulse:     ``[(2000, 5000)]``
@@ -213,7 +216,6 @@ def analytical_soln(  # noqa: PLR0913
     """
     dim = compute_dimensionless_params(
         grid,
-        boundary_conditions,
         hydro_properties,
         pulse_intervals=boundary_conditions.pulse_intervals,
         adsorption=adsorption,

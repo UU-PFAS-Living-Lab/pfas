@@ -7,7 +7,7 @@ air-water interface area estimation, and numerical integration support.
 """
 
 import numpy as np
-from scipy.special import erfc, iv
+
 
 def aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf): #noqa: PLR0913
     """Compute air-water interfacial area using thermodynamic approach.

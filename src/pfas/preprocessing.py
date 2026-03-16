@@ -153,7 +153,9 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     pulse_intervals : list of (float, float)
         Inlet concentration on/off periods in physical time (s).
         Each tuple (t_start, t_end) defines one active pulse period.
-        Examples:
+
+    Examples
+    --------
         - Continuous step:   ``[(0, np.inf)]``
         - Pulse from t=0:    ``[(0, 5000)]``
         - Delayed pulse:     ``[(2000, 5000)]``

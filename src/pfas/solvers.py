@@ -15,14 +15,13 @@ import numpy as np
 from numpy.typing import NDArray
 
 from pfas.solver_utils import (
-    _BESSEL_TERMS,
     _BVP_FUNCTIONS,
-    _bvp_neq,
     _H0,
+    DimensionlessParams,
+    _bvp_neq,
     _Hs,
     _ivp_eq,
     _ivp_neq,
-    DimensionlessParams,
     compute_dimensionless_params,
 )
 
@@ -203,7 +202,7 @@ def kinetic_solver(  # noqa: PLR0913
         C2_ivp += ω/((1-βₛ)·(1+Rₛ)) · (1-f)·Kd · ∫₀ᵀ Hₛ(T,τ) · G(Z,τ) dτ
 
        where G(Z,τ) = ∫₀¹ G_neq(Z, τ, ξ)·Cᵢ(ξ) dξ is pre-evaluated at 100
-       equally spaced τ points via :func:`_ivp_neq` and the trapezoidal rule, 
+       equally spaced τ points via :func:`_ivp_neq` and the trapezoidal rule,
        with solutions for G(Z,τ) from Table 3.3.
 
     **Total concentration — CXTFIT eq. 3.6 / van Genuchten (1981) eq. 2**

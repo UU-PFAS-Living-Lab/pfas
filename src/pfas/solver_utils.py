@@ -23,6 +23,8 @@ Lindstrom, F.T. and Stone, W.J. (1974): On the start up or initial phase
 of linear mass transport of chemicals in a water saturated sorbing porous
 medium. Soil Science Society of America Proceedings.
 """
+# ruff: noqa: N803, N806
+
 
 from __future__ import annotations
 
@@ -32,7 +34,6 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import quad
 from scipy.special import erfc, iv
-
 
 # Number of modified Bessel function series terms for the Goldstein J-function
 # approximation following Lindstrom and Stone (1974).
@@ -75,7 +76,6 @@ class DimensionlessParams(NamedTuple):
 
 def compute_dimensionless_params(
     grid,
-    boundary_conditions,
     hydro_properties,
     pulse_intervals: list[tuple[float, float]],
     adsorption=None,
@@ -411,7 +411,7 @@ def _ivp_neq(  # noqa: PLR0913
     )
 
 
-def _H0(  # noqa: PLR0913
+def _H0(  # noqa: PLR0913, N802
     T: float,
     R: float,
     tau: NDArray[np.float64],
@@ -482,7 +482,7 @@ def _H0(  # noqa: PLR0913
     )
 
 
-def _Hs(  # noqa: PLR0913
+def _Hs(  # noqa: PLR0913, N802
     T: float,
     R: float,
     tau: NDArray[np.float64],
@@ -558,7 +558,7 @@ def _Hs(  # noqa: PLR0913
 # (CXTFIT eqs. 3.21–3.22; van Genuchten, 1981)
 # ---------------------------------------------------------------------------
 
-def _FT(
+def _FT(  # noqa: N802, PLR0913
     tau: float | NDArray[np.float64],
     Z: float,
     P: float,
@@ -622,7 +622,7 @@ def _FT(
         return (Z / tau) * np.sqrt(0.25 * P * R_beta / (np.pi * tau)) * term1
 
 
-def _goldstein_J(
+def _goldstein_J(  # noqa: N806, N802
     a: float,
     b: float,
     m: int = _BESSEL_TERMS,
@@ -699,7 +699,7 @@ def _goldstein_J(
     return Jab, Jba
 
 
-def _bvp_neq_integrand(  # noqa: PLR0913
+def _bvp_neq_integrand(  # noqa: PLR0913, N806, N803
     tau: float,
     T: float,
     Z: float,
@@ -767,7 +767,7 @@ def _bvp_neq_integrand(  # noqa: PLR0913
     return ft * Jab, ft * (1.0 - Jba)
 
 
-def _bvp_neq(  # noqa: PLR0913
+def _bvp_neq(  # noqa: PLR0913, N806, N803
     Z: float,
     T: float,
     omega: float,
@@ -852,7 +852,7 @@ def _bvp_neq(  # noqa: PLR0913
         limit=200,
         epsabs=1e-8,
         epsrel=1e-8,
-    )[0]
+    )[0]  # noqa: N806
     A2 = quad(
         lambda tau: _bvp_neq_integrand(tau, *args)[1],
         1e-10, T - 1e-10,
@@ -860,6 +860,6 @@ def _bvp_neq(  # noqa: PLR0913
         limit=200,
         epsabs=1e-8,
         epsrel=1e-8,
-    )[0]
+    )[0]  # noqa: N806
 
     return A1, A2

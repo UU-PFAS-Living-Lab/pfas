@@ -71,7 +71,6 @@ class TestComputeDimensionlessParams:
     def test_basic_conversion(self, simple_grid, simple_boundary, simple_hydro):
         dim = compute_dimensionless_params(
             simple_grid,
-            simple_boundary,
             simple_hydro,
             pulse_intervals=simple_boundary.pulse_intervals,
             adsorption=None,
@@ -89,7 +88,6 @@ class TestComputeDimensionlessParams:
         b = BoundaryConditions(pulse_intervals=[(0.0, np.inf)], contaminant_release_rate=1.0)
         dim = compute_dimensionless_params(
             simple_grid,
-            b,
             simple_hydro,
             pulse_intervals=b.pulse_intervals,
             adsorption=None,
@@ -107,7 +105,6 @@ class TestComputeDimensionlessParams:
         with pytest.raises(ValueError):
             compute_dimensionless_params(
                 simple_grid,
-                simple_boundary,
                 hydro,
                 pulse_intervals=simple_boundary.pulse_intervals,
                 adsorption=None,
@@ -118,7 +115,6 @@ class TestComputeDimensionlessParams:
         with pytest.raises(ValueError):
             compute_dimensionless_params(
                 simple_grid,
-                simple_boundary,
                 simple_hydro,
                 pulse_intervals=simple_boundary.pulse_intervals,
                 adsorption=None,
@@ -130,7 +126,6 @@ class TestComputeDimensionlessParams:
         with pytest.raises(ValueError):
             compute_dimensionless_params(
                 simple_grid,
-                bad_bc,
                 simple_hydro,
                 pulse_intervals=bad_bc.pulse_intervals,
                 adsorption=None,
