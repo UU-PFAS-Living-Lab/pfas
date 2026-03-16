@@ -125,7 +125,6 @@ def equilibrium_solver(  # noqa: PLR0913
                 C1_bvp[:, i] -= C0 * bvp_func(Ti - T_end, R, Z, P)
 
     if max(Ci) != 0:
-        # Use dtype=np.float64 so xi is NDArray[np.float64], not NDArray[floating[Any]]
         xi: NDArray[np.float64] = np.linspace(0, 1, len(Ci), dtype=np.float64)
         for ti, Ti in enumerate(T):
             for zi, Zi in enumerate(Z):

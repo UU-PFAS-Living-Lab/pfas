@@ -438,7 +438,7 @@ def _H0(  # noqa: PLR0913, N802
     T : float
         Dimensionless time, T = vt/L.
     R : float
-        Overall retardation factor, R = 1 + ρ_b·Kd/θ.
+        Overall retardation factor
     tau : ndarray
         Dimensionless integration time variable (τ), 0 < τ < T.
     R_s : float
@@ -509,7 +509,7 @@ def _Hs(  # noqa: PLR0913, N802
     T : float
         Dimensionless time, T = vt/L.
     R : float
-        Overall retardation factor, R = 1 + ρ_b·Kd/θ.
+        Overall retardation factor
     tau : ndarray
         Dimensionless integration time variable (τ), 0 < τ < T.
     R_s : float
@@ -592,7 +592,7 @@ def _FT(  # noqa: N802, PLR0913
     P : float
         Péclet number P = vL/D.
     R : float
-        Overall retardation factor R = 1 + ρ_b·Kd/θ.
+        Overall retardation factor 
     beta : float
         Dimensionless partitioning coefficient β (CXTFIT Table 3.1).
     volume_averaged : bool
@@ -755,12 +755,6 @@ def _bvp_neq_integrand(  # noqa: PLR0913, N806, N803
     integrand_A2 : float
         FT(Z, τ) · [1 - J(b, a)] — integrand for A₂ (eq. 3.22, nonequilibrium phase).
 
-    Notes
-    -----
-    ``tau`` is a plain ``float`` here (called one point at a time by
-    ``scipy.integrate.quad``), so ``_FT`` and ``_goldstein_J`` both receive
-    scalar inputs and return scalars. The return type is therefore
-    ``tuple[float, float]`` rather than the broader union used elsewhere.
     """
     ft = float(_FT(tau, Z, P, R, beta, volume_averaged))
 
