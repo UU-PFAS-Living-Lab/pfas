@@ -13,6 +13,7 @@ Main functions
 
 import numpy as np
 from numpy.typing import NDArray
+from typing import cast
 
 from pfas.solver_utils import (
     _BVP_FUNCTIONS,
@@ -123,10 +124,15 @@ def equilibrium_solver(  # noqa: PLR0913
                 C1_bvp[:, i] -= C0 * bvp_func(Ti - T_end, R, Z, P)
 
     if max(Ci) != 0:
-        xi = np.linspace(0, 1, len(Ci))
+        # Use dtype=np.float64 so xi is NDArray[np.float64], not NDArray[floating[Any]]
+        xi: NDArray[np.float64] = np.linspace(0, 1, len(Ci), dtype=np.float64)
         for ti, Ti in enumerate(T):
             for zi, Zi in enumerate(Z):
-                C1_ivp[zi, ti] = np.trapezoid(_ivp_eq(Ti, R, Zi, P, xi) * Ci, xi)
+                integrand = cast(
+                    NDArray[np.float64],
+                    _ivp_eq(Ti, R, Zi, P, xi) * Ci,
+                )
+                C1_ivp[zi, ti] = np.trapezoid(integrand, xi)
 
     C1 = C1_bvp + C1_ivp
     C_tot = C1 * R * theta
@@ -267,12 +273,16 @@ def kinetic_solver(  # noqa: PLR0913
 
     Lindstrom, F.T. and Stone, W.J. (1974). Soil Sci. Soc. Am. Proc.
     """
-    Z, T, pulses, P, omega = dim.Z, dim.T, dim.pulses, dim.P, dim.omega
+    Z, T, pulses, P = dim.Z, dim.T, dim.pulses, dim.P
 
-    C1_bvp = np.zeros((len(Z), len(T)))
-    C1_ivp = np.zeros((len(Z), len(T)))
-    C2_bvp = np.zeros((len(Z), len(T)))
-    C2_ivp = np.zeros((len(Z), len(T)))
+    # omega is only defined for kinetic (non-equilibrium) sorption
+    omega = dim.omega
+    assert omega is not None, "omega must be set for kinetic sorption"
+
+    C1_bvp: NDArray[np.float64] = np.zeros((len(Z), len(T)))
+    C1_ivp: NDArray[np.float64] = np.zeros((len(Z), len(T)))
+    C2_bvp: NDArray[np.float64] = np.zeros((len(Z), len(T)))
+    C2_ivp: NDArray[np.float64] = np.zeros((len(Z), len(T)))
 
     for i, Zi in enumerate(Z):
         for j, Tj in enumerate(T):
@@ -297,11 +307,17 @@ def kinetic_solver(  # noqa: PLR0913
                     C2_bvp[i, j] -= A_neq
 
             if max(Ci) != 0:
-                xi = np.linspace(0, 1, len(Ci))
+                # Use dtype=np.float64 so xi is NDArray[np.float64], not
+                # NDArray[floating[Any]], satisfying _ivp_neq's parameter type.
+                xi: NDArray[np.float64] = np.linspace(0, 1, len(Ci), dtype=np.float64)
                 tau = np.linspace(0, Tj, 100)
 
                 # G(Z, T): Green's function integral at current time T (CXTFIT Table 3.2)
-                G_ZT = np.trapezoid(_ivp_neq(Tj, R, Zi, P, xi, beta) * Ci, xi)
+                integrand_ZT = cast(
+                    NDArray[np.float64],
+                    _ivp_neq(Tj, R, Zi, P, xi, beta) * Ci,
+                )
+                G_ZT = np.trapezoid(integrand_ZT, xi)
 
                 if beta_s == 1:
                     C1_ivp[i, j] = G_ZT
@@ -317,9 +333,12 @@ def kinetic_solver(  # noqa: PLR0913
                     # G(Z, τ): Green's function at intermediate times for convolution
                     G_Ztau = np.zeros(len(tau))
                     for k in range(1, len(tau) - 1):
-                        G_Ztau[k] = np.trapezoid(
-                            _ivp_neq(tau[k], R, Zi, P, xi, beta) * Ci, xi
+                        integrand_tau = cast(
+                            NDArray[np.float64],
+                            _ivp_neq(tau[k], R, Zi, P, xi, beta) * Ci,
                         )
+                        G_Ztau[k] = np.trapezoid(integrand_tau, xi)
+
                     C1_ivp[i, j] += omega / (1 - beta_s) / (1 + R_s) * np.trapezoid(
                         _H0(Tj, R, tau[1:-1], R_s, f, beta, beta_s, omega)
                         * G_Ztau[1:-1],
@@ -333,8 +352,8 @@ def kinetic_solver(  # noqa: PLR0913
                         )
                     )
 
-    C1_bvp = C0 * C1_bvp
-    C2_bvp = (1 - f) * Kd * C0 * C2_bvp
+    C1_bvp = cast(NDArray[np.float64], C0 * C1_bvp)
+    C2_bvp = cast(NDArray[np.float64], (1 - f) * Kd * C0 * C2_bvp)
     C1 = C1_bvp + C1_ivp
     C2 = C2_bvp + C2_ivp
     C_tot = C1 * beta * R * theta + rho_b * C2
@@ -412,7 +431,6 @@ def analytical_soln(  # noqa: PLR0913
     """
     dim = compute_dimensionless_params(
         grid,
-        boundary_conditions,
         hydro_properties,
         pulse_intervals=pulse_intervals,
         adsorption=adsorption,

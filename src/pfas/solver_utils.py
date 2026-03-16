@@ -28,7 +28,7 @@ medium. Soil Science Society of America Proceedings.
 
 from __future__ import annotations
 
-from typing import NamedTuple
+from typing import Callable, NamedTuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -275,7 +275,7 @@ def _bvp_resident_bc(
 
 
 # Registry: add new BC helpers here without touching solvers.py
-_BVP_FUNCTIONS: dict[str, callable] = {
+_BVP_FUNCTIONS: dict[str, Callable[..., NDArray[np.float64]]] = {
     "flux": _bvp_flux_bc,
     "resident": _bvp_resident_bc,
 }
@@ -623,10 +623,10 @@ def _FT(  # noqa: N802, PLR0913
 
 
 def _goldstein_J(  # noqa: N806, N802
-    a: float,
-    b: float,
+    a: float | NDArray[np.float64],
+    b: float | NDArray[np.float64],
     m: int = _BESSEL_TERMS,
-) -> tuple[float, float]:
+) -> tuple[float | NDArray[np.float64], float | NDArray[np.float64]]:
     """Evaluate Goldstein's J-function J(a,b) and J(b,a) via Bessel series.
 
     Approximates Goldstein's J-function (Goldstein, 1953) using modified
@@ -646,18 +646,18 @@ def _goldstein_J(  # noqa: N806, N802
 
     Parameters
     ----------
-    a : float
+    a : float or ndarray
         First argument: a = ω·τ / (β·R) (CXTFIT Table 3.4).
-    b : float
+    b : float or ndarray
         Second argument: b = ω·(T-τ) / ((1-β_s)·(R_s+1)) (CXTFIT Table 3.4).
     m : int, optional
         Number of Bessel function series terms. Default is ``_BESSEL_TERMS`` (30).
 
     Returns
     -------
-    Jab : float
+    Jab : float or ndarray
         J(a, b) — used in the A₁ integrand (equilibrium phase, eq. 3.21).
-    Jba : float
+    Jba : float or ndarray
         J(b, a) — used in the A₂ integrand (nonequilibrium phase, eq. 3.22).
 
     References
@@ -676,23 +676,23 @@ def _goldstein_J(  # noqa: N806, N802
             - 1 / (8 * np.sqrt(b)) - 1 / (8 * np.sqrt(a))
         )
     else:
-        Iab_sum = 0.0
-        Iba_sum = 0.0
+        Iab_sum: float = 0.0
+        Iba_sum: float = 0.0
         sqrt_ab = 2 * np.sqrt(a * b)
         if a >= b:
             ratio = b / a
             for j in range(m):
-                Iab_sum += ratio ** (j / 2.0) * iv(j, sqrt_ab)
+                Iab_sum += float(ratio ** (j / 2.0)) * float(iv(j, sqrt_ab))
             for j in range(1, m + 1):
-                Iba_sum += ratio ** (j / 2.0) * iv(j, sqrt_ab)
+                Iba_sum += float(ratio ** (j / 2.0)) * float(iv(j, sqrt_ab))
             Jab = np.exp(-a - b) * Iab_sum
             Jba = 1.0 - np.exp(-a - b) * Iba_sum
         else:
             ratio = a / b
             for j in range(1, m + 1):
-                Iab_sum += ratio ** (j / 2.0) * iv(j, sqrt_ab)
+                Iab_sum += float(ratio ** (j / 2.0)) * float(iv(j, sqrt_ab))
             for j in range(m):
-                Iba_sum += ratio ** (j / 2.0) * iv(j, sqrt_ab)
+                Iba_sum += float(ratio ** (j / 2.0)) * float(iv(j, sqrt_ab))
             Jab = 1.0 - np.exp(-a - b) * Iab_sum
             Jba = np.exp(-a - b) * Iba_sum
 
@@ -754,15 +754,24 @@ def _bvp_neq_integrand(  # noqa: PLR0913, N806, N803
         FT(Z, τ) · J(a, b) — integrand for A₁ (eq. 3.21, equilibrium phase).
     integrand_A2 : float
         FT(Z, τ) · [1 - J(b, a)] — integrand for A₂ (eq. 3.22, nonequilibrium phase).
+
+    Notes
+    -----
+    ``tau`` is a plain ``float`` here (called one point at a time by
+    ``scipy.integrate.quad``), so ``_FT`` and ``_goldstein_J`` both receive
+    scalar inputs and return scalars. The return type is therefore
+    ``tuple[float, float]`` rather than the broader union used elsewhere.
     """
-    ft = _FT(tau, Z, P, R, beta, volume_averaged)
+    ft = float(_FT(tau, Z, P, R, beta, volume_averaged))
 
     if beta_s == 1:
-        Jab, Jba = 1.0, 1.0
+        Jab: float = 1.0
+        Jba: float = 1.0
     else:
-        a = omega * tau / (beta * R)
-        b = omega * (T - tau) / ((1 - beta_s) * (R_s + 1))
-        Jab, Jba = _goldstein_J(a, b, m)
+        a: float = omega * tau / (beta * R)
+        b: float = omega * (T - tau) / ((1 - beta_s) * (R_s + 1))
+        Jab = float(_goldstein_J(a, b, m)[0])
+        Jba = float(_goldstein_J(a, b, m)[1])
 
     return ft * Jab, ft * (1.0 - Jba)
 
@@ -845,6 +854,7 @@ def _bvp_neq(  # noqa: PLR0913, N806, N803
     tau_peak = beta * R * Z
     points = [tau_peak] if 1e-10 < tau_peak < T - 1e-10 else []
 
+  
     A1 = quad(
         lambda tau: _bvp_neq_integrand(tau, *args)[0],
         1e-10, T - 1e-10,
@@ -852,7 +862,7 @@ def _bvp_neq(  # noqa: PLR0913, N806, N803
         limit=200,
         epsabs=1e-8,
         epsrel=1e-8,
-    )[0]  # noqa: N806
+    )[0]
     A2 = quad(
         lambda tau: _bvp_neq_integrand(tau, *args)[1],
         1e-10, T - 1e-10,
@@ -860,6 +870,6 @@ def _bvp_neq(  # noqa: PLR0913, N806, N803
         limit=200,
         epsabs=1e-8,
         epsrel=1e-8,
-    )[0]  # noqa: N806
+    )[0]
 
     return A1, A2
