@@ -32,7 +32,7 @@ SimulationRunner
 
 """
 
-from typing import Annotated
+from typing import Annotated, Optional
 
 import numpy as np
 from annotated_types import Ge, Gt, Interval
@@ -582,6 +582,7 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
     awi_retardation: float
     kinetic_sorption: bool
     volume_averaged: bool
+    initial_contaminant_concentration: Optional[np.ndarray] = None
 
     def _collect_adsorption(self) -> Adsorption:
         """Assemble the Adsorption object via SpRetardationPreprocessor and AdsorptionCollector."""
@@ -620,7 +621,11 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
                 Total concentration (mg/L bulk volume)
         """
         adsorption = self._collect_adsorption()
-        initial_contaminant_concentration = np.zeros(len(self.grid.depth))
+        initial_contaminant_concentration = (       
+            self.initial_contaminant_concentration
+            if self.initial_contaminant_concentration is not None
+            else np.zeros(len(self.grid.depth))
+        )
         C1, C2, C_tot = analytical_soln(  # noqa: N806
             grid=self.grid,
             bulk_density=self.bulk_density,
