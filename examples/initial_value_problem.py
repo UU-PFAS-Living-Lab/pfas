@@ -118,13 +118,11 @@ def _(
     water_results = water_prep.compute()
 
     # Step 4: Setup boundary conditions
-    # The influx concentration is kept at 0 so that the simulation evolves
-    # purely from the initial conditions rather than a continuous source.
-    # Change solute_concentration_influx to a non-zero value if you also
+
     # want an ongoing surface flux.
     boundary_prep = BoundaryPreprocessor(
-        average_infiltration_rate=10,
-        solute_concentration_influx=5.0,
+        average_infiltration_rate=1.5,
+        solute_concentration_influx=0.0,
         pulse_intervals= [(0,2000)],
     )
     boundary_results = boundary_prep.compute()
@@ -236,11 +234,11 @@ def _(cutoff, final_results, initial_concentration, plt, simulation_grid):
     ax_time = axes[1]
     for t_idx in time_indices:
         ax_time.plot(
-            final_results["C_tot"][:, t_idx],
+            final_results["C1"][:, t_idx],
             simulation_grid.depth,
             label=f"t = {simulation_grid.time[t_idx]:.0f} s",
         )
-    ax_time.set_xlabel("Total PFAS Concentration (mg/L)")
+    ax_time.set_xlabel("Aqueous PFAS concentration (mg/L)")
     ax_time.set_title("PFAS Concentration Depth Profile at Different Times")
     ax_time.legend()
     ax_time.grid(True, alpha=0.3)
