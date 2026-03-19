@@ -375,46 +375,42 @@ def _(
     results_linear,
 ):
     sim_grid = grid_results["grid"]
-    t_len    = results_linear["C_tot"].shape[1]
-    t_idxs   = [0, t_len // 4, t_len // 2, 3 * t_len // 4, -1]
 
-    # Kd values were resolved in the parameters cell and flow in as inputs
+    # Find the index closest to t = 2000 s
+    t_idx_2000 = min(range(len(sim_grid.time)), key=lambda i: abs(sim_grid.time[i] - 2500))
+    actual_time = sim_grid.time[t_idx_2000]
 
     fig, axes = plt.subplots(1, 3, figsize=(16, 6))
     fig.suptitle(
-        f"Solid-phase sorption comparison — PFOA in Accusand\n"
+        f"Solid-phase sorption comparison — PFOA in Accusand + 10% OM\n"
         f"Linear Kd = {Kd_linear:.4f} | Freundlich Kd = {Kd_freund:.4f} | "
         f"Fabregat-Palau Kd = {Kd_fabregat:.4f}  (all in L/kg)",
         fontsize=11,
     )
 
-    # ── Panel 1: depth profiles ───────────────────────────────────────────────
+    # Panel 1: depth profile at t = 2000 s
     ax1 = axes[0]
-    for label, res, base_col in [
-        ("Linear Kd",       results_linear,   "#1f77b4"),
-        ("Freundlich",      results_freund,   "#ff7f0e"),
-        ("Fabregat-Palau",  results_fabregat, "#2ca02c"),
+    for label, res, col in [
+        ("Linear Kd",      results_linear,   "#1f77b4"),
+        ("Freundlich",     results_freund,   "#ff7f0e"),
+        ("Fabregat-Palau", results_fabregat, "#2ca02c"),
     ]:
-        alphas = [0.3, 0.45, 0.6, 0.75, 1.0]
-        for i, (t_idx, alpha) in enumerate(zip(t_idxs, alphas)):
-            lbl = label if i == len(t_idxs) - 1 else "_"
-            ax1.plot(
-                res["C_tot"][:, t_idx],
-                sim_grid.depth,
-                color=base_col,
-                alpha=alpha,
-                label=lbl,
-                linewidth=1.5,
-            )
+        ax1.plot(
+            res["C_tot"][:, t_idx_2000],
+            sim_grid.depth,
+            color=col,
+            label=label,
+            linewidth=2,
+        )
 
     ax1.set_xlabel("Total PFAS Concentration (mg/L)")
     ax1.set_ylabel("Depth (cm)")
-    ax1.set_title("Depth profiles\n(lighter = earlier time)")
+    ax1.set_title(f"Depth profiles at t = {actual_time:.0f} s")
     ax1.invert_yaxis()
     ax1.legend(title="Sorption model")
     ax1.grid(True, alpha=0.3)
 
-    # ── Panel 2: breakthrough curves at 30 cm ────────────────────────────────
+    # Panel 2: breakthrough curves at 30 cm
     ax2 = axes[1]
     depth_target_cm = 30
     depth_idx = min(
@@ -424,9 +420,9 @@ def _(
     actual_depth = sim_grid.depth[depth_idx]
 
     for label, res, col in [
-        ("Linear Kd",       results_linear,   "#1f77b4"),
-        ("Freundlich",      results_freund,   "#ff7f0e"),
-        ("Fabregat-Palau",  results_fabregat, "#2ca02c"),
+        ("Linear Kd",      results_linear,   "#1f77b4"),
+        ("Freundlich",     results_freund,   "#ff7f0e"),
+        ("Fabregat-Palau", results_fabregat, "#2ca02c"),
     ]:
         ax2.plot(
             sim_grid.time,
@@ -436,15 +432,16 @@ def _(
             linewidth=2,
         )
 
+    ax2.axvline(x=actual_time, color="gray", linestyle="--", linewidth=1, label=f"t = {actual_time:.0f} s")
     ax2.set_xlabel("Time (s)")
     ax2.set_ylabel("Total PFAS Concentration (mg/L)")
     ax2.set_title(f"Breakthrough curves\nat depth ≈ {actual_depth:.0f} cm")
     ax2.legend(title="Sorption model")
     ax2.grid(True, alpha=0.3)
 
-    # ── Panel 3: Kd bar chart ─────────────────────────────────────────────────
+    # Panel 3: Kd bar chart
     ax3 = axes[2]
-    model_names = ["Linear Kd", "Freundlich\n(at 1 mg/L)", "Fabregat-\nPalau"]
+    model_names = ["Linear Kd", "Freundlich\n(at 0.001 mg/L)", "Fabregat-\nPalau"]
     kd_values   = [Kd_linear, Kd_freund, Kd_fabregat]
     bar_colours = ["#1f77b4", "#ff7f0e", "#2ca02c"]
 

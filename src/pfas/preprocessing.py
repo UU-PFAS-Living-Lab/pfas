@@ -46,7 +46,7 @@ from pfas.analytical_soln import (
     SimulationGrid,
     analytical_soln,
 )
-from pfas.utils import aaw_func_thermo, aaw_func_tracer
+from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich
 
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
@@ -469,8 +469,6 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
 
     def _kd_linear(self) -> float:
         """Resolve Kd for a linear isotherm (direct_input or fabregat_palau)."""
-        from pfas.utils import kd_fabregat_palau  # local import avoids circular deps
-
         cfg = self.sorption_solid.get("linear")
         if not cfg:
             raise ValueError(
@@ -504,8 +502,6 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
 
     def _kd_freundlich(self) -> float:
         """Resolve an effective linear Kd from the Freundlich isotherm."""
-        from pfas.utils import kd_freundlich  # local import avoids circular deps
-
         cfg = self.sorption_solid.get("freundlich")
         if not cfg:
             raise ValueError(
@@ -728,7 +724,7 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
                 Total concentration (mg/L bulk volume)
         """
         adsorption = self._collect_adsorption()
-        initial_contaminant_concentration = (       
+        initial_contaminant_concentration = (
             self.initial_contaminant_concentration
             if self.initial_contaminant_concentration is not None
             else np.zeros(len(self.grid.depth))

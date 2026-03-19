@@ -592,7 +592,7 @@ def _FT(  # noqa: N802, PLR0913
     P : float
         Péclet number P = vL/D.
     R : float
-        Overall retardation factor 
+        Overall retardation factor
     beta : float
         Dimensionless partitioning coefficient β (CXTFIT Table 3.1).
     volume_averaged : bool
