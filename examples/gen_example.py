@@ -79,7 +79,7 @@ def _(
         domain_length=60,
         spatial_resolution=1.0,
         time_resolution=100,
-        time_total=5000
+        time_total=10000
     )
     grid_results = grid_gen.compute()
 

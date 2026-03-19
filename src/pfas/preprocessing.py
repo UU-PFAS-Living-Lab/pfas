@@ -366,14 +366,55 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
     """
     Compute solid-phase retardation factor.
 
-    Calculates the retardation factor for sorption to solid phase using
-    linear isotherm partitioning coefficient.
+    Calculates the retardation factor for sorption to the solid phase.
+    Three Kd resolution methods are supported, selected via the
+    ``sorption_isotherm`` and ``Kd_method`` keys inside *sorption_solid*:
+
+    **Linear isotherm — direct input** (``sorption_isotherm: "linear"``,
+    ``Kd_method: "direct_input"``)
+        The distribution coefficient is supplied directly::
+
+            sorption_solid = {
+                "sorption_isotherm": "linear",
+                "linear": {"Kd_method": "direct_input", "Kd": 0.042},
+                ...
+            }
+
+    **Linear isotherm — Fabregat-Palau (2021)** (``sorption_isotherm: "linear"``,
+    ``Kd_method: "fabregat_palau"``)
+        Kd is estimated from molecular structure and soil composition using
+        :func:`pfas.utils.kd_fabregat_palau`::
+
+            sorption_solid = {
+                "sorption_isotherm": "linear",
+                "linear": {
+                    "Kd_method": "fabregat_palau",
+                    "n_CFx": 7,
+                    "f_oc": 0.0004,
+                    "f_silt_clay": 0.0,
+                },
+                ...
+            }
+
+    **Freundlich isotherm** (``sorption_isotherm: "freundlich"``)
+        An effective linear Kd is derived from the Freundlich isotherm at a
+        representative aqueous concentration *C_rep* using
+        :func:`pfas.utils.kd_freundlich`::
+
+            sorption_solid = {
+                "sorption_isotherm": "freundlich",
+                "freundlich": {
+                    "K_freund": 0.043,
+                    "n_freund": 0.8,
+                    "C_rep": 1.0,   # optional, default 1.0 mg/L
+                },
+                ...
+            }
 
     Parameters
     ----------
     sorption_solid : dict
-        Dictionary containing sorption parameters. Must include 'sorption_isotherm'
-        and nested 'linear' dict with 'Kd_method' and 'Kd' values.
+        Dictionary containing sorption parameters as described above.
     bulk_density : float
         Soil bulk density (kg/m³). Must be positive.
     hydro_properties : HydrologicalProperties
@@ -382,7 +423,7 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
     Attributes
     ----------
     outputs : list of str
-        List containing 'sp_retardation'.
+        List containing ``'sp_retardation'`` and ``'Kd'``.
     """
 
     sorption_solid: dict
@@ -393,33 +434,99 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
         """
         Calculate solid-phase retardation.
 
+        Dispatches to the correct Kd resolution method based on
+        ``sorption_solid["sorption_isotherm"]`` and, for linear isotherms,
+        ``sorption_solid["linear"]["Kd_method"]``.
+
         Returns
         -------
         dict
-            Dictionary with keys 'sp_retardation' and 'Kd'.
+            Dictionary with keys ``'sp_retardation'`` and ``'Kd'``.
+
+        Raises
+        ------
+        ValueError
+            If required keys are missing or an unsupported method is specified.
         """
-        linear = self.sorption_solid.get("linear")
-        if not linear:
-            raise ValueError("Missing 'linear' sorption parameters")
+        isotherm = self.sorption_solid.get("sorption_isotherm", "linear")
 
-        if linear.get("Kd_method") != "direct_input":
-            raise ValueError("Only 'direct_input' Kd_method is supported")
+        if isotherm == "freundlich":
+            Kd = self._kd_freundlich()  # noqa: N806
 
-        if "Kd" not in linear:
-            raise ValueError("Missing 'Kd' value for linear sorption")
+        elif isotherm == "linear":
+            Kd = self._kd_linear()  # noqa: N806
 
-        if self.sorption_solid["sorption_isotherm"] == "linear":
-            linear = self.sorption_solid["linear"]
-            if linear["Kd_method"] == "direct_input":
-                Kd = linear["Kd"]  # noqa: N806
+        else:
+            raise ValueError(
+                f"Unsupported sorption_isotherm '{isotherm}'. "
+                "Choose from: 'linear', 'freundlich'."
+            )
+
         sp_retardation = (self.bulk_density * Kd) / self.hydro_properties.water_content
         return {"sp_retardation": sp_retardation, "Kd": Kd}
+
+    # ── private helpers ───────────────────────────────────────────────────────
+
+    def _kd_linear(self) -> float:
+        """Resolve Kd for a linear isotherm (direct_input or fabregat_palau)."""
+        from pfas.utils import kd_fabregat_palau  # local import avoids circular deps
+
+        cfg = self.sorption_solid.get("linear")
+        if not cfg:
+            raise ValueError(
+                "sorption_isotherm is 'linear' but 'linear' key is missing "
+                "from sorption_solid."
+            )
+
+        kd_method = cfg.get("Kd_method", "direct_input")
+
+        if kd_method == "direct_input":
+            if "Kd" not in cfg:
+                raise ValueError(
+                    "Kd_method 'direct_input' requires 'Kd' "
+                    "inside sorption_solid['linear']."
+                )
+            return cfg["Kd"]
+
+        if kd_method == "fabregat_palau":
+            for key in ("n_CFx", "f_oc", "f_silt_clay"):
+                if key not in cfg:
+                    raise ValueError(
+                        f"Kd_method 'fabregat_palau' requires '{key}' "
+                        "inside sorption_solid['linear']."
+                    )
+            return kd_fabregat_palau(cfg["n_CFx"], cfg["f_oc"], cfg["f_silt_clay"])
+
+        raise ValueError(
+            f"Unsupported Kd_method '{kd_method}' for linear isotherm. "
+            "Choose from: 'direct_input', 'fabregat_palau'."
+        )
+
+    def _kd_freundlich(self) -> float:
+        """Resolve an effective linear Kd from the Freundlich isotherm."""
+        from pfas.utils import kd_freundlich  # local import avoids circular deps
+
+        cfg = self.sorption_solid.get("freundlich")
+        if not cfg:
+            raise ValueError(
+                "sorption_isotherm is 'freundlich' but 'freundlich' key is missing "
+                "from sorption_solid."
+            )
+
+        for key in ("K_freund", "n_freund"):
+            if key not in cfg:
+                raise ValueError(
+                    f"Freundlich isotherm requires '{key}' "
+                    "inside sorption_solid['freundlich']."
+                )
+
+        C_rep = cfg.get("C_rep", 1.0)  # noqa: N806
+        return kd_freundlich(C_rep, cfg["K_freund"], cfg["n_freund"])
 
     @property
     def outputs(self):
         """List of output keys from compute() method."""
         return ["sp_retardation", "Kd"]
-
 
 class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid'):
     """
