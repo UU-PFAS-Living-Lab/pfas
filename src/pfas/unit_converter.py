@@ -1,9 +1,105 @@
 """Convert units to SI."""
 import re
 
-
 def molality_to_si(value, unit):
-    print("Not IMplemented.")
+    """
+    Convert molality-like units to SI mol/kg.
+
+    Supported:
+    mol/kg, mol/g, mmol/kg, mmol/g
+    """
+    unit = unit.lower().strip()
+
+    # Prefix factors
+    mol_prefix = {
+        'mol': 1,
+        'mmol': 1e-3,
+        'µmol': 1e-6,
+        'umol': 1e-6,
+    }
+
+    # Mass units
+    mass_units = {
+        'kg': 1,
+        'g': 1e-3,
+    }
+
+    if '/' not in unit:
+        raise ValueError("Molality must be a ratio like 'mol/kg'")
+
+    num, denom = unit.split('/')
+
+    if num not in mol_prefix:
+        raise ValueError(f"Unsupported mol prefix '{num}'")
+
+    if denom not in mass_units:
+        raise ValueError(f"Unsupported mass unit '{denom}'")
+
+    # Convert numerator to mol
+    value *= mol_prefix[num]
+
+    # Convert denominator to kg
+    value /= mass_units[denom]
+
+    return value, "mol/kg"
+
+def molarity_to_si(value, unit):
+    """
+    Convert molarity-like units to SI mol/m**3.
+
+    Supported:
+    mol/L, mol/mL, mmol/L, mmol/mL
+    """
+    unit = unit.lower().strip()
+
+    mol_prefix = {
+        'mol': 1,
+        'mmol': 1e-3,
+        'µmol': 1e-6,
+        'umol': 1e-6,
+    }
+
+    volume_units = {
+        'l': 1e-3,     # L → m³
+        'ml': 1e-6,    # mL → m³
+    }
+
+    if '/' not in unit:
+        raise ValueError("Molarity must be a ratio like 'mol/L'")
+
+    num, denom = unit.split('/')
+
+    if num not in mol_prefix:
+        raise ValueError(f"Unsupported mol prefix '{num}'")
+
+    if denom not in volume_units:
+        raise ValueError(f"Unsupported volume unit '{denom}'")
+
+    # Convert numerator to mol
+    value *= mol_prefix[num]
+
+    # Convert denominator to m³
+    value /= volume_units[denom]
+
+    return value, "mol/m**3"
+
+def mass_mole_convert(value, unit, molar_mass):
+    """
+    Convert between mass and moles.
+
+    unit = 'kg' or 'mol'
+    molar_mass in kg/mol
+    """
+    if unit == 'kg':
+        # mass → mol
+        return value / molar_mass, 'mol'
+    elif unit == 'mol':
+        # mol → mass
+        return value * molar_mass, 'kg'
+    else:
+        raise ValueError("Unit must be 'kg' or 'mol'")
+
+
 
 def volume_to_si(value, unit):
     """Convert units like 'L/kg', 'mL/g' to SI."""
@@ -54,19 +150,33 @@ def flow_rates_to_si(value, unit):
 
     return si_value, si_unit
 
-
-def to_si(value, unit):
+def to_si(value, unit, molar_mass=None):
     """
     Convert a value from a given unit to its SI unit.
 
-    Supported units:
-    Length: 'cm', 'mm', 'km', 'inch', 'foot', 'mile'
-    Mass: 'g', 'mg', 'lb', 'oz'
-    Temperature: 'C', 'F'
-
-    Returns a tuple: (converted_value, SI_unit)
+    Supported:
+    - Length: cm, mm, km, inch, foot, mile
+    - Mass: g, mg, lb, oz
+    - Temperature: C, F
+    - Volume ratios: L/kg, mL/g
+    - Flow rates: cm**2/s, mm**3/s, mL/min
+    - Molality: mol/kg, mol/g, mmol/kg, mmol/g
+    - Molarity: mol/L, mol/mL, mmol/L, mmol/mL
+    - Mass ↔ mol (requires molar_mass)
     """
-    # Length conversions to meters
+    unit = unit.strip().lower()
+
+    # ---------------------------
+    # Temperature conversions
+    # ---------------------------
+    if unit == 'c':
+        return value + 273.15, 'K'
+    elif unit == 'f':
+        return (value - 32) * 5/9 + 273.15, 'K'
+
+    # ---------------------------
+    # Length conversions
+    # ---------------------------
     length_units = {
         'm': 1,
         'cm': 0.01,
@@ -77,7 +187,12 @@ def to_si(value, unit):
         'mile': 1609.34
     }
 
-    # Mass conversions to kilograms
+    if unit in length_units:
+        return value * length_units[unit], 'm'
+
+    # ---------------------------
+    # Mass conversions
+    # ---------------------------
     mass_units = {
         'kg': 1,
         'g': 0.001,
@@ -86,18 +201,39 @@ def to_si(value, unit):
         'oz': 0.0283495
     }
 
-    # Temperature conversions to Kelvin
-    if unit in ['C', 'c']:
-        return (value + 273.15, 'K')
-    elif unit in ['F', 'f']:
-        return ((value - 32) * 5/9 + 273.15, 'K')
-
-    # Check if unit is a length
-    if unit in length_units:
-        return (value * length_units[unit], 'm')
-
-    # Check if unit is a mass
     if unit in mass_units:
-        return (value * mass_units[unit], 'kg')
+        return value * mass_units[unit], 'kg'
+
+    # ---------------------------
+    # Volume ratios (L/kg, mL/g)
+    # ---------------------------
+    if '/' in unit and any(x in unit for x in ['l', 'ml']):
+        return volume_to_si(value, unit)
+
+    # ---------------------------
+    # Flow rates (cm**2/s, mm**3/s, mL/min)
+    # ---------------------------
+    if any(x in unit for x in ['cm', 'mm', 'ml']) and ('/' in unit or '**' in unit):
+        return flow_rates_to_si(value, unit)
+
+    # ---------------------------
+    # Molality (mol/kg)
+    # ---------------------------
+    molality_units = ['mol/kg', 'mol/g', 'mmol/kg', 'mmol/g']
+    if unit in molality_units:
+        return molality_to_si(value, unit)
+
+    # ---------------------------
+    # Molarity (mol/m³)
+    # ---------------------------
+    molarity_units = ['mol/l', 'mol/ml', 'mmol/l', 'mmol/ml']
+    if unit in molarity_units:
+        return molarity_to_si(value, unit)
+
+    # ---------------------------
+    # Mass ↔ mol (requires molar mass)
+    # ---------------------------
+    if unit in ['mol', 'kg'] and molar_mass is not None:
+        return mass_mole_convert(value, unit, molar_mass)
 
     raise ValueError(f"Unit '{unit}' not supported for SI conversion")
