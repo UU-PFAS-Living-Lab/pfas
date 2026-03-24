@@ -211,7 +211,7 @@ class UnitConverter:
             exponent = int(power) if power else 1
             if base in length_units:
                 si_value *= length_units[base] ** exponent
-            elif base == 's':
+            elif base in ['s', 'min']:
                 continue
             else:
                 raise ValueError(f"Unit {base} not supported")
