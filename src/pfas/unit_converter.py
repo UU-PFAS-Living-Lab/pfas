@@ -2,7 +2,10 @@
 import re
 
 
-def ratio_to_si(value, unit):
+def molality_to_si(value, unit):
+    print("Not IMplemented.")
+
+def volume_to_si(value, unit):
     """Convert units like 'L/kg', 'mL/g' to SI."""
     volume_units = {'L': 1e-3, 'mL': 1e-6, 'm**3': 1}  # all to m³
     mass_units = {'kg': 1, 'g': 1e-3}  # all to kg
@@ -21,7 +24,7 @@ def ratio_to_si(value, unit):
     else:
         raise ValueError("Unit not a ratio")
 
-def compound_to_si(value, unit):
+def flow_rates_to_si(value, unit):
     """
     Convert simple compound units to SI.
 
