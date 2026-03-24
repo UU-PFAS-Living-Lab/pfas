@@ -1,4 +1,6 @@
+"""Class to convert units."""
 import re
+
 
 class UnitConverter:
     """
@@ -226,6 +228,7 @@ class UnitConverter:
     # -----------------------------
     # Dispatcher
     # -----------------------------
+    # ruff: noqa: PLR0911
     @classmethod
     def to_si(cls, value, unit, molar_mass=None):
         unit = unit.strip().lower()
@@ -267,4 +270,3 @@ class UnitConverter:
             return cls.flow_rates_to_si(value, unit)
 
         raise ValueError(f"Unit '{unit}' not supported for SI conversion")
-
