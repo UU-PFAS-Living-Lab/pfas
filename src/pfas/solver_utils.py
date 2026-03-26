@@ -182,13 +182,13 @@ def _bvp_flux_bc(
 
     Analytical solution to the 1D ADE with a constant step input at the inlet
     using a flux (third-type) boundary condition, evaluated over dimensionless
-    depth Z. This is the kernel A1(Z,T) used in pulse superposition in the
-    equilibrium solver.
+    depth Z. This is the kernel G1^E(Z,T) with Omega=0 used in pulse
+    superposition in the equilibrium solver.
 
-    The solution is:
+    The solution is (Toride et al. 1995, Table 2.3, Third-Type, Omega=0):
 
         C(Z,T) = 0.5 * erfc(arg * (RZ - T))
-                 + sqrt(PT / pi R) * exp(-arg^2 * (RZ - T)^2)
+                 + sqrt(P / pi R) * exp(-arg^2 * (RZ - T)^2)
                  - 0.5 * (1 + PZ + PT/R) * exp(PZ) * erfc(arg * (RZ + T))
 
     where arg = sqrt(P / 4RT).
@@ -212,17 +212,15 @@ def _bvp_flux_bc(
     References
     ----------
     Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 2.1, Case A2 (third-type inlet BC, semi-infinite
-    domain). Equivalent to van Genuchten & Alves (1982), eq. B2.
+    No. 137, USDA-ARS. Table 2.3, G1^E(Z,T;0), Third-Type column.
     """
     arg = np.sqrt(0.25 * P / R / T)
 
     term1 = 0.5 * erfc(arg * (R * Z - T))
     term2 = np.exp(P * Z) * erfc(arg * (R * Z + T))
-    term3 = np.sqrt(P * T / np.pi / R) * np.exp(-0.25 * P / R / T * (R * Z - T) ** 2)
+    term3 = np.sqrt(P / np.pi / R) * np.exp(-(arg * (R * Z - T)) ** 2)
 
     return term1 + term3 - 0.5 * (1.0 + P * Z + P * T / R) * term2
-
 
 def _bvp_resident_bc(
     T: float,
@@ -263,8 +261,7 @@ def _bvp_resident_bc(
     References
     ----------
     Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 2.1, Case A1 (first-type inlet BC, semi-infinite
-    domain). Equivalent to van Genuchten & Alves (1982), eq. B1.
+    No. 137, USDA-ARS. Table 2.3, (first-type inlet BC, no decay).
     """
     arg = np.sqrt(0.25 * P / R / T)
 
@@ -285,27 +282,23 @@ _BVP_FUNCTIONS: dict[str, Callable[..., NDArray[np.float64]]] = {
 # IVP helpers — equilibrium sorption
 # ---------------------------------------------------------------------------
 
-def _ivp_eq(
+def _ivp_eq_flux(
     T: float,
     R: float,
     Z: float,
     P: float,
     xi: NDArray[np.float64],
 ) -> NDArray[np.float64]:
-    """IVP integrand for equilibrium sorption (Green's function kernel).
+    """IVP Green's function kernel for flux (third-type) boundary condition.
 
-    Computes the Green's function kernel G(Z, T, xi) for the superposition
-    integral over a non-zero initial concentration profile Ci(xi):
+    Computes Gamma_2^E(Z, xi, T) from Table 2.2 of Toride et al. (1995),
+    Third-Type column, with mu^E = 0. The image term has a positive sign and
+    an additional erfc correction to enforce zero dispersive flux at Z=0.
 
-        C^I(Z, T) = integral_0^1 G(Z, T, xi) * Ci(xi) dxi
-
-    The kernel combines two Gaussian terms (direct and image source) and an
-    erfc term arising from the flux boundary condition at Z=0:
-
-        G(Z,T,xi) = [ exp(-(R(Z-xi)-T)^2 / (4TR/P))
-                      + exp(-P*xi - (R(Z+xi)-T)^2 / (4TR/P)) ]
-                    / (2*sqrt(pi*T/PR))
-                    - P/2 * exp(PZ) * erfc((R(Z+xi)+T) / (2*sqrt(TR/P)))
+        G(Z, T, xi) = sqrt(RP / 4*pi*T)
+                      * [ exp(-P*(R*(xi-Z) - T)^2 / (4RT))
+                          + exp(PZ) * exp(-P*(R*(xi+Z) - T)^2 / (4RT)) ]
+                      - P/2 * exp(PZ) * erfc((R*(xi+Z) + T) / sqrt(4RT/P))
 
     Parameters
     ----------
@@ -318,31 +311,86 @@ def _ivp_eq(
     P : float
         Péclet number, P = vL/D.
     xi : ndarray
-        Dimensionless depth coordinate (ξ) stepping over the initial
-        concentration profile. Corresponds to ξ in van Genuchten & Alves (1982).
+        Dimensionless depth coordinate (ξ) over the initial concentration
+        profile, integrated from 0 to 1.
 
     Returns
     -------
     ndarray
-        Kernel values G(Z, T, xi) over xi, for numerical integration via trapezoid.
+        Kernel values G(Z, T, xi) over xi, for numerical integration
+        via trapezoid rule.
 
     References
     ----------
     Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 2.2, Case A2 (third-type inlet BC, semi-infinite
-    domain, arbitrary initial condition). Equivalent to van Genuchten &
-    Alves (1982), eq. C2.
+    No. 137, USDA-ARS. Table 2.2, Gamma_2^E, Third-Type column, mu^E = 0.
     """
-    return (
-        (
-            np.exp(-((R * Z - R * xi - T) ** 2) / (4 * T * R / P))
-            + np.exp(-P * xi - (R * Z + R * xi - T) ** 2 / (4 * T * R / P))
-        )
-        / (2 * np.sqrt(np.pi * T / P / R))
-        - P / 2 * np.exp(P * Z) * erfc((R * Z + R * xi + T) / (2 * np.sqrt(T * R / P)))
-    )
+    prefactor = np.sqrt(R * P / (4 * np.pi * T))
+    scale = 4 * R * T / P
+
+    direct = np.exp(-(R * (xi - Z) - T) ** 2 / scale)
+    image = np.exp(P * Z) * np.exp(-(R * (xi + Z) - T) ** 2 / scale)
+    erfc_term = 0.5 * P * np.exp(P * Z) * erfc((R * (xi + Z) + T) / np.sqrt(scale))
+
+    return prefactor * (direct + image) - erfc_term
 
 
+def _ivp_eq_resident(
+    T: float,
+    R: float,
+    Z: float,
+    P: float,
+    xi: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """IVP Green's function kernel for resident (first-type) boundary condition.
+
+    Computes Gamma_2^E(Z, xi, T) from Table 2.2 of Toride et al. (1995),
+    First-Type column, with mu^E = 0. The image term has a negative sign,
+    enforcing zero concentration perturbation at Z=0. No erfc correction.
+
+        G(Z, T, xi) = sqrt(RP / 4*pi*T)
+                      * [ exp(-P*(R*(xi-Z) - T)^2 / (4RT))
+                          - exp(PZ) * exp(-P*(R*(xi+Z) - T)^2 / (4RT)) ]
+
+    Parameters
+    ----------
+    T : float
+        Dimensionless time, T = vt/L.
+    R : float
+        Retardation factor.
+    Z : float
+        Dimensionless depth at evaluation point (scalar).
+    P : float
+        Péclet number, P = vL/D.
+    xi : ndarray
+        Dimensionless depth coordinate (ξ) over the initial concentration
+        profile, integrated from 0 to 1.
+
+    Returns
+    -------
+    ndarray
+        Kernel values G(Z, T, xi) over xi, for numerical integration
+        via trapezoid rule.
+
+    References
+    ----------
+    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
+    No. 137, USDA-ARS. Table 2.2, Gamma_2^E, First-Type column, mu^E = 0.
+    """
+    prefactor = np.sqrt(R * P / (4 * np.pi * T))
+    scale = 4 * R * T / P
+
+    direct = np.exp(-(R * (xi - Z) - T) ** 2 / scale)
+    image = np.exp(P * Z) * np.exp(-(R * (xi + Z) - T) ** 2 / scale)
+
+    return prefactor * (direct - image)
+
+
+# Registry: add new IVP helpers here without touching solvers.py
+_IVP_FUNCTIONS: dict[str, Callable[..., NDArray[np.float64]]] = {
+    "flux": _ivp_eq_flux,
+    "resident": _ivp_eq_resident,
+}
 # ---------------------------------------------------------------------------
 # IVP helpers — kinetic (non-equilibrium) sorption
 # ---------------------------------------------------------------------------

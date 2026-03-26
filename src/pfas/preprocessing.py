@@ -148,8 +148,8 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     average_infiltration_rate : float
         Average water infiltration rate (m/s). Must be positive.
     solute_concentration_influx : float
-    Solute concentration in infiltrating water (mg/L). Must be non-negative.
-    Use 0 for clean water infiltration with no PFAS input.
+        Solute concentration in infiltrating water (mg/L). Must be non-negative.
+        Use 0 for clean water infiltration with no PFAS input.
     pulse_intervals : list of (float, float)
         Inlet concentration on/off periods in physical time (s).
         Each tuple (t_start, t_end) defines one active pulse period.
@@ -211,10 +211,6 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
             if t_end != np.inf
         )
 
-        # total_duration == 0 means no finite pulse intervals (e.g. only a
-        # step input [(0, inf)], or an empty pulse list). In that case the
-        # release rate is not normalised by duration but taken directly as
-        # concentration * infiltration rate (continuous flux).
         if total_duration == 0:
             contaminant_release_rate = (
                 self.solute_concentration_influx
@@ -230,8 +226,14 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         bc = BoundaryConditions(
             pulse_intervals=self.pulse_intervals,
             contaminant_release_rate=contaminant_release_rate,
+            solute_concentration_influx=self.solute_concentration_influx, 
         )
         return {"boundary_conditions": bc}
+
+    @property
+    def outputs(self) -> list[str]:
+        """List of output keys from compute() method."""
+        return ["boundary_conditions"]
 
     @property
     def outputs(self) -> list[str]:
@@ -601,7 +603,7 @@ class AdsorptionCollector(BaseModel, validate_assignment=True, extra='forbid'):
     >>> collector = AdsorptionCollector(
     ...     Kd=0.001,
     ...     sp_retardation=3.75,
-    ...     awi_retardation=0.5,
+    ...     awi_retardation=5.0,
     ...     sorption_solid={"rate_const": 0.0, "fraction_instantaneous": 1.0},
     ... )
     >>> result = collector.compute()

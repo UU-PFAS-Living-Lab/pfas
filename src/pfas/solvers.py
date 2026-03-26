@@ -19,10 +19,10 @@ from numpy.typing import NDArray
 from pfas.solver_utils import (
     _BVP_FUNCTIONS,
     _H0,
+    _IVP_FUNCTIONS,
     DimensionlessParams,
     _bvp_neq,
     _Hs,
-    _ivp_eq,
     _ivp_neq,
     compute_dimensionless_params,
 )
@@ -34,7 +34,7 @@ def equilibrium_solver(  # noqa: PLR0913
     C0: float,
     Ci: NDArray[np.float64],
     theta: float,
-    bc: str = "flux",
+    bc: str = "resident",
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Solve advection-dispersion equation with equilibrium sorption.
 
@@ -73,7 +73,7 @@ def equilibrium_solver(  # noqa: PLR0913
         Dimensionless parameters from :func:`compute_dimensionless_params`.
         Uses `.Z`, `.T`, `.P`, and `.pulses`.
     C0 : float
-        Normalised inlet concentration during active pulse periods (mg/L).
+        inlet concentration during active pulse periods (mg/L).
     Ci : ndarray of shape (n_depth,)
         Normalized initial concentration profile Ci(Z) (mg/L).
         Pass an array of zeros if there is no initial contamination.
@@ -82,7 +82,7 @@ def equilibrium_solver(  # noqa: PLR0913
     bc : str, optional
         Upper boundary condition type. Must be a key in ``_BVP_FUNCTIONS``
         in ``solver_utils.py``. Options: ``'flux'`` (default, third-type BC)
-        or ``'resident'`` (first-type BC). Default is ``'flux'``.
+        or ``'resident'`` (first-type BC). Default is ``'resident'``.
 
     Returns
     -------
@@ -124,16 +124,17 @@ def equilibrium_solver(  # noqa: PLR0913
             if T_end != np.inf and Ti > T_end:
                 C1_bvp[:, i] -= C0 * bvp_func(Ti - T_end, R, Z, P)
 
+    ivp_func = _IVP_FUNCTIONS[bc]
+
     if max(Ci) != 0:
         xi: NDArray[np.float64] = np.linspace(0, 1, len(Ci), dtype=np.float64)
         for ti, Ti in enumerate(T):
             for zi, Zi in enumerate(Z):
                 integrand = cast(
                     NDArray[np.float64],
-                    _ivp_eq(Ti, R, Zi, P, xi) * Ci,
+                    ivp_func(Ti, R, Zi, P, xi) * Ci,
                 )
                 C1_ivp[zi, ti] = np.trapezoid(integrand, xi)
-
     C1 = C1_bvp + C1_ivp
     C_tot = C1 * R * theta
 

@@ -59,17 +59,19 @@ class BoundaryConditions:
         - Multiple pulses:   ``[(0, 1000), (3000, 5000)]``
     contaminant_release_rate : float
         Contaminant mass flux at the inlet boundary (mg/m²/s).
+    solute_concentration_influx : float
+        Solute concentration in infiltrating water (mg/L).
     """
 
     def __init__(
         self,
         pulse_intervals: list[tuple[float, float]],
         contaminant_release_rate: float,
+        solute_concentration_influx: float,
     ) -> None:
         self.pulse_intervals = pulse_intervals
         self.contaminant_release_rate = contaminant_release_rate
-
-
+        self.solute_concentration_influx = solute_concentration_influx
 
 
 @dataclass
@@ -124,7 +126,7 @@ class Adsorption:
         float
             Sum of solid-phase and air-water interface retardation.
         """
-        return self.sp_retardation + self.awi_retardation
+        return 1 + self.sp_retardation + self.awi_retardation
 
     @property
     def beta_s(self) -> float:
@@ -243,7 +245,7 @@ def analytical_soln(  # noqa: PLR0913
         C1, C_tot = equilibrium_solver(
             adsorption.total_retardation,
             dim,
-            boundary_conditions.contaminant_release_rate,
+            boundary_conditions.solute_concentration_influx,
             initial_contaminant_concentration,
             hydro_properties.water_content,
         )
