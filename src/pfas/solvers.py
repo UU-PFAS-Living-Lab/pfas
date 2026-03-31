@@ -25,13 +25,14 @@ from pfas.solver_utils import (
     _Hs,
     _ivp_neq,
     compute_dimensionless_params,
+    _ivp_eq_flux
 )
 
 
 def equilibrium_solver(  # noqa: PLR0913
     R: float,
     dim: DimensionlessParams,
-    C0: float,
+    C_list: list[float],
     Ci: NDArray[np.float64],
     theta: float,
     bc: str = "resident",
@@ -46,21 +47,22 @@ def equilibrium_solver(  # noqa: PLR0913
 
         C(Z,T) = C^B(Z,T) + C^I(Z,T)
 
-    The BVP term is constructed by superimposing step inputs for each pulse
-    interval in ``dim.pulses`` (CXTFIT eq. 2.20). For each interval
-    (T_start, T_end), a forward step is switched on at T_start and a backward
-    step is subtracted at T_end:
+    The BVP term implements CXTFIT eq. 2.20 directly. Given a series of
+    rectangular pulses with concentrations ``C_list = [f1, f2, ..., fn]``
+    switching at times ``dim.T_list = [T1, T2, ..., Tn]`` (dimensionless),
+    the concentration increments are:
 
-        C^B(Z,T) = sum over intervals of:
-            H(T - T_start) * A1(Z, T - T_start)
-          - H(T - T_end)   * A1(Z, T - T_end)
+        deltaC = np.diff([0] + C_list)   →  [f1-f0, f2-f1, ..., fn-f_{n-1}]
 
-    where A1 is the step BVP solution (see ``_BVP_FUNCTIONS``) and H is the
-    Heaviside function. This naturally handles:
-    - Step input:       ``pulses = [(0, inf)]``
-    - Pulse from zero:  ``pulses = [(0, T0)]``
-    - Delayed pulse:    ``pulses = [(T_start, T_end)]``
-    - Multiple pulses:  ``pulses = [(T1s, T1e), (T2s, T2e), ...]``
+    and eq. 2.20 becomes:
+
+        C^B(Z,T) = sum_{j=1}^{i} deltaC[j] * G1^E(Z, T - T_j; mu^E)
+
+    where each term is only added when T > T_j (Heaviside). This naturally
+    handles:
+    - Step input:        C_list=[C0],  dim.T_list=[0]
+    - Single pulse:      C_list=[C0, 0],     dim.T_list=[0, T_pulse_end]
+    - Multiple pulses:   C_list=[f1,f2,...], dim.T_list=[T1, T2, ...]
 
     The IVP term integrates the Green's function kernel over the initial
     concentration profile Ci(xi) (CXTFIT Table 2.2).
@@ -71,18 +73,22 @@ def equilibrium_solver(  # noqa: PLR0913
         Retardation factor, R = 1 + rho_b * Kd / theta.
     dim : DimensionlessParams
         Dimensionless parameters from :func:`compute_dimensionless_params`.
-        Uses `.Z`, `.T`, `.P`, and `.pulses`.
-    C0 : float
-        inlet concentration during active pulse periods (mg/L).
+        Uses `.Z`, `.T`, `.P`, and `.T_list` (dimensionless switching times
+        corresponding to each entry in ``C_list``).
+    C_list : list of float
+        Inlet concentrations for each interval (mg/L).
+        ``C_list[j]`` is the concentration active from ``dim.T_list[j]``
+        until ``dim.T_list[j+1]``. The last interval extends to infinity.
+        Must have the same length as ``dim.T_list``.
     Ci : ndarray of shape (n_depth,)
-        Normalized initial concentration profile Ci(Z) (mg/L).
+        Normalised initial concentration profile Ci(Z) (mg/L).
         Pass an array of zeros if there is no initial contamination.
     theta : float
         Volumetric water content (-).
     bc : str, optional
-        Upper boundary condition type. Must be a key in ``_BVP_FUNCTIONS``
-        in ``solver_utils.py``. Options: ``'flux'`` (default, third-type BC)
-        or ``'resident'`` (first-type BC). Default is ``'resident'``.
+        Upper boundary condition type. Must be a key in ``_BVP_FUNCTIONS``.
+        Options: ``'flux'`` (third-type BC) or ``'resident'`` (first-type BC).
+        Default is ``'resident'``.
 
     Returns
     -------
@@ -95,12 +101,14 @@ def equilibrium_solver(  # noqa: PLR0913
     ------
     ValueError
         If `bc` is not a recognised boundary condition type.
+    ValueError
+        If ``len(C_list) != len(dim.T_list)``.
 
     References
     ----------
     Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Section 2, eq. (2.14) for superposition of BVP and IVP;
-    eq. (2.20) for pulse input via step superposition.
+    No. 137, USDA-ARS. Section 2, eq. (2.20) for multiple rectangular pulses
+    via step superposition.
     """
     if bc not in _BVP_FUNCTIONS:
         raise ValueError(
@@ -109,22 +117,34 @@ def equilibrium_solver(  # noqa: PLR0913
         )
 
     bvp_func = _BVP_FUNCTIONS[bc]
-    Z, T, pulses, P = dim.Z, dim.T, dim.pulses, dim.P
+    ivp_func = _IVP_FUNCTIONS[bc]
+    Z, T, P, T_list = dim.Z, dim.T, dim.P, dim.T_list
+
+    if len(C_list) != len(T_list):
+        raise ValueError(
+            f"C_list (len={len(C_list)}) and dim.T_list (len={len(T_list)}) "
+            "must have the same length."
+        )
+
+    # ------------------------------------------------------------------
+    # BVP term (eq. 2.20)
+    # ------------------------------------------------------------------
+    # deltaC[j] = f_j - f_{j-1}  (prepend f_0 = 0, CXTFIT eq. 2.20)
+    deltaC: NDArray[np.float64] = np.diff([0.0] + C_list)
 
     C1_bvp = np.zeros((len(Z), len(T)))
-    C1_ivp = np.zeros((len(Z), len(T)))
 
+    # eq. 2.20:  C^B(Z,T) = sum_j  deltaC[j] * G1^E(Z, T-T_j)
+    #            only for T > T_j  (Heaviside)
     for i, Ti in enumerate(T):
-        # Pulse superposition over all intervals (CXTFIT eq. 2.20):
-        # For each (T_start, T_end), add a forward step at T_start and
-        # subtract a backward step at T_end (Heaviside superposition).
-        for T_start, T_end in pulses:
-            if Ti > T_start:
-                C1_bvp[:, i] += C0 * bvp_func(Ti - T_start, R, Z, P)
-            if T_end != np.inf and Ti > T_end:
-                C1_bvp[:, i] -= C0 * bvp_func(Ti - T_end, R, Z, P)
+        for delta, Tj in zip(deltaC, T_list):
+            if Ti > Tj:
+                C1_bvp[:, i] += delta * bvp_func(Ti - Tj, R, Z, P)
 
-    ivp_func = _IVP_FUNCTIONS[bc]
+    # ------------------------------------------------------------------
+    # IVP term
+    # ------------------------------------------------------------------
+    C1_ivp = np.zeros((len(Z), len(T)))
 
     if max(Ci) != 0:
         xi: NDArray[np.float64] = np.linspace(0, 1, len(Ci), dtype=np.float64)
@@ -135,16 +155,16 @@ def equilibrium_solver(  # noqa: PLR0913
                     ivp_func(Ti, R, Zi, P, xi) * Ci,
                 )
                 C1_ivp[zi, ti] = np.trapezoid(integrand, xi)
+
     C1 = C1_bvp + C1_ivp
     C_tot = C1 * R * theta
 
     return C1, C_tot
 
-
 def kinetic_solver(  # noqa: PLR0913
     R: float,
     dim: DimensionlessParams,
-    C0: float,
+    C_list: list[float],
     Ci: NDArray[np.float64],
     beta_s: float,
     beta: float,
@@ -154,10 +174,12 @@ def kinetic_solver(  # noqa: PLR0913
     Kd: float,
     theta: float,
     rho_b: float,
+    
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """Solve advection-dispersion equation with kinetic (time-dependent) sorption.
 
-    Computes aqueous (C₁) and sorbed phase (C₂) concentrations for contaminant
+    When beta_s == 1 (no kinetic sites), delegates to equilibrium_solver.
+    Otherwise computes aqueous (C₁) and sorbed phase (C₂) concentrations for contaminant
     transport with first-order kinetic sorption. The total solution combines
     boundary value problem (BVP) and initial value problem (IVP) contributions:
 
@@ -165,17 +187,17 @@ def kinetic_solver(  # noqa: PLR0913
 
     **BVP term — CXTFIT eq. 3.20**
 
-    Pulse superposition using the Heaviside approach over each interval
-    (T_start, T_end) in ``dim.pulses``:
+    Pulse superposition using eq. 2.20 over switching times ``dim.T_list``
+    with concentration increments:
 
-        C^B(Z,T) = Σₖ [ H(T - Tₛ,ₖ)·A₁(Z, T-Tₛ,ₖ) - H(T - Tₑ,ₖ)·A₁(Z, T-Tₑ,ₖ) ]
+        deltaC = np.diff([0] + C_list)   →  [f1-f0, f2-f1, ..., fn-f_{n-1}]
+
+        C^B_k(Z,T) = Σⱼ deltaC[j] · Aₖ(Z, T - T_list[j])   for T > T_list[j]
 
     where A₁ (aqueous, ``C1_bvp``) and A₂ (sorbed, ``C2_bvp``) are evaluated
-    via :func:`_bvp_neq` (CXTFIT eqs. 3.21–3.22). Dimensional scaling applied
-    after the loop (CXTFIT eq. 3.20):
-
-        C1_bvp ← C0 · C1_bvp
-        C2_bvp ← (1-f) · Kd · C0 · C2_bvp
+    via :func:`_bvp_neq` (CXTFIT eqs. 3.21–3.22). The sorbed phase BVP is
+    additionally scaled by ``(1-f) * Kd`` after the loop to convert from
+    dimensionless to mg/kg units.
 
     **IVP term — CXTFIT eqs. 3.31, 3.32 / Table 3.4**
 
@@ -187,37 +209,23 @@ def kinetic_solver(  # noqa: PLR0913
     When ``beta_s != 1``, the IVP splits into three contributions:
 
     1. Initial aqueous concentration contribution, modified by inter-phase mass
-       transfer (CXTFIT eq. 3.23, first term). The exponential prefactor
-       represents the fraction of the initial aqueous concentration remaining
-       in the aqueous phase at time T as mass transfers to kinetic sorption sites:
+       transfer (CXTFIT eq. 3.23, first term):
 
         C1_ivp = exp( -ω·T·(1-f)·Rₛ / ((1-βₛ)·β·R·(1+Rₛ)) ) · G(Z, T)
 
-    2. Initial sorbed concentration contribution, modified by inter-phase mass
-       transfer (CXTFIT eq. 3.24, first term). The exponential prefactor
-       represents the fraction of the initial sorbed concentration remaining
-       at kinetic sorption sites at time T as mass transfers back to the
-       aqueous phase:
+    2. Initial sorbed concentration contribution (CXTFIT eq. 3.24, first term):
 
         C2_ivp = (1-f)·Kd·Cᵢ · exp( -ω·T / ((1-βₛ)·(1+Rₛ)) )
 
     3. Convolution integrals over intermediate times τ ∈ (0, T), using the
-       H₀ and Hₛ kernels from CXTFIT Table 3.4 (eqs. 3.31-3.32, second terms;
-       derived from van Genuchten (1981) Appendix B):
+       H₀ and Hₛ kernels from CXTFIT Table 3.4 (eqs. 3.31-3.32, second terms):
 
         C1_ivp += ω/((1-βₛ)·(1+Rₛ)) · ∫₀ᵀ H₀(T,τ) · G(Z,τ) dτ
         C2_ivp += ω/((1-βₛ)·(1+Rₛ)) · (1-f)·Kd · ∫₀ᵀ Hₛ(T,τ) · G(Z,τ) dτ
 
-       where G(Z,τ) = ∫₀¹ G_neq(Z, τ, ξ)·Cᵢ(ξ) dξ is pre-evaluated at 100
-       equally spaced τ points via :func:`_ivp_neq` and the trapezoidal rule,
-       with solutions for G(Z,τ) from Table 3.3.
-
-    **Total concentration — CXTFIT eq. 3.6 / van Genuchten (1981) eq. 2**
+    **Total concentration — CXTFIT eq. 3.6**
 
         C_tot = θ·β·R·C₁ + ρ_b·C₂
-
-    reflecting partitioning between the mobile aqueous phase (scaled by β·R·θ)
-    and the kinetic sorbed phase (scaled by ρ_b).
 
     Parameters
     ----------
@@ -225,26 +233,28 @@ def kinetic_solver(  # noqa: PLR0913
         Overall retardation factor, R = 1 + ρ_b·Kd/θ (CXTFIT Table 3.1).
     dim : DimensionlessParams
         Dimensionless parameters from :func:`compute_dimensionless_params`.
-        Uses `.Z`, `.T`, `.P`, `.pulses`, and `.omega` (ω).
-    C0 : float
-        Normalised inlet concentration during active pulse periods (mg/L).
+        Uses `.Z`, `.T`, `.P`, `.T_list` (dimensionless switching times),
+        and `.omega` (ω).
+    C_list : list of float
+        Inlet concentrations for each interval (mg/L).
+        ``C_list[j]`` is the concentration active from ``dim.T_list[j]``
+        until ``dim.T_list[j+1]``. The last interval extends to infinity.
+        Must have the same length as ``dim.T_list``.
     Ci : ndarray of shape (n_depth,)
         Normalised initial aqueous concentration profile with depth (mg/L).
         Pass an array of zeros if there is no initial contamination.
     beta_s : float
         Solid-phase partitioning coefficient β_s (CXTFIT Table 3.1).
-        Set to 1 for the fully equilibrium case (no kinetic sites).
     beta : float
         Dimensionless partitioning coefficient β (CXTFIT Table 3.1).
-        Ratio of equilibrium sorption capacity to total sorption capacity.
     volume_averaged : bool
         If True, use volume-averaged (resident) concentrations in the BVP
         kernel :func:`_FT`. If False, use flux-averaged concentrations.
     R_s : float
-        Retardation factor for kinetic sorption sites, R_s (CXTFIT Table 3.1).
+        Retardation factor for kinetic sorption sites (CXTFIT Table 3.1).
     f : float
         Fraction of sorption sites at instantaneous equilibrium (CXTFIT
-        Table 3.1). f=1 reduces to full equilibrium; f=0 to fully kinetic.
+        Table 3.1).
     Kd : float
         Linear distribution coefficient (L/kg).
     theta : float
@@ -262,23 +272,30 @@ def kinetic_solver(  # noqa: PLR0913
         Total concentration (mg/L bulk volume),
         C_tot = θ·β·R·C₁ + ρ_b·C₂  (CXTFIT eq. 3.6).
 
-
     References
     ----------
     van Genuchten, M. Th. (1981). Non-Equilibrium Transport Parameters from
     Miscible Displacement Experiments. Research Report No. 119, USDA-ARS.
-    Eqs. 2, 14; Appendix B (H₀, Hₛ kernel derivation).
 
     Toride, Leij & van Genuchten (1995). CXTFIT Version 2.0. Research Report
     No. 137, USDA-ARS. Eqs. 3.6, 3.20–3.24; Tables 3.1, 3.4.
 
     Lindstrom, F.T. and Stone, W.J. (1974). Soil Sci. Soc. Am. Proc.
     """
-    Z, T, pulses, P = dim.Z, dim.T, dim.pulses, dim.P
-
-    # omega is only defined for kinetic (non-equilibrium) sorption
+    # When there are no kinetic sites (beta_s == 1), use equilibrium solver
+    if beta_s == 1:
+        bc = "resident" if volume_averaged else "flux"
+        C1, C_tot = equilibrium_solver(R, dim, C_list, Ci, theta, bc)
+        C2 = np.zeros_like(C1)  # No sorbed phase in kinetic sites
+        return C1, C2, C_tot
+    
+    # Original kinetic solver logic for beta_s < 1
+    Z, T, P, T_list = dim.Z, dim.T, dim.P, dim.T_list
     omega = dim.omega
     assert omega is not None, "omega must be set for kinetic sorption"
+    
+    # deltaC[j] = f_j - f_{j-1}  (prepend f_0 = 0, CXTFIT eq. 3.20)
+    deltaC: NDArray[np.float64] = np.diff([0.0] + C_list)
 
     C1_bvp: NDArray[np.float64] = np.zeros((len(Z), len(T)))
     C1_ivp: NDArray[np.float64] = np.zeros((len(Z), len(T)))
@@ -288,32 +305,22 @@ def kinetic_solver(  # noqa: PLR0913
     for i, Zi in enumerate(Z):
         for j, Tj in enumerate(T):
 
-            # Pulse superposition over all intervals (CXTFIT eq. 3.20):
-            # A₁ (equilibrium phase) and A₂ (nonequilibrium phase) BVP solutions
-            # are evaluated via _bvp_neq and superimposed using the Heaviside approach.
-            for T_start, T_end in pulses:
-                if Tj > T_start:
+            # Pulse superposition (CXTFIT eq. 3.20):
+            # C^B_k(Z,T) = sum_j deltaC[j] * A_k(Z, T - T_list[j])
+            # only for T > T_list[j]  (Heaviside)
+            for delta, Tk in zip(deltaC, T_list):
+                if Tj > Tk:
                     A_eq, A_neq = _bvp_neq(
-                        Zi, Tj - T_start, omega, beta_s, beta, P, R, R_s,
+                        Zi, Tj - Tk, omega, beta_s, beta, P, R, R_s,
                         volume_averaged=volume_averaged,
                     )
-                    C1_bvp[i, j] += A_eq
-                    C2_bvp[i, j] += A_neq
-                if T_end != np.inf and Tj > T_end:
-                    A_eq, A_neq = _bvp_neq(
-                        Zi, Tj - T_end, omega, beta_s, beta, P, R, R_s,
-                        volume_averaged=volume_averaged,
-                    )
-                    C1_bvp[i, j] -= A_eq
-                    C2_bvp[i, j] -= A_neq
+                    C1_bvp[i, j] += delta * A_eq
+                    C2_bvp[i, j] += delta * A_neq
 
             if max(Ci) != 0:
-                # Use dtype=np.float64 so xi is NDArray[np.float64], not
-                # NDArray[floating[Any]], satisfying _ivp_neq's parameter type.
                 xi: NDArray[np.float64] = np.linspace(0, 1, len(Ci), dtype=np.float64)
                 tau = np.linspace(0, Tj, 100)
 
-                # G(Z, T): Green's function integral at current time T (CXTFIT Table 3.2)
                 integrand_ZT = cast(
                     NDArray[np.float64],
                     _ivp_neq(Tj, R, Zi, P, xi, beta) * Ci,
@@ -321,7 +328,14 @@ def kinetic_solver(  # noqa: PLR0913
                 G_ZT = np.trapezoid(integrand_ZT, xi)
 
                 if beta_s == 1:
-                    C1_ivp[i, j] = G_ZT
+                    integrand = cast(
+                        NDArray[np.float64],
+                        _ivp_eq_flux(Tj, R, Zi, P, xi) * Ci,
+                    )
+                    C1_ivp[i, j] = np.trapezoid(integrand, xi)
+
+                    # no kinetic sorption phase
+                    C2_ivp[i, j] = 0.0
                 else:
                     C1_ivp[i, j] = (
                         np.exp(-omega * Tj * (1 - f) * R_s / (1 - beta_s) / (beta * R) / (1 + R_s))
@@ -331,7 +345,6 @@ def kinetic_solver(  # noqa: PLR0913
                         (1 - f) * Kd * Ci[i]
                         * np.exp(-omega * Tj / (1 - beta_s) / (1 + R_s))
                     )
-                    # G(Z, τ): Green's function at intermediate times for convolution
                     G_Ztau = np.zeros(len(tau))
                     for k in range(1, len(tau) - 1):
                         integrand_tau = cast(
@@ -353,10 +366,8 @@ def kinetic_solver(  # noqa: PLR0913
                         )
                     )
 
-    C1_bvp = cast(NDArray[np.float64], C0 * C1_bvp)
-    C2_bvp = cast(NDArray[np.float64], (1 - f) * Kd * C0 * C2_bvp)
     C1 = C1_bvp + C1_ivp
-    C2 = C2_bvp + C2_ivp
+    C2 = cast(NDArray[np.float64], (1 - f) * Kd * C2_bvp) + C2_ivp
     C_tot = C1 * beta * R * theta + rho_b * C2
 
     return C1, C2, C_tot
@@ -369,7 +380,8 @@ def analytical_soln(  # noqa: PLR0913
     initial_contaminant_concentration: NDArray[np.float64],
     hydro_properties,
     adsorption,
-    pulse_intervals: list[tuple[float, float]],
+    C_list: list[float],
+    T_list: list[float],
     kinetic: bool = False,
     volume_averaged: bool = False,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64] | None, NDArray[np.float64]]:
@@ -388,8 +400,7 @@ def analytical_soln(  # noqa: PLR0913
     bulk_density : float
         Bulk density of the porous medium (kg/L).
     boundary_conditions : BoundaryConditions
-        Contaminant source boundary conditions. Must have
-        `.contaminant_release_rate`.
+        Contaminant source boundary conditions.
     initial_contaminant_concentration : ndarray of shape (n_depth,)
         Initial aqueous concentration distribution in the domain (mg/L).
     hydro_properties : HydrologicalProperties
@@ -399,12 +410,20 @@ def analytical_soln(  # noqa: PLR0913
         Adsorption parameters. Must have `.total_retardation`, `.Kd`,
         `.sp_retardation`, `.frac_int`, `.beta`, and `.beta_s`. When
         kinetic=True, also requires `.rate_const`.
-    pulse_intervals : list of (float, float)
-        Inlet concentration on/off periods in physical time (s). Examples:
-        - Continuous step:   ``[(0, np.inf)]``
-        - Pulse from t=0:    ``[(0, 5000)]``
-        - Delayed pulse:     ``[(2000, 5000)]``
-        - Multiple pulses:   ``[(0, 1000), (3000, 5000)]``
+    C_list : list of float
+        Inlet concentrations for each interval (mg/L). ``C_list[j]`` is
+        the concentration active from ``T_list[j]`` until ``T_list[j+1]``.
+        The last interval extends to infinity. Must have the same length
+        as ``T_list``. Examples:
+        - Continuous step:   ``C_list=[C0],       T_list=[0]``
+        - Pulse from t=0:    ``C_list=[C0, 0],    T_list=[0, 5000]``
+        - Delayed pulse:     ``C_list=[0, C0, 0], T_list=[0, 2000, 5000]``
+        - Multiple pulses:   ``C_list=[f1, f2],   T_list=[0, 1000]``
+    T_list : list of float
+        Switching times in physical time (s) at which the inlet concentration
+        changes. Converted to dimensionless pore volumes inside
+        :func:`compute_dimensionless_params` and stored in ``dim.T_list``.
+        Must have the same length as ``C_list``.
     kinetic : bool, optional
         If True, use the kinetic sorption model (:func:`kinetic_solver`),
         which returns a separate sorbed phase C2. If False (default), use
@@ -428,12 +447,12 @@ def analytical_soln(  # noqa: PLR0913
     ValueError
         If pore_velocity or dispersion_coefficient is zero.
     ValueError
-        If any pulse interval has t_start >= t_end.
+        If ``len(C_list) != len(T_list)``.
     """
     dim = compute_dimensionless_params(
         grid,
         hydro_properties,
-        pulse_intervals=pulse_intervals,
+        T_list=T_list,
         adsorption=adsorption,
         kinetic=kinetic,
     )
@@ -444,7 +463,7 @@ def analytical_soln(  # noqa: PLR0913
         C1, C2, C_tot = kinetic_solver(
             adsorption.total_retardation,
             dim,
-            boundary_conditions.contaminant_release_rate,
+            C_list,
             initial_contaminant_concentration,
             adsorption.beta_s,
             adsorption.beta,
@@ -459,7 +478,7 @@ def analytical_soln(  # noqa: PLR0913
         C1, C_tot = equilibrium_solver(
             adsorption.total_retardation,
             dim,
-            boundary_conditions.contaminant_release_rate,
+            C_list,
             initial_contaminant_concentration,
             hydro_properties.water_content,
         )

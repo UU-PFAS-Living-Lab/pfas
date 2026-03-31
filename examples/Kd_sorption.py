@@ -235,9 +235,8 @@ def _(
 
     # Boundary conditions — 10 mg/L PFOA pulse for the first 2000 s
     boundary_prep = BoundaryPreprocessor(
-        average_infiltration_rate=1.5,
-        solute_concentration_influx=10.0,
-        pulse_intervals=[(0, 2000)],
+        C_list=[100.0, 0],
+        T_list=[0, 3600]
     )
     boundary_results = boundary_prep.compute()
 

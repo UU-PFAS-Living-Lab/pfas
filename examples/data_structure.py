@@ -184,9 +184,8 @@ def _(
 
     # Step 3: Setup boundary conditions
     boundary_prep = BoundaryPreprocessor(
-        average_infiltration_rate=0.5,
-        solute_concentration_influx=10.0,
-        pulse_intervals=[(0, 2000)],        # pulse from t=0 to t=2000 s
+        C_list=[10.0, 0],
+        T_list=[0, 2000],        # pulse from t=0 to t=2000 s
     )
     boundary_results = boundary_prep.compute()
     sorption_solid = {

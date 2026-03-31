@@ -53,13 +53,9 @@ class DimensionlessParams(NamedTuple):
         Dimensionless depth (-), Z = z / L.
     T : ndarray
         Dimensionless time (-), T = t * v / L.
-    pulses : list of (float, float)
-        Dimensionless pulse intervals [(T_start, T_end), ...].
-        Each tuple defines one on/off period of the inlet concentration.
-        Use ``(0, np.inf)`` for a continuous step input.
-        Use ``[(0, T0)]`` for a pulse starting at T=0 of duration T0.
-        Use ``[(T_start, T_end)]`` for a delayed pulse.
-        Multiple tuples superimpose several pulses.
+    T_list : list of float
+        Dimensionless switching times corresponding to each entry in
+        ``C_list``. Converted from physical time (s) via T = t * v / L.
     P : float
         Péclet number (-), P = v * L / D.
     omega : float or None
@@ -69,7 +65,7 @@ class DimensionlessParams(NamedTuple):
 
     Z: NDArray[np.float64]
     T: NDArray[np.float64]
-    pulses: list[tuple[float, float]]
+    T_list: list[float]
     P: float
     omega: float | None
 
@@ -77,7 +73,7 @@ class DimensionlessParams(NamedTuple):
 def compute_dimensionless_params(
     grid,
     hydro_properties,
-    pulse_intervals: list[tuple[float, float]],
+    T_list: list[float],
     adsorption=None,
     kinetic: bool = False,
 ) -> DimensionlessParams:
@@ -85,7 +81,7 @@ def compute_dimensionless_params(
 
     Converts physical grid, flow, and transport parameters into the
     dimensionless form required by the equilibrium and kinetic solvers.
-    Pulse intervals in physical time (seconds) are converted to dimensionless
+    Switching times in physical time (seconds) are converted to dimensionless
     time T = t * v / L.
 
     Parameters
@@ -93,17 +89,17 @@ def compute_dimensionless_params(
     grid : SimulationGrid
         Spatial and temporal discretization. Must have `.depth` (m) and
         `.time` (s) arrays.
-    boundary_conditions : BoundaryConditions
-        Contaminant source boundary conditions.
     hydro_properties : HydrologicalProperties
         Hydrological properties. Must have `.pore_velocity` (m/s) and
         `.dispersion_coefficient` (m²/s).
-    pulse_intervals : list of (float, float)
-        Inlet concentration on/off periods in physical time (s), e.g.:
-        - Step input:               ``[(0, np.inf)]``
-        - Pulse from t=0:           ``[(0, 5000)]``
-        - Delayed pulse:            ``[(2000, 5000)]``
-        - Multiple pulses:          ``[(0, 1000), (3000, 5000)]``
+    T_list : list of float
+        Switching times in physical time (s) at which the inlet concentration
+        changes. Converted to dimensionless pore volumes via T = t * v / L.
+        ``T_list[0]`` should normally be 0. Examples:
+        - Continuous step:   ``[0]``
+        - Pulse from t=0:    ``[0, 5000]``
+        - Delayed pulse:     ``[0, 2000, 5000]``
+        - Multiple pulses:   ``[0, 1000, 2000, 3000]``
     adsorption : Adsorption, optional
         Adsorption parameters. Required when kinetic=True. Must have
         `.rate_const`, `.beta_s`, `.sp_retardation`.
@@ -113,7 +109,7 @@ def compute_dimensionless_params(
     Returns
     -------
     DimensionlessParams
-        Named tuple containing Z, T, pulses (dimensionless), P, and omega.
+        Named tuple containing Z, T, T_list (dimensionless), P, and omega.
 
     Raises
     ------
@@ -121,8 +117,6 @@ def compute_dimensionless_params(
         If pore_velocity or dispersion_coefficient is zero.
     ValueError
         If kinetic=True but adsorption is None.
-    ValueError
-        If any pulse interval has t_start >= t_end.
     """
     v = hydro_properties.pore_velocity
     D = hydro_properties.dispersion_coefficient
@@ -133,12 +127,6 @@ def compute_dimensionless_params(
         raise ValueError("Dispersion coefficient must be non-zero.")
     if kinetic and adsorption is None:
         raise ValueError("Adsorption parameters required when kinetic=True.")
-    for t_start, t_end in pulse_intervals:
-        if t_start >= t_end:
-            raise ValueError(
-                f"Invalid pulse interval ({t_start}, {t_end}): "
-                "t_start must be strictly less than t_end."
-            )
 
     L = grid.depth[-1]
     scale = v / L
@@ -146,11 +134,8 @@ def compute_dimensionless_params(
     Z = grid.depth / L
     T = grid.time * scale
 
-    # Convert physical pulse intervals to dimensionless time
-    pulses = [
-        (t_start * scale, t_end * scale if t_end != np.inf else np.inf)
-        for t_start, t_end in pulse_intervals
-    ]
+    # Convert physical switching times to dimensionless pore volumes
+    T_list_dim = [t * scale for t in T_list]
 
     omega = None
     if kinetic:
@@ -162,9 +147,7 @@ def compute_dimensionless_params(
             / v
         )
 
-    return DimensionlessParams(Z=Z, T=T, pulses=pulses, P=v * L / D, omega=omega)
-
-
+    return DimensionlessParams(Z=Z, T=T, T_list=T_list_dim, P=v * L / D, omega=omega)
 # ---------------------------------------------------------------------------
 # BVP helpers — equilibrium sorption
 # One function per boundary condition type, all sharing the signature:

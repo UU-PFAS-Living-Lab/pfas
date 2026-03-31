@@ -36,7 +36,7 @@ from typing import Annotated, Optional
 
 import numpy as np
 from annotated_types import Ge, Gt, Interval
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, model_validator
 from scipy.optimize import fsolve
 
 from pfas.analytical_soln import (
@@ -138,28 +138,23 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
 class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     """Calculate boundary conditions for contaminant input.
 
-    Converts solute concentration and infiltration rate into a contaminant
-    release rate suitable for the analytical solution. The total active pulse
-    duration (sum of all interval lengths) is used to normalise the release
-    rate.
+    Converts solute concentrations and switching times into the C_list and
+    T_list format required by the analytical solution.
 
     Parameters
     ----------
-    average_infiltration_rate : float
-        Average water infiltration rate (m/s). Must be positive.
-    solute_concentration_influx : float
-        Solute concentration in infiltrating water (mg/L). Must be non-negative.
-        Use 0 for clean water infiltration with no PFAS input.
-    pulse_intervals : list of (float, float)
-        Inlet concentration on/off periods in physical time (s).
-        Each tuple (t_start, t_end) defines one active pulse period.
-
-    Examples
-    --------
-        - Continuous step:   ``[(0, np.inf)]``
-        - Pulse from t=0:    ``[(0, 5000)]``
-        - Delayed pulse:     ``[(2000, 5000)]``
-        - Multiple pulses:   ``[(0, 1000), (3000, 5000)]``
+    C_list : list of float
+        Inlet concentrations for each interval [M L⁻³]. ``C_list[j]`` is
+        the concentration active from ``T_list[j]`` until ``T_list[j+1]``.
+        The last interval extends to infinity. Must have the same length
+        as ``T_list``. Use 0 for clean water with no PFAS input. Examples:
+        - Continuous step:   ``C_list=[C0],          T_list=[0]``
+        - Pulse from t=0:    ``C_list=[C0, 0],       T_list=[0, t1]``
+        - Delayed pulse:     ``C_list=[0, C0, 0],    T_list=[0, t1, t2]``
+        - Multiple pulses:   ``C_list=[f1, 0, f2],   T_list=[0, t1, t2]``
+    T_list : list of float
+        Switching times [T] at which the inlet concentration changes.
+        Must have the same length as ``C_list``. ``T_list[0]`` must be 0.
 
     Attributes
     ----------
@@ -167,37 +162,28 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         List containing 'boundary_conditions'.
     """
 
-    average_infiltration_rate: Annotated[float, Gt(0)]
-    solute_concentration_influx: Annotated[float, Ge(0)]
-    pulse_intervals: list[tuple[float, float]]
+    C_list: list[Annotated[float, Ge(0), Field(description="[M L⁻³]")]]
+    T_list: list[Annotated[float, Ge(0), Field(description="[T]")]]
 
-    @field_validator("pulse_intervals")
-    @classmethod
-    def validate_pulse_intervals(
-        cls, intervals: list[tuple[float, float]]
-    ) -> list[tuple[float, float]]:
-        """Validate that all intervals are non-empty and non-overlapping."""
-        if not intervals:
-            raise ValueError("pulse_intervals must contain at least one interval.")
-        for t_start, t_end in intervals:
-            if t_start < 0:
-                raise ValueError(
-                    f"Pulse interval ({t_start}, {t_end}): t_start must be >= 0."
-                )
-            if t_start >= t_end:
-                raise ValueError(
-                    f"Pulse interval ({t_start}, {t_end}): "
-                    "t_start must be strictly less than t_end."
-                )
-        return intervals
-
+    @model_validator(mode="after")
+    def validate_C_and_T_list(self) -> "BoundaryPreprocessor":
+        """Validate C_list and T_list are consistent."""
+        if not self.T_list:
+            raise ValueError("T_list must contain at least one entry.")
+        if not self.C_list:
+            raise ValueError("C_list must contain at least one entry.")
+        if len(self.C_list) != len(self.T_list):
+            raise ValueError(
+                f"C_list (len={len(self.C_list)}) and T_list (len={len(self.T_list)}) "
+                "must have the same length."
+            )
+        if self.T_list[0] != 0:
+            raise ValueError("T_list[0] must be 0.")
+        if any(self.T_list[i] >= self.T_list[i + 1] for i in range(len(self.T_list) - 1)):
+            raise ValueError("T_list must be strictly increasing.")
+        return self
     def compute(self) -> dict:
-        """Calculate boundary conditions.
-
-        The contaminant release rate is normalised by the total active pulse
-        duration (sum of all finite interval lengths). Infinite intervals
-        (step inputs) are excluded from this sum since the rate is then
-        defined per unit time directly.
+        """Pass through C_list and T_list as boundary conditions.
 
         Returns
         -------
@@ -205,35 +191,11 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
             Dictionary with key 'boundary_conditions' containing a
             :class:`BoundaryConditions` instance.
         """
-        total_duration = sum(
-            t_end - t_start
-            for t_start, t_end in self.pulse_intervals
-            if t_end != np.inf
-        )
-
-        if total_duration == 0:
-            contaminant_release_rate = (
-                self.solute_concentration_influx
-                * self.average_infiltration_rate
-            )
-        else:
-            contaminant_release_rate = (
-                self.solute_concentration_influx
-                * self.average_infiltration_rate
-                / total_duration
-            )
-
         bc = BoundaryConditions(
-            pulse_intervals=self.pulse_intervals,
-            contaminant_release_rate=contaminant_release_rate,
-            solute_concentration_influx=self.solute_concentration_influx, 
+            C_list=self.C_list,
+            T_list=self.T_list,
         )
         return {"boundary_conditions": bc}
-
-    @property
-    def outputs(self) -> list[str]:
-        """List of output keys from compute() method."""
-        return ["boundary_conditions"]
 
     @property
     def outputs(self) -> list[str]:

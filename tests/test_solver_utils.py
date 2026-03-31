@@ -1,6 +1,4 @@
-"""Unit tests for functions in :mod:`pfas.solver_utils`.
-
-"""
+"""Unit tests for functions in :mod:`pfas.solver_utils`."""
 
 import numpy as np
 import pytest
@@ -24,7 +22,6 @@ from pfas.analytical_soln import (
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-
 def simple_grid():
     """A tiny spatial/temporal grid for tests."""
     depth = np.linspace(0, 1.0, 5)
@@ -33,7 +30,6 @@ def simple_grid():
 
 
 @pytest.fixture
-
 def simple_hydro():
     """Non-zero hydrological properties used by tests."""
     return HydrologicalProperties(
@@ -44,14 +40,15 @@ def simple_hydro():
 
 
 @pytest.fixture
-
 def simple_boundary():
     """Boundary conditions with a single pulse from 0 to 5 seconds."""
-    return BoundaryConditions(pulse_intervals=[(0.0, 5.0)], contaminant_release_rate=1.0)
+    return BoundaryConditions(
+        C_list=[1.0, 0.0],
+        T_list=[0.0, 5.0],
+    )
 
 
 @pytest.fixture
-
 def simple_adsorption():
     """Adsorption parameters suitable for kinetic tests."""
     return Adsorption(
@@ -72,7 +69,7 @@ class TestComputeDimensionlessParams:
         dim = compute_dimensionless_params(
             simple_grid,
             simple_hydro,
-            pulse_intervals=simple_boundary.pulse_intervals,
+            T_list=simple_boundary.T_list,
             adsorption=None,
             kinetic=False,
         )
@@ -80,23 +77,28 @@ class TestComputeDimensionlessParams:
         assert isinstance(dim, DimensionlessParams)
         assert dim.Z.shape == simple_grid.depth.shape
         assert dim.T.shape == simple_grid.time.shape
-        # pulses should be scaled by v/L = 1e-6/1 = 1e-6
-        assert dim.pulses[0][0] == pytest.approx(0.0)
-        assert dim.pulses[0][1] == pytest.approx(5.0 * simple_hydro.pore_velocity / simple_grid.depth[-1])
+        # T_list should be scaled by v/L = 1e-6/1 = 1e-6
+        scale = simple_hydro.pore_velocity / simple_grid.depth[-1]
+        assert dim.T_list[0] == pytest.approx(0.0)
+        assert dim.T_list[1] == pytest.approx(5.0 * scale)
 
-    def test_infinite_interval(self, simple_grid, simple_boundary, simple_hydro):
-        b = BoundaryConditions(pulse_intervals=[(0.0, np.inf)], contaminant_release_rate=1.0)
+    def test_step_input(self, simple_grid, simple_hydro):
+        """A single T_list=[0] entry produces a single dimensionless switching time."""
+        bc = BoundaryConditions(C_list=[1.0], T_list=[0.0])
         dim = compute_dimensionless_params(
             simple_grid,
             simple_hydro,
-            pulse_intervals=b.pulse_intervals,
+            T_list=bc.T_list,
             adsorption=None,
             kinetic=False,
         )
-        assert dim.pulses[0][1] == np.inf
+        assert len(dim.T_list) == 1
+        assert dim.T_list[0] == pytest.approx(0.0)
 
     @pytest.mark.parametrize("velocity,dispersion", [(0.0, 1e-7), (1e-6, 0.0)])
-    def test_zero_velocity_or_dispersion_raises(self, simple_grid, simple_boundary, velocity, dispersion):
+    def test_zero_velocity_or_dispersion_raises(
+        self, simple_grid, simple_boundary, velocity, dispersion
+    ):
         hydro = HydrologicalProperties(
             water_content=0.4,
             pore_velocity=velocity,
@@ -106,7 +108,7 @@ class TestComputeDimensionlessParams:
             compute_dimensionless_params(
                 simple_grid,
                 hydro,
-                pulse_intervals=simple_boundary.pulse_intervals,
+                T_list=simple_boundary.T_list,
                 adsorption=None,
                 kinetic=False,
             )
@@ -116,21 +118,28 @@ class TestComputeDimensionlessParams:
             compute_dimensionless_params(
                 simple_grid,
                 simple_hydro,
-                pulse_intervals=simple_boundary.pulse_intervals,
+                T_list=simple_boundary.T_list,
                 adsorption=None,
                 kinetic=True,
             )
 
-    def test_invalid_interval(self, simple_grid, simple_boundary, simple_hydro):
-        bad_bc = BoundaryConditions(pulse_intervals=[(5.0, 1.0)], contaminant_release_rate=1.0)
-        with pytest.raises(ValueError):
-            compute_dimensionless_params(
-                simple_grid,
-                simple_hydro,
-                pulse_intervals=bad_bc.pulse_intervals,
-                adsorption=None,
-                kinetic=False,
-            )
+    def test_multiple_switching_times(self, simple_grid, simple_hydro):
+        """Multiple switching times are all correctly scaled."""
+        bc = BoundaryConditions(
+            C_list=[5.0, 0.0, 10.0, 0.0],
+            T_list=[0.0, 1000.0, 2000.0, 3000.0],
+        )
+        scale = simple_hydro.pore_velocity / simple_grid.depth[-1]
+        dim = compute_dimensionless_params(
+            simple_grid,
+            simple_hydro,
+            T_list=bc.T_list,
+            adsorption=None,
+            kinetic=False,
+        )
+        assert len(dim.T_list) == 4
+        for t_dim, t_phys in zip(dim.T_list, bc.T_list):
+            assert t_dim == pytest.approx(t_phys * scale)
 
 
 # ---------------------------------------------------------------------------
@@ -148,7 +157,6 @@ class TestInternalKernels:
         assert not np.allclose(vol, flux)
 
     def test_bvp_neq_flag_effect(self):
-        # choose parameters where kernel difference is obvious
         vals = _bvp_neq(
             Z=0.5,
             T=0.7,
@@ -172,7 +180,5 @@ class TestInternalKernels:
             volume_averaged=False,
         )
         assert vals != vals2
-        # both outputs should be floats
         assert isinstance(vals[0], float)
         assert isinstance(vals2[1], float)
-
