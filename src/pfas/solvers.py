@@ -8,7 +8,6 @@ Main functions
 --------------
 - :func:`equilibrium_solver` — ADE with instantaneous sorption equilibrium
 - :func:`kinetic_solver` — ADE with first-order kinetic sorption
-- :func:`analytical_soln` — top-level entry point dispatching to the above
 """
 
 from typing import cast
@@ -157,10 +156,6 @@ def equilibrium_solver(  # noqa: PLR0913
 
     C1 = C1_bvp + C1_ivp
     C_tot = C1 * R * theta
-
-    # Clip negative concentrations to zero (physical constraint)
-    C1 = np.maximum(C1, 0.0)
-    C_tot = np.maximum(C_tot, 0.0)
 
     return C1, C_tot
 
