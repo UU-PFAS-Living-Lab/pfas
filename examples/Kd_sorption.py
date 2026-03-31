@@ -235,8 +235,8 @@ def _(
 
     # Boundary conditions — 10 mg/L PFOA pulse for the first 2000 s
     boundary_prep = BoundaryPreprocessor(
-        C_list=[100.0, 0],
-        T_list=[0, 3600]
+        C_list=[10.0, 0],
+        T_list=[0, 22000]
     )
     boundary_results = boundary_prep.compute()
 
