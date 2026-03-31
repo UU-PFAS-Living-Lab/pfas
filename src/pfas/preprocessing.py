@@ -166,7 +166,7 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     T_list: list[Annotated[float, Ge(0), Field(description="[T]")]]
 
     @model_validator(mode="after")
-    def validate_C_and_T_list(self) -> "BoundaryPreprocessor":
+    def validate_c_and_t_list(self) -> "BoundaryPreprocessor":
         """Validate C_list and T_list are consistent."""
         if not self.T_list:
             raise ValueError("T_list must contain at least one entry.")

@@ -23,9 +23,8 @@ from pfas.solver_utils import (
     DimensionlessParams,
     _bvp_neq,
     _Hs,
+    _ivp_eq_flux,
     _ivp_neq,
-    compute_dimensionless_params,
-    _ivp_eq_flux
 )
 
 
@@ -174,7 +173,7 @@ def kinetic_solver(  # noqa: PLR0913
     Kd: float,
     theta: float,
     rho_b: float,
-    
+
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """Solve advection-dispersion equation with kinetic (time-dependent) sorption.
 
@@ -288,12 +287,12 @@ def kinetic_solver(  # noqa: PLR0913
         C1, C_tot = equilibrium_solver(R, dim, C_list, Ci, theta, bc)
         C2 = np.zeros_like(C1)  # No sorbed phase in kinetic sites
         return C1, C2, C_tot
-    
+
     # Original kinetic solver logic for beta_s < 1
     Z, T, P, T_list = dim.Z, dim.T, dim.P, dim.T_list
     omega = dim.omega
     assert omega is not None, "omega must be set for kinetic sorption"
-    
+
     # deltaC[j] = f_j - f_{j-1}  (prepend f_0 = 0, CXTFIT eq. 3.20)
     deltaC: NDArray[np.float64] = np.diff([0.0] + C_list)
 
@@ -369,118 +368,5 @@ def kinetic_solver(  # noqa: PLR0913
     C1 = C1_bvp + C1_ivp
     C2 = cast(NDArray[np.float64], (1 - f) * Kd * C2_bvp) + C2_ivp
     C_tot = C1 * beta * R * theta + rho_b * C2
-
-    return C1, C2, C_tot
-
-
-def analytical_soln(  # noqa: PLR0913
-    grid,
-    bulk_density: float,
-    boundary_conditions,
-    initial_contaminant_concentration: NDArray[np.float64],
-    hydro_properties,
-    adsorption,
-    C_list: list[float],
-    T_list: list[float],
-    kinetic: bool = False,
-    volume_averaged: bool = False,
-) -> tuple[NDArray[np.float64], NDArray[np.float64] | None, NDArray[np.float64]]:
-    """Solve contaminant transport using analytical solutions.
-
-    Computes aqueous and sorbed phase concentrations for PFAS transport through
-    the vadose zone using analytical solutions to the advection-dispersion equation
-    (ADE) with retardation. Dimensionless parameters are computed via
-    :func:`compute_dimensionless_params` and passed to the appropriate solver.
-
-    Parameters
-    ----------
-    grid : SimulationGrid
-        Spatial and temporal discretization grid. Must have `.depth` (m)
-        and `.time` (s) arrays.
-    bulk_density : float
-        Bulk density of the porous medium (kg/L).
-    boundary_conditions : BoundaryConditions
-        Contaminant source boundary conditions.
-    initial_contaminant_concentration : ndarray of shape (n_depth,)
-        Initial aqueous concentration distribution in the domain (mg/L).
-    hydro_properties : HydrologicalProperties
-        Hydrological properties. Must have `.pore_velocity` (m/s),
-        `.dispersion_coefficient` (m²/s), and `.water_content` (-).
-    adsorption : Adsorption
-        Adsorption parameters. Must have `.total_retardation`, `.Kd`,
-        `.sp_retardation`, `.frac_int`, `.beta`, and `.beta_s`. When
-        kinetic=True, also requires `.rate_const`.
-    C_list : list of float
-        Inlet concentrations for each interval (mg/L). ``C_list[j]`` is
-        the concentration active from ``T_list[j]`` until ``T_list[j+1]``.
-        The last interval extends to infinity. Must have the same length
-        as ``T_list``. Examples:
-        - Continuous step:   ``C_list=[C0],       T_list=[0]``
-        - Pulse from t=0:    ``C_list=[C0, 0],    T_list=[0, 5000]``
-        - Delayed pulse:     ``C_list=[0, C0, 0], T_list=[0, 2000, 5000]``
-        - Multiple pulses:   ``C_list=[f1, f2],   T_list=[0, 1000]``
-    T_list : list of float
-        Switching times in physical time (s) at which the inlet concentration
-        changes. Converted to dimensionless pore volumes inside
-        :func:`compute_dimensionless_params` and stored in ``dim.T_list``.
-        Must have the same length as ``C_list``.
-    kinetic : bool, optional
-        If True, use the kinetic sorption model (:func:`kinetic_solver`),
-        which returns a separate sorbed phase C2. If False (default), use
-        the equilibrium model (:func:`equilibrium_solver`), and C2 is None.
-    volume_averaged : bool, optional
-        If True, use volume-averaged (resident) concentrations in the kinetic
-        BVP kernel. If False (default), use flux-averaged concentrations.
-        Only used by the kinetic solver.
-
-    Returns
-    -------
-    C1 : ndarray
-        Aqueous phase concentration (mg/L).
-    C2 : ndarray or None
-        Sorbed phase concentration (mg/kg). None when kinetic=False.
-    C_tot : ndarray
-        Total concentration (mg/L bulk volume).
-
-    Raises
-    ------
-    ValueError
-        If pore_velocity or dispersion_coefficient is zero.
-    ValueError
-        If ``len(C_list) != len(T_list)``.
-    """
-    dim = compute_dimensionless_params(
-        grid,
-        hydro_properties,
-        T_list=T_list,
-        adsorption=adsorption,
-        kinetic=kinetic,
-    )
-
-    C2 = None
-
-    if kinetic:
-        C1, C2, C_tot = kinetic_solver(
-            adsorption.total_retardation,
-            dim,
-            C_list,
-            initial_contaminant_concentration,
-            adsorption.beta_s,
-            adsorption.beta,
-            volume_averaged,
-            adsorption.sp_retardation,
-            adsorption.frac_int,
-            adsorption.Kd,
-            hydro_properties.water_content,
-            bulk_density,
-        )
-    else:
-        C1, C_tot = equilibrium_solver(
-            adsorption.total_retardation,
-            dim,
-            C_list,
-            initial_contaminant_concentration,
-            hydro_properties.water_content,
-        )
 
     return C1, C2, C_tot
