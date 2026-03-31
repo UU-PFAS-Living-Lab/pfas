@@ -158,6 +158,10 @@ def equilibrium_solver(  # noqa: PLR0913
     C1 = C1_bvp + C1_ivp
     C_tot = C1 * R * theta
 
+    # Clip negative concentrations to zero (physical constraint)
+    C1 = np.maximum(C1, 0.0)
+    C_tot = np.maximum(C_tot, 0.0)
+
     return C1, C_tot
 
 def kinetic_solver(  # noqa: PLR0913

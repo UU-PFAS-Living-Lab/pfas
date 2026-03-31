@@ -151,7 +151,7 @@ def analytical_soln(  # noqa: PLR0913
     hydro_properties,
     adsorption,
     kinetic: bool = False,
-    volume_averaged: bool = False,
+    volume_averaged: bool = True,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64] | None, NDArray[np.float64]]:
     """Solve contaminant transport using analytical solutions.
 

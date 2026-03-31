@@ -80,6 +80,7 @@ def _(
     SimulationRunner,
     SorptionKawiDirectInput,
     SpRetardationPreprocessor,
+    Tr,
     WaterPreprocessor,
     bulk_dens,
     np,
@@ -188,7 +189,7 @@ def _(
         awi_retardation=kawi_results["awi_retardation"],
         sorption_solid=sorption_solid,
         kinetic_sorption=True,
-        volume_averaged=False,
+        volume_averaged=Tr,
         initial_contaminant_concentration=initial_concentration,  # <-- initial conditions
     )
     final_results = sim_runner.compute()
