@@ -580,8 +580,6 @@ class SorptionKawCalculated(BaseModel, validate_assignment=True, extra='forbid')
 
     Parameters
     ----------
-    kaw : float
-        Air-water interface partition coefficient (dimensionless).
     hydro_properties : HydrologicalProperties
         Hydraulic properties from WaterPreprocessor.
     Kd : float
@@ -595,17 +593,17 @@ class SorptionKawCalculated(BaseModel, validate_assignment=True, extra='forbid')
         List containing 'awi_retardation'.
     """
 
-    n_CFx : int
-    n_CHx : int
-    n_COO : int
-    n_COOH : int
-    n_SO3 : int
-    n_R4N : int
-    n_OH : int
-    n_OSO3 : int
-    n__O_ : int
-    n__S_ : int
-    n_N_CH3_2_CH2_COO : int
+    n_CFx : int = 0
+    n_CHx : int = 0
+    n_COO : int = 0
+    n_COOH : int = 0
+    n_SO3 : int = 0
+    n_R4N : int = 0
+    n_OH : int = 0
+    n_OSO3 : int = 0
+    n__O_ : int = 0
+    n__S_ : int = 0
+    n_N_CH3_2_CH2_COO : int = 0
 
     hydro_properties: HydrologicalProperties
     aaw: float
@@ -635,7 +633,7 @@ class SorptionKawCalculated(BaseModel, validate_assignment=True, extra='forbid')
         dict
             Dictionary with key 'awi_retardation'.
         """
-           
+        
         awi_retardation = (self.kaw * self.aaw) / self.hydro_properties.water_content
         return {"awi_retardation": awi_retardation}
 

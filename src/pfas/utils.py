@@ -213,7 +213,7 @@ def kaw_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n
     Parameters
     ----------
     n_CFx  : int
-        Number of perfluorinated carbons in the PFAS molecule.
+        Number of perfluorinated carbons (CF2 groups) in the PFAS molecule.
     n_CHx  : int
         Number of hydrocarbon groups in the PFAS molecule.
     n_COO  : int

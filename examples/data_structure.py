@@ -16,7 +16,7 @@ def _(mo):
 @app.cell
 def _():
     #loading relevant modules 
-    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner
+    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner, SorptionKawCalculated
     from pfas.configuration import read_toml
     from pfas.model import Model
     from matplotlib import pyplot as plt
@@ -27,7 +27,7 @@ def _():
         GridGenerator,
         SWCAdsorptionPreprocessor,
         SimulationRunner,
-        SorptionKawiDirectInput,
+        SorptionKawCalculated,
         SpRetardationPreprocessor,
         WaterPreprocessor,
         mo,
@@ -129,28 +129,7 @@ def _(PFASs, soils, spa_matrix):
     )
 
 
-@app.cell
-def _(group_contributions):
-    group_contributions 
-    return
-
-
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ##Calculating Kaw
-    """)
-    return
-
-
-@app.cell
-def _(kaw):
-    from pfas.utils import kaw_Le2021
-    kaw
-    return
-
-
-@app.cell(disabled=True, hide_code=True)
 def _(mo):
     mo.md(r"""
     ##Running Simulation
@@ -165,7 +144,7 @@ def _(
     GridGenerator,
     SWCAdsorptionPreprocessor,
     SimulationRunner,
-    SorptionKawiDirectInput,
+    SorptionKawCalculated,
     SpRetardationPreprocessor,
     WaterPreprocessor,
     bulk_dens,
@@ -182,7 +161,7 @@ def _(
     vg_n,
 ):
     ## Running simulation 
-    from pfas.utils import kd_freundlich
+    from pfas.utils import kd_freundlich, kaw_Le2021
     # Step 1: Generate the grid
     grid_gen = GridGenerator(
         domain_length=60,
@@ -258,8 +237,9 @@ def _(
 
     # Step 6: Kawi sorption
     # Step 6: Compute Kawi sorption
-    kawi_sorp = SorptionKawiDirectInput(
-        kaw=0.5,
+    kawi_sorp = SorptionKawCalculated(
+        n_CFx = 7,
+        n_COO = 1,
         hydro_properties=water_results["hydro_properties"],
         aaw=awi_results["aaw"],
     )
@@ -277,7 +257,31 @@ def _(
         volume_averaged=True
     )
     final_results = sim_runner.compute()
-    return final_results, grid_results
+    return (
+        awi_results,
+        final_results,
+        grid_results,
+        kawi_results,
+        kawi_sorp,
+        water_results,
+    )
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ##Testing SorptionKawCalculated
+    """)
+    return
+
+
+@app.cell
+def _(awi_results, kawi_results, kawi_sorp, water_results):
+    print("Computed Kaw:", kawi_sorp.kaw)
+    print("Aaw:", awi_results["aaw"])
+    print("Theta:", water_results["hydro_properties"].water_content)
+    print("AWI retardation:", kawi_results["awi_retardation"])
+    return
 
 
 @app.cell(hide_code=True)
