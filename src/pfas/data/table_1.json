@@ -1,0 +1,122 @@
+{
+    "Intercept": {
+        "G_ads_coefficient": {
+            "value": -14.29,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": -5.19,
+            "unit": "cm"
+        }
+    },
+    "CFx": {
+        "G_ads_coefficient": {
+            "value": -3.57,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": 0.60,
+            "unit": "cm"
+        }
+    },
+    "CHx": {
+        "G_ads_coefficient": {
+            "value": -2.07,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": 0.36,
+            "unit": "cm"
+        }
+    },
+    "COO": {
+        "G_ads_coefficient": {
+            "value": 11.56,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": -2.42,
+            "unit": "cm"
+        }
+    },
+    "COOH": {
+        "G_ads_coefficient": {
+            "value": 0.34,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": -0.47,
+            "unit": "cm"
+        }
+    },
+    "SO3": {
+        "G_ads_coefficient": {
+            "value": 11.48,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": -2.35,
+            "unit": "cm"
+        }
+    },
+    "R4N": {
+        "G_ads_coefficient": {
+            "value": 22.06,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": -4.30,
+            "unit": "cm"
+        }
+    },
+    "OH": {
+        "G_ads_coefficient": {
+            "value": 4.22,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": -0.79,
+            "unit": "cm"
+        }
+    },
+    "OSO3": {
+        "G_ads_coefficient": {
+            "value": 10.78,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": -2.39,
+            "unit": "cm"
+        }
+    },
+    "_O_": {
+        "G_ads_coefficient": {
+            "value": 1.91,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": -0.41,
+            "unit": "cm"
+        }
+    },
+    "_S_": {
+        "G_ads_coefficient": {
+            "value": 1.79,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": -0.21,
+            "unit": "cm"
+        }
+    },
+    "N_CH3_2_CH2_COO": {
+        "G_ads_coefficient": {
+            "value": 3.42,
+            "unit": "kJ/mol"
+        },
+        "logKiw_coefficient": {
+            "value": -1.07,
+            "unit": "cm"
+        }
+    }
+}

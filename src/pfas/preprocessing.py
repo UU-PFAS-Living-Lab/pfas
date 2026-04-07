@@ -46,7 +46,7 @@ from pfas.analytical_soln import (
     SimulationGrid,
     analytical_soln,
 )
-from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich
+from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich, kaw_Le2021
 
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
@@ -571,6 +571,78 @@ class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid
         """List of output keys from compute() method."""
         return ["awi_retardation"]
 
+class SorptionKawCalculated(BaseModel, validate_assignment=True, extra='forbid'):
+    """
+    Compute adsorption parameters for air-water interface.
+
+    Calculates retardation factor for sorption at the air-water interface
+    using calulated partition coefficient, according to Le et al. (2021).
+
+    Parameters
+    ----------
+    kaw : float
+        Air-water interface partition coefficient (dimensionless).
+    hydro_properties : HydrologicalProperties
+        Hydraulic properties from WaterPreprocessor.
+    Kd : float
+        Solid-phase partition coefficient (m³/kg).
+    aaw : float
+        Air-water interfacial area (m²/m³).
+
+    Attributes
+    ----------
+    outputs : list of str
+        List containing 'awi_retardation'.
+    """
+
+    n_CFx : int
+    n_CHx : int
+    n_COO : int
+    n_COOH : int
+    n_SO3 : int
+    n_R4N : int
+    n_OH : int
+    n_OSO3 : int
+    n__O_ : int
+    n__S_ : int
+    n_N_CH3_2_CH2_COO : int
+
+    hydro_properties: HydrologicalProperties
+    aaw: float
+
+    @property    
+    def kaw(self):
+        return kaw_Le2021(
+            self.n_CFx,
+            self.n_CHx,
+            self.n_COO,
+            self.n_COOH,
+            self.n_SO3,
+            self.n_R4N,
+            self.n_OH,
+            self.n_OSO3,
+            self.n__O_,
+            self.n__S_,
+            self.n_N_CH3_2_CH2_COO
+        )
+    
+    def compute(self):
+        """
+        Calculate air-water interface retardation factor.
+
+        Returns
+        -------
+        dict
+            Dictionary with key 'awi_retardation'.
+        """
+           
+        awi_retardation = (self.kaw * self.aaw) / self.hydro_properties.water_content
+        return {"awi_retardation": awi_retardation}
+
+    @property
+    def outputs(self):
+        """List of output keys from compute() method."""
+        return ["awi_retardation"]
 
 class AdsorptionCollector(BaseModel, validate_assignment=True, extra='forbid'):
     """

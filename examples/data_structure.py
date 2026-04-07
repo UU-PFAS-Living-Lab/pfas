@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.19.11"
 app = marimo.App(width="medium")
 
 
@@ -21,6 +21,7 @@ def _():
     from pfas.model import Model
     from matplotlib import pyplot as plt
     import marimo as mo
+
     return (
         BoundaryPreprocessor,
         GridGenerator,
@@ -128,7 +129,28 @@ def _(PFASs, soils, spa_matrix):
     )
 
 
+@app.cell
+def _(group_contributions):
+    group_contributions 
+    return
+
+
 @app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ##Calculating Kaw
+    """)
+    return
+
+
+@app.cell
+def _(kaw):
+    from pfas.utils import kaw_Le2021
+    kaw
+    return
+
+
+@app.cell(disabled=True, hide_code=True)
 def _(mo):
     mo.md(r"""
     ##Running Simulation
