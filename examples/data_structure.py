@@ -184,9 +184,8 @@ def _(
 
     # Step 3: Setup boundary conditions
     boundary_prep = BoundaryPreprocessor(
-        average_infiltration_rate=1.5,
-        solute_concentration_influx=10.0,
-        pulse_duration=2000,
+        C_list=[10.0, 0],
+        T_list=[0, 2000],        # pulse from t=0 to t=2000 s
     )
     boundary_results = boundary_prep.compute()
     sorption_solid = {
@@ -202,7 +201,7 @@ def _(
             },
     }
 
-    
+
     sp_retard = SpRetardationPreprocessor(
         sorption_solid= sorption_solid,
         bulk_density=bulk_dens,
@@ -252,7 +251,7 @@ def _(
         awi_retardation=kawi_results["awi_retardation"],
         sorption_solid=sorption_solid,
         kinetic_sorption=True,
-        volume_averaged=False
+        volume_averaged=True
     )
     final_results = sim_runner.compute()
     return final_results, grid_results

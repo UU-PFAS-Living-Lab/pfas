@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from pfas.solver_utils import compute_dimensionless_params
 from pfas.solvers import equilibrium_solver, kinetic_solver
 
 
@@ -42,19 +43,25 @@ class SimulationGrid:
 
 @dataclass
 class BoundaryConditions:
-    """Boundary conditions for contaminant source.
+    """Boundary conditions for contaminant transport.
 
     Parameters
     ----------
-    pulse_time : float
-        Duration of the contaminant pulse at the boundary (s).
-    contaminant_release_rate : float or ndarray
-        Rate of contaminant release at the boundary (C10) (mg/L·s).
+    C_list : list of float
+        Inlet concentrations for each interval [M L⁻³]. ``C_list[j]`` is
+        the concentration active from ``T_list[j]`` until ``T_list[j+1]``.
+        The last interval extends to infinity. Examples:
+        - Continuous step:   ``C_list=[C0],           T_list=[0]``
+        - Pulse from t=0:    ``C_list=[C0, 0],        T_list=[0, t1]``
+        - Delayed pulse:     ``C_list=[0, C0, 0],     T_list=[0, t1, t2]``
+        - Multiple pulses:   ``C_list=[f1, 0, f2],    T_list=[0, t1, t2]``
+    T_list : list of float
+        Switching times [T] at which the inlet concentration changes.
+        Must have the same length as ``C_list``. ``T_list[0]`` must be 0.
     """
 
-    pulse_time: float
-    contaminant_release_rate: NDArray[np.float64] | float
-
+    C_list: list[float]
+    T_list: list[float]
 
 @dataclass
 class HydrologicalProperties:
@@ -108,10 +115,10 @@ class Adsorption:
         float
             Sum of solid-phase and air-water interface retardation.
         """
-        return self.sp_retardation + self.awi_retardation
+        return 1 + self.sp_retardation + self.awi_retardation
 
     @property
-    def betas(self) -> float:
+    def beta_s(self) -> float:
         """Calculate solid-phase sorption parameter.
 
         Returns
@@ -131,86 +138,87 @@ class Adsorption:
             Dimensionless parameter accounting for both solid-phase and AWI sorption.
         """
         return (
-            (self.betas * (1 + self.sp_retardation) + self.awi_retardation)
+            (self.beta_s * (1 + self.sp_retardation) + self.awi_retardation)
             / (1 + self.sp_retardation + self.awi_retardation)
         )
 
 
-def analytical_soln( #noqa:PLR0913
-    grid: SimulationGrid,
+def analytical_soln(  # noqa: PLR0913
+    grid,
     bulk_density: float,
-    boundary_conditions: BoundaryConditions,
+    boundary_conditions,
     initial_contaminant_concentration: NDArray[np.float64],
-    hydro_properties: HydrologicalProperties,
-    adsorption: Adsorption,
+    hydro_properties,
+    adsorption,
     kinetic: bool = False,
-    volume_averaged: bool = False,
+    volume_averaged: bool = True,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64] | None, NDArray[np.float64]]:
     """Solve contaminant transport using analytical solutions.
 
     Computes aqueous and sorbed phase concentrations for PFAS transport through
     the vadose zone using analytical solutions to the advection-dispersion equation
-    with retardation. The solution is computed using dimensionless variables:
-    Z (dimensionless depth), T (dimensionless time), P (Péclet number),
-    and ws (Damköhler number for kinetic sorption).
+    (ADE) with retardation. Dimensionless parameters are computed via
+    :func:`compute_dimensionless_params` and passed to the appropriate solver.
 
     Parameters
     ----------
     grid : SimulationGrid
-        Spatial and temporal discretization grid.
+        Spatial and temporal discretization grid. Must have `.depth` (m)
+        and `.time` (s) arrays.
     bulk_density : float
         Bulk density of the porous medium (kg/L).
     boundary_conditions : BoundaryConditions
-        Contaminant source boundary conditions.
-    initial_contaminant_concentration : ndarray
-        Initial concentration distribution in the domain (mg/L).
+        Contaminant source boundary conditions. Must have `.C_list` [M L⁻³]
+        and `.T_list` [T] defining the inlet concentration history.
+    initial_contaminant_concentration : ndarray of shape (n_depth,)
+        Initial aqueous concentration distribution in the domain [M L⁻³].
     hydro_properties : HydrologicalProperties
-        Hydrological properties of the medium.
+        Hydrological properties. Must have `.pore_velocity` [L T⁻¹],
+        `.dispersion_coefficient` [L² T⁻¹], and `.water_content` [-].
     adsorption : Adsorption
-        Adsorption parameters for the contaminant.
+        Adsorption parameters. Must have `.total_retardation`, `.Kd`,
+        `.sp_retardation`, `.frac_int`, `.beta`, and `.beta_s`. When
+        kinetic=True, also requires `.rate_const`.
     kinetic : bool, optional
-        If True, use kinetic sorption model; otherwise use equilibrium model.
-        Default is False.
+        If True, use the kinetic sorption model (:func:`kinetic_solver`),
+        which returns a separate sorbed phase C2. If False (default), use
+        the equilibrium model (:func:`equilibrium_solver`), and C2 is None.
     volume_averaged : bool, optional
-        If True, return volume-averaged concentrations. Default is False.
+        If True, use volume-averaged (resident) concentrations in the kinetic
+        BVP kernel. If False (default), use flux-averaged concentrations.
+        Only used by the kinetic solver.
 
     Returns
     -------
     C1 : ndarray
-        Aqueous phase concentration (mg/L).
+        Aqueous phase concentration [M L⁻³].
     C2 : ndarray or None
-        Sorbed phase concentration (mg/kg). None for equilibrium sorption.
+        Sorbed phase concentration [M M⁻¹]. None when kinetic=False.
     C_tot : ndarray
-        Total concentration (mg/L bulk volume).
-    """
-    # Compute dimensionless variables
-    L = grid.depth[-1]
-    v = hydro_properties.pore_velocity
-    Z = grid.depth / L
-    T = grid.time * (v / L)
-    T0 = boundary_conditions.pulse_time * (v / L)
-    P = v * L / hydro_properties.dispersion_coefficient
+        Total concentration [M L⁻³] bulk volume.
 
-    ws = (
-        adsorption.rate_const
-        * (1 - adsorption.betas)
-        * (1 + adsorption.sp_retardation)
-        * L
-        / v
+    Raises
+    ------
+    ValueError
+        If pore_velocity or dispersion_coefficient is zero.
+    """
+    dim = compute_dimensionless_params(
+        grid,
+        hydro_properties,
+        T_list=boundary_conditions.T_list,
+        adsorption=adsorption,
+        kinetic=kinetic,
     )
+
     C2 = None
 
     if kinetic:
         C1, C2, C_tot = kinetic_solver(
             adsorption.total_retardation,
-            Z,
-            T,
-            P,
-            T0,
-            boundary_conditions.contaminant_release_rate,
+            dim,
+            boundary_conditions.C_list,
             initial_contaminant_concentration,
-            ws,
-            adsorption.betas,
+            adsorption.beta_s,
             adsorption.beta,
             volume_averaged,
             adsorption.sp_retardation,
@@ -222,11 +230,8 @@ def analytical_soln( #noqa:PLR0913
     else:
         C1, C_tot = equilibrium_solver(
             adsorption.total_retardation,
-            Z,
-            T,
-            P,
-            T0,
-            boundary_conditions.contaminant_release_rate,
+            dim,
+            boundary_conditions.C_list,
             initial_contaminant_concentration,
             hydro_properties.water_content,
         )

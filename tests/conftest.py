@@ -43,11 +43,9 @@ def result_water(valid_water_preprocessor):
 def valid_boundary_preprocessor():
     """A valid BoundaryPreprocessor instance."""
     return BoundaryPreprocessor(
-        average_infiltration_rate=1e-8,
-        solute_concentration_influx=100.0,  # mg/L
-        pulse_duration=3600.0,               # s
+        C_list=[100.0, 0],
+        T_list=[0, 3600]
     )
-
 @pytest.fixture
 def result_boundary(valid_boundary_preprocessor):
     """Computed result dictionary."""

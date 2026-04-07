@@ -32,11 +32,11 @@ SimulationRunner
 
 """
 
-from typing import Annotated
+from typing import Annotated, Optional
 
 import numpy as np
-from annotated_types import Gt, Interval
-from pydantic import BaseModel
+from annotated_types import Ge, Gt, Interval
+from pydantic import BaseModel, Field, model_validator
 from scipy.optimize import fsolve
 
 from pfas.analytical_soln import (
@@ -46,7 +46,7 @@ from pfas.analytical_soln import (
     SimulationGrid,
     analytical_soln,
 )
-from pfas.utils import aaw_func_thermo, aaw_func_tracer
+from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich
 
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
@@ -136,20 +136,25 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
 
 
 class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
-    """
-    Calculate boundary conditions for contaminant input.
+    """Calculate boundary conditions for contaminant input.
 
-    Converts solute concentration and infiltration rate into a contaminant
-    release rate suitable for the analytical solution.
+    Converts solute concentrations and switching times into the C_list and
+    T_list format required by the analytical solution.
 
     Parameters
     ----------
-    average_infiltration_rate : float
-        Average water infiltration rate (m/s). Must be positive.
-    solute_concentration_influx : float
-        Solute concentration in infiltrating water (mg/L). Must be positive.
-    pulse_duration : float
-        Duration of contaminant input pulse (s). Must be positive.
+    C_list : list of float
+        Inlet concentrations for each interval [M L⁻³]. ``C_list[j]`` is
+        the concentration active from ``T_list[j]`` until ``T_list[j+1]``.
+        The last interval extends to infinity. Must have the same length
+        as ``T_list``. Use 0 for clean water with no PFAS input. Examples:
+        - Continuous step:   ``C_list=[C0],          T_list=[0]``
+        - Pulse from t=0:    ``C_list=[C0, 0],       T_list=[0, t1]``
+        - Delayed pulse:     ``C_list=[0, C0, 0],    T_list=[0, t1, t2]``
+        - Multiple pulses:   ``C_list=[f1, 0, f2],   T_list=[0, t1, t2]``
+    T_list : list of float
+        Switching times [T] at which the inlet concentration changes.
+        Must have the same length as ``C_list``. ``T_list[0]`` must be 0.
 
     Attributes
     ----------
@@ -157,28 +162,43 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         List containing 'boundary_conditions'.
     """
 
-    average_infiltration_rate: Annotated[float, Gt(0)]
-    solute_concentration_influx: Annotated[float, Gt(0)]
-    pulse_duration: Annotated[float, Gt(0)]
+    C_list: list[Annotated[float, Ge(0), Field(description="[M L⁻³]")]]
+    T_list: list[Annotated[float, Ge(0), Field(description="[T]")]]
 
-    def compute(self):
-        """
-        Calculate boundary conditions.
+    @model_validator(mode="after")
+    def validate_c_and_t_list(self) -> "BoundaryPreprocessor":
+        """Validate C_list and T_list are consistent."""
+        if not self.T_list:
+            raise ValueError("T_list must contain at least one entry.")
+        if not self.C_list:
+            raise ValueError("C_list must contain at least one entry.")
+        if len(self.C_list) != len(self.T_list):
+            raise ValueError(
+                f"C_list (len={len(self.C_list)}) and T_list (len={len(self.T_list)}) "
+                "must have the same length."
+            )
+        if self.T_list[0] != 0:
+            raise ValueError("T_list[0] must be 0.")
+        if any(self.T_list[i] >= self.T_list[i + 1] for i in range(len(self.T_list) - 1)):
+            raise ValueError("T_list must be strictly increasing.")
+        return self
+    def compute(self) -> dict:
+        """Pass through C_list and T_list as boundary conditions.
 
         Returns
         -------
         dict
             Dictionary with key 'boundary_conditions' containing a
-            BoundaryConditions instance.
+            :class:`BoundaryConditions` instance.
         """
-        contaminant_release_rate_per_second = (
-            self.solute_concentration_influx * self.average_infiltration_rate / self.pulse_duration
+        bc = BoundaryConditions(
+            C_list=self.C_list,
+            T_list=self.T_list,
         )
-        bc = BoundaryConditions(self.pulse_duration, contaminant_release_rate_per_second)
         return {"boundary_conditions": bc}
 
     @property
-    def outputs(self):
+    def outputs(self) -> list[str]:
         """List of output keys from compute() method."""
         return ["boundary_conditions"]
 
@@ -310,14 +330,55 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
     """
     Compute solid-phase retardation factor.
 
-    Calculates the retardation factor for sorption to solid phase using
-    linear isotherm partitioning coefficient.
+    Calculates the retardation factor for sorption to the solid phase.
+    Three Kd resolution methods are supported, selected via the
+    ``sorption_isotherm`` and ``Kd_method`` keys inside *sorption_solid*:
+
+    **Linear isotherm — direct input** (``sorption_isotherm: "linear"``,
+    ``Kd_method: "direct_input"``)
+        The distribution coefficient is supplied directly::
+
+            sorption_solid = {
+                "sorption_isotherm": "linear",
+                "linear": {"Kd_method": "direct_input", "Kd": 0.042},
+                ...
+            }
+
+    **Linear isotherm — Fabregat-Palau (2021)** (``sorption_isotherm: "linear"``,
+    ``Kd_method: "fabregat_palau"``)
+        Kd is estimated from molecular structure and soil composition using
+        :func:`pfas.utils.kd_fabregat_palau`::
+
+            sorption_solid = {
+                "sorption_isotherm": "linear",
+                "linear": {
+                    "Kd_method": "fabregat_palau",
+                    "n_CFx": 7,
+                    "f_oc": 0.0004,
+                    "f_silt_clay": 0.0,
+                },
+                ...
+            }
+
+    **Freundlich isotherm** (``sorption_isotherm: "freundlich"``)
+        An effective linear Kd is derived from the Freundlich isotherm at a
+        representative aqueous concentration *C_rep* using
+        :func:`pfas.utils.kd_freundlich`::
+
+            sorption_solid = {
+                "sorption_isotherm": "freundlich",
+                "freundlich": {
+                    "K_freund": 0.043,
+                    "n_freund": 0.8,
+                    "C_rep": 1.0,   # optional, default 1.0 mg/L
+                },
+                ...
+            }
 
     Parameters
     ----------
     sorption_solid : dict
-        Dictionary containing sorption parameters. Must include 'sorption_isotherm'
-        and nested 'linear' dict with 'Kd_method' and 'Kd' values.
+        Dictionary containing sorption parameters as described above.
     bulk_density : float
         Soil bulk density (kg/m³). Must be positive.
     hydro_properties : HydrologicalProperties
@@ -326,7 +387,7 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
     Attributes
     ----------
     outputs : list of str
-        List containing 'sp_retardation'.
+        List containing ``'sp_retardation'`` and ``'Kd'``.
     """
 
     sorption_solid: dict
@@ -337,33 +398,95 @@ class SpRetardationPreprocessor(BaseModel, validate_assignment=True, extra='forb
         """
         Calculate solid-phase retardation.
 
+        Dispatches to the correct Kd resolution method based on
+        ``sorption_solid["sorption_isotherm"]`` and, for linear isotherms,
+        ``sorption_solid["linear"]["Kd_method"]``.
+
         Returns
         -------
         dict
-            Dictionary with keys 'sp_retardation' and 'Kd'.
+            Dictionary with keys ``'sp_retardation'`` and ``'Kd'``.
+
+        Raises
+        ------
+        ValueError
+            If required keys are missing or an unsupported method is specified.
         """
-        linear = self.sorption_solid.get("linear")
-        if not linear:
-            raise ValueError("Missing 'linear' sorption parameters")
+        isotherm = self.sorption_solid.get("sorption_isotherm", "linear")
 
-        if linear.get("Kd_method") != "direct_input":
-            raise ValueError("Only 'direct_input' Kd_method is supported")
+        if isotherm == "freundlich":
+            Kd = self._kd_freundlich()  # noqa: N806
 
-        if "Kd" not in linear:
-            raise ValueError("Missing 'Kd' value for linear sorption")
+        elif isotherm == "linear":
+            Kd = self._kd_linear()  # noqa: N806
 
-        if self.sorption_solid["sorption_isotherm"] == "linear":
-            linear = self.sorption_solid["linear"]
-            if linear["Kd_method"] == "direct_input":
-                Kd = linear["Kd"]  # noqa: N806
+        else:
+            raise ValueError(
+                f"Unsupported sorption_isotherm '{isotherm}'. "
+                "Choose from: 'linear', 'freundlich'."
+            )
+
         sp_retardation = (self.bulk_density * Kd) / self.hydro_properties.water_content
         return {"sp_retardation": sp_retardation, "Kd": Kd}
+
+    # ── private helpers ───────────────────────────────────────────────────────
+
+    def _kd_linear(self) -> float:
+        """Resolve Kd for a linear isotherm (direct_input or fabregat_palau)."""
+        cfg = self.sorption_solid.get("linear")
+        if not cfg:
+            raise ValueError(
+                "sorption_isotherm is 'linear' but 'linear' key is missing "
+                "from sorption_solid."
+            )
+
+        kd_method = cfg.get("Kd_method", "direct_input")
+
+        if kd_method == "direct_input":
+            if "Kd" not in cfg:
+                raise ValueError(
+                    "Kd_method 'direct_input' requires 'Kd' "
+                    "inside sorption_solid['linear']."
+                )
+            return cfg["Kd"]
+
+        if kd_method == "fabregat_palau":
+            for key in ("n_CFx", "f_oc", "f_silt_clay"):
+                if key not in cfg:
+                    raise ValueError(
+                        f"Kd_method 'fabregat_palau' requires '{key}' "
+                        "inside sorption_solid['linear']."
+                    )
+            return kd_fabregat_palau(cfg["n_CFx"], cfg["f_oc"], cfg["f_silt_clay"])
+
+        raise ValueError(
+            f"Unsupported Kd_method '{kd_method}' for linear isotherm. "
+            "Choose from: 'direct_input', 'fabregat_palau'."
+        )
+
+    def _kd_freundlich(self) -> float:
+        """Resolve an effective linear Kd from the Freundlich isotherm."""
+        cfg = self.sorption_solid.get("freundlich")
+        if not cfg:
+            raise ValueError(
+                "sorption_isotherm is 'freundlich' but 'freundlich' key is missing "
+                "from sorption_solid."
+            )
+
+        for key in ("K_freund", "n_freund"):
+            if key not in cfg:
+                raise ValueError(
+                    f"Freundlich isotherm requires '{key}' "
+                    "inside sorption_solid['freundlich']."
+                )
+
+        C_rep = cfg.get("C_rep", 1.0)  # noqa: N806
+        return kd_freundlich(C_rep, cfg["K_freund"], cfg["n_freund"])
 
     @property
     def outputs(self):
         """List of output keys from compute() method."""
         return ["sp_retardation", "Kd"]
-
 
 class SorptionKawiDirectInput(BaseModel, validate_assignment=True, extra='forbid'):
     """
@@ -442,7 +565,7 @@ class AdsorptionCollector(BaseModel, validate_assignment=True, extra='forbid'):
     >>> collector = AdsorptionCollector(
     ...     Kd=0.001,
     ...     sp_retardation=3.75,
-    ...     awi_retardation=0.5,
+    ...     awi_retardation=5.0,
     ...     sorption_solid={"rate_const": 0.0, "fraction_instantaneous": 1.0},
     ... )
     >>> result = collector.compute()
@@ -526,6 +649,7 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
     awi_retardation: float
     kinetic_sorption: bool
     volume_averaged: bool
+    initial_contaminant_concentration: Optional[np.ndarray] = None
 
     def _collect_adsorption(self) -> Adsorption:
         """Assemble the Adsorption object via SpRetardationPreprocessor and AdsorptionCollector."""
@@ -564,7 +688,11 @@ class SimulationRunner(BaseModel, validate_assignment=True, extra='forbid',
                 Total concentration (mg/L bulk volume)
         """
         adsorption = self._collect_adsorption()
-        initial_contaminant_concentration = np.zeros(len(self.grid.depth))
+        initial_contaminant_concentration = (
+            self.initial_contaminant_concentration
+            if self.initial_contaminant_concentration is not None
+            else np.zeros(len(self.grid.depth))
+        )
         C1, C2, C_tot = analytical_soln(  # noqa: N806
             grid=self.grid,
             bulk_density=self.bulk_density,

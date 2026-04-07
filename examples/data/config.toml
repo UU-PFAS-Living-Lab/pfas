@@ -10,9 +10,8 @@ soil_temp = 293 #Kelvin #maybe make .boundaryconditions here
 init_sat = 0.2 # [-] se0 
 initial_solute_concentration = 0.0 #mg/L #vector matching length/spatial resolution
 [experimental_conditions.boundary]
-average_infiltration_rate = 0.5 #cm/s (q)
-pulse_duration = 2000 #seconds
-solute_concentration_influx = 10.0 #mg/L
+C_list = [10.0, 0] #mg/L - concentration profile  
+T_list = [0, 2000] #seconds - switching times
 
 #TODO or input PFAS_tot?
 
@@ -26,7 +25,7 @@ surface_tension = 71 #dyn/cm now sigma0
 [soil]
 soil_name = "S1"  # for future use
 soil_type = "sandy loam"  # for future use/staring soil database: can the other parameters be derived from this?
-bulk_density = 1.6  # g/cm^3 rhob
+bulk_density = 1.6  # g/cm^3 rho_b
 porosity = 0.43  # poro 
 van_genuchten_alpha = 0.019  # 1/cm #alpha
 van_genuchten_n = 1.31  # n_vg
@@ -36,6 +35,7 @@ hydraulic_conductivity = 0.34 #cm/s #ks
 dispersivity = 1.5  # cm #alpha_L #can also be calculated
 
 [water_flow]
+average_infiltration_rate = 0.5 #cm/s (q)
 
 #these are called hydro_properties in analytical_sol? 
 [sorption_solid]

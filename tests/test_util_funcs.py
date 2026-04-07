@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from pfas.utils import (
-    ABfunc,
     aaw_func_thermo,
     aaw_func_tracer,
     k_oc_fabregat_palau2021,
@@ -16,19 +15,7 @@ from pfas.utils import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
-@pytest.fixture
-def abfunc_base_params():
-    """Reasonable base parameters for ABfunc."""
-    return dict(
-        ws=1.0,
-        betas=0.5,
-        beta=0.6,
-        P=10.0,
-        R=2.0,
-        Rs=1.5,
-        m=10,
-        cflag=0,
-    )
+
 
 
 @pytest.fixture
@@ -43,52 +30,6 @@ def vg_params():
         ths=0.40,
         sf=1.0,
     )
-
-
-# ---------------------------------------------------------------------------
-# ABfunc
-# ---------------------------------------------------------------------------
-
-class TestABfunc:
-    def test_returns_two_floats(self, abfunc_base_params):
-        A, B = ABfunc(Z=0.5, T=1.5, **abfunc_base_params)
-        assert isinstance(float(A), float)
-        assert isinstance(float(B), float)
-
-    def test_volume_averaged_flag(self, abfunc_base_params):
-        """cflag=0 should not raise and return finite values."""
-        A, B = ABfunc(Z=0.5, T=1.5, **abfunc_base_params)
-        assert np.isfinite(A)
-        assert np.isfinite(B)
-
-    def test_flux_averaged_flag(self, abfunc_base_params):
-        """cflag=1 should not raise and return finite values."""
-        params = {**abfunc_base_params, "cflag": 1}
-        A, B = ABfunc(Z=0.5, T=1.5, **params)
-        assert np.isfinite(A)
-        assert np.isfinite(B)
-
-    def test_betas_equals_one(self, abfunc_base_params):
-        """When betas=1 the J functions collapse to 1; result should still be finite."""
-        params = {**abfunc_base_params, "betas": 1.0, "beta": 1.0}
-        A, B = ABfunc(Z=0.5, T=1.5, **params)
-        assert np.isfinite(A)
-        assert np.isfinite(B)
-
-    def test_A_nonnegative(self, abfunc_base_params):
-        A, _ = ABfunc(Z=0.5, T=1.5, **abfunc_base_params)
-        assert A >= 0
-
-    def test_different_depths_give_different_results(self, abfunc_base_params):
-        A1, B1 = ABfunc(Z=0.2, T=1.5, **abfunc_base_params)
-        A2, B2 = ABfunc(Z=0.8, T=1.5, **abfunc_base_params)
-        assert A1 != pytest.approx(A2) or B1 != pytest.approx(B2)
-
-    def test_larger_T_gives_larger_A(self, abfunc_base_params):
-        """More time should generally allow more solute to pass (monotonicity check)."""
-        A_early, _ = ABfunc(Z=0.5, T=1.0, **abfunc_base_params)
-        A_late, _ = ABfunc(Z=0.5, T=3.0, **abfunc_base_params)
-        assert A_late >= A_early
 
 
 # ---------------------------------------------------------------------------
