@@ -16,7 +16,7 @@ def _(mo):
 @app.cell
 def _():
     #loading relevant modules 
-    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner
+    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner, SorptionKawCalculated
     from pfas.configuration import read_toml
     from pfas.model import Model
     from matplotlib import pyplot as plt
@@ -50,8 +50,8 @@ def _():
     from pfas.data_loader import load_dataset
 
     PFASs = load_dataset("PFASs")
-    soils = load_dataset("soil_O05")
-    spa_matrix = load_dataset("spa_matrixO05")
+    soils = load_dataset("soils")
+    spa_matrix = load_dataset("spa_matrix")
     # See what's available
     print("Available PFAS compounds:")
     print(list(PFASs.keys()))
@@ -116,6 +116,9 @@ def _(PFASs, soils, spa_matrix):
         print(f"\nNo spa_matrix entry for {pfas_name} in {soil_name}. Using fallback Kd.")
         use_spa = False
 
+    frac_int = 1.0
+    rate_const = 0.0
+
     #Fabregat-Palau prep
     f_silt_clay = (soil["f_clay"]["value"]/100) + (soil["f_silt"]["value"]/100)
     f_c  = soil["f_clay"]["value"]/100
@@ -136,7 +139,6 @@ def _(PFASs, soils, spa_matrix):
         soil,
         theta_r,
         tracer_fit,
-        use_spa,
         vg_alpha,
         vg_l,
         vg_n,
@@ -172,13 +174,12 @@ def _(
     soil,
     theta_r,
     tracer_fit,
-    use_spa,
     vg_alpha,
     vg_l,
     vg_n,
 ):
     ## Running simulation 
-    from pfas.utils import kd_fabregat_palau
+    from pfas.utils import kd_fabregat_palau, kaw_Le2021
     # Step 1: Generate the grid
     grid_gen = GridGenerator(
         domain_length=100,                              # cm
@@ -201,16 +202,17 @@ def _(
     )
     water_results = water_prep.compute()
 
+    pulse_duration=25*(60*60*24*365)
     # Step 3: Setup boundary conditions
     boundary_prep = BoundaryPreprocessor(
         average_infiltration_rate=9.51E-7,                     # cm/s
         solute_concentration_influx=pfas['M']["value"]*1E-9,   # (mg/L) input concentration of 1 pmol/L !!!
-        pulse_duration=25*(60*60*24*365),                      # 25 years (in seconds for calculations)
+        pulse_intervals=[(0, pulse_duration)],                 # 25 years (in seconds for calculations)
     )
     boundary_results = boundary_prep.compute()
 
     sorption_solid = {
-            "kinetic_sorption": use_spa,
+            "kinetic_sorption": False,
             "sorption_isotherm": "linear",
             "kinetic": {
                 "frac_int": frac_int,
@@ -257,7 +259,7 @@ def _(
     # Step 6: Kawi sorption
     # Step 6: Compute Kawi sorption
     kawi_sorp = SorptionKawiDirectInput(
-        kaw=3.89E-3,
+        kaw=3.89E-4,
         hydro_properties=water_results["hydro_properties"],
         aaw=awi_results["aaw"],
     )
@@ -271,7 +273,7 @@ def _(
         hydro_properties=water_results["hydro_properties"],
         awi_retardation=kawi_results["awi_retardation"],
         sorption_solid=sorption_solid,
-        kinetic_sorption=True,
+        kinetic_sorption=False,
         volume_averaged=False
     )
     final_results = sim_runner.compute()
@@ -301,7 +303,6 @@ def _(awi_results, kawi_results, sp_results, water_results):
     print(sp_results)
     print(kawi_results)
     print('pore velocity is',((water_results['hydro_properties'].pore_velocity))*(60*60*24*365*10),'mm/year')
-    print(water_results['se'])
     return
 
 

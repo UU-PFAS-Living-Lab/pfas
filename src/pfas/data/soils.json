@@ -408,8 +408,8 @@
     "Staring-O05": {
         "name": "Staring-O05",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.757,
+            "unit": "g/cm**3"
         },
         "porosity": 0.337,
         "theta_s": 0.337,

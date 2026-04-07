@@ -219,7 +219,7 @@ def _(
         AWI={
             "AWI_type": "SWC-based",
             "SWC-based": {
-                "scaling_factor_awi": 1.0,
+                "scaling_factor_awi": 4.15,
             },
         },
         soil={

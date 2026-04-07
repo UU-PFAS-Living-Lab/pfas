@@ -100,6 +100,7 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     porosity: Annotated[float, Interval(ge=0, le=1)]
     dispersivity: Annotated[float, Gt(0)]
     van_genuchten_n: Annotated[float, Gt(0)]
+    van_genuchten_l: Annotated[float, Gt(0)]
     init_sat: Annotated[float, Interval(ge=0, le=1)]
     residual_water_content: Annotated[float, Interval(ge=0, le=1)]
 
@@ -121,7 +122,7 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         m = 1 - 1 / self.van_genuchten_n
 
         def relperm(se):
-            return se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
+            return se**(self.van_genuchten_l) * (1 - (1 - se**(1/m))**m)**2 - kr
 
         se = fsolve(relperm, self.init_sat)
         theta = se[0] * (self.porosity - self.residual_water_content) + self.residual_water_content
