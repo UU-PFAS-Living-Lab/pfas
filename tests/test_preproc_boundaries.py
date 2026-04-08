@@ -14,22 +14,19 @@ def test_compute_returns_boundary_conditions(result_boundary):
     bc = result_boundary["boundary_conditions"]
     assert isinstance(bc, BoundaryConditions)
 
-# Test pydantic validators for simple scalar constraints
+# Test pydantic validators for list constraints
 
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("average_infiltration_rate", 0.0),
-        ("average_infiltration_rate", -1e-9),
-        ("solute_concentration_influx", -1.0),
+        ("C_list", [-1.0]),  # negative concentration not allowed
     ],
 )
 def test_positive_constraints(field, value):
     # only one field is made invalid at a time; others kept valid
     kwargs = dict(
-        average_infiltration_rate=1e-8,
-        solute_concentration_influx=100.0,
-        pulse_intervals=[(0, 2000)],
+        C_list=[100.0, 0],
+        T_list=[0, 2000],
     )
     kwargs[field] = value
 
@@ -37,19 +34,19 @@ def test_positive_constraints(field, value):
         BoundaryPreprocessor(**kwargs)
 
 
-# pulse_intervals has its own custom validator, so test a variety of
-# invalid interval lists separately
-@pytest.mark.parametrize("intervals", [
+# T_list has its own custom validators, so test a variety of
+# invalid T_list cases separately
+@pytest.mark.parametrize("T_list", [
     [],                # empty list
-    [(0, 0)],          # zero‑length interval
-    [(-1, 1)],         # negative start time
+    [1],               # doesn't start with 0
+    ([0, 0]),          # non-strictly increasing
+    [0, -1],           # negative time
     # overlapping intervals are currently allowed by the validator
 ])
-def test_invalid_pulse_intervals(intervals):
+def test_invalid_T_list(T_list):
     with pytest.raises(ValidationError):
         BoundaryPreprocessor(
-            average_infiltration_rate=1e-8,
-            solute_concentration_influx=100.0,
-            pulse_intervals=intervals,
+            C_list=[100.0, 0],
+            T_list=T_list,
         )
 

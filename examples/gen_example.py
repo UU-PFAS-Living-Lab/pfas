@@ -97,15 +97,14 @@ def _(
 
     # Step 3: Setup boundary conditions
     boundary_prep = BoundaryPreprocessor(
-        average_infiltration_rate=1.5,
-        solute_concentration_influx=10.0,
-        pulse_intervals=[(0, 2000)]
+        C_list=[10.0, 0],
+        T_list=[0, 2000]
     )
     boundary_results = boundary_prep.compute()
 
     # Step 4: Compute solid phase retardation
     sorption_solid = {
-        "kinetic_sorption": True,
+        "kinetic_sorption": False,
         "sorption_isotherm": "linear",
         "kinetic": {
             "frac_int": 0.3,
@@ -163,8 +162,8 @@ def _(
         hydro_properties=water_results["hydro_properties"],
         awi_retardation=kawi_results["awi_retardation"],
         sorption_solid=sorption_solid,
-        kinetic_sorption=True,
-        volume_averaged=False
+        kinetic_sorption=False,
+        volume_averaged=True
     )
     final_results = sim_runner.compute()
     print("Simulation completed successfully!")

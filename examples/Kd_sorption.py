@@ -106,7 +106,7 @@ def _(load_dataset):
     K_sat       = soil["K_sat"]["value"]
     vg_alpha    = soil["van_genuchten"]["alpha"]["value"]
     vg_n        = soil["van_genuchten"]["n"]
-    dispersivity = 1.5   # cm — not listed for Accusand; typical literature value
+    dispersivity = 3 # cm — not listed for Accusand; typical literature value
 
     # Soil composition: stored as percent in the database → convert to fractions
     f_oc        = soil["f_oc"]["value"] / 100
@@ -216,7 +216,7 @@ def _(
     grid_gen = GridGenerator(
         domain_length=60,
         spatial_resolution=1.0,
-        time_resolution=100,
+        time_resolution=0.1,
         time_total=10000,
     )
     grid_results = grid_gen.compute()
@@ -235,9 +235,8 @@ def _(
 
     # Boundary conditions — 10 mg/L PFOA pulse for the first 2000 s
     boundary_prep = BoundaryPreprocessor(
-        average_infiltration_rate=1.5,
-        solute_concentration_influx=10.0,
-        pulse_intervals=[(0, 2000)],
+        C_list=[0.1, 0],
+        T_list=[0, 2000]
     )
     boundary_results = boundary_prep.compute()
 
@@ -304,14 +303,14 @@ def _(
     # so no back-dependency on the plotting cell is created.
 
     sorption_linear = {
-        "kinetic_sorption": True,
+        "kinetic_sorption": False,
         "sorption_isotherm": "linear",
         "kinetic": {"frac_int": 0.3, "rate_const": 0.01},
         "linear": {"Kd_method": "direct_input", "Kd": Kd_linear},
     }
 
     sorption_freundlich = {
-        "kinetic_sorption": True,
+        "kinetic_sorption": False,
         "sorption_isotherm": "freundlich",
         "kinetic": {"frac_int": 0.3, "rate_const": 0.01},
         "freundlich": {
@@ -322,7 +321,7 @@ def _(
     }
 
     sorption_fabregat = {
-        "kinetic_sorption": True,
+        "kinetic_sorption": False,
         "sorption_isotherm": "linear",
         "kinetic": {"frac_int": 0.3, "rate_const": 0.01},
         "linear": {"Kd_method": "direct_input", "Kd": Kd_fabregat},
@@ -337,7 +336,7 @@ def _(
             awi_retardation=kawi_results["awi_retardation"],
             sorption_solid=sorption_solid,
             kinetic_sorption=True,
-            volume_averaged=False,
+            volume_averaged=True,
         ).compute()
         print(f"  {label}: done")
         return result

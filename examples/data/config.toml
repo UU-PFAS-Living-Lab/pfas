@@ -10,9 +10,8 @@ soil_temp = 293 #Kelvin #maybe make .boundaryconditions here
 init_sat = 0.2 # [-] se0 
 initial_solute_concentration = 0.0 #mg/L #vector matching length/spatial resolution
 [experimental_conditions.boundary]
-average_infiltration_rate = 0.5 #cm/s (q)
-pulse_intervals=[[0, 2000]] #seconds
-solute_concentration_influx = 10.0 #mg/L
+C_list = [10.0, 0] #mg/L - concentration profile  
+T_list = [0, 2000] #seconds - switching times
 
 #TODO or input PFAS_tot?
 
@@ -36,6 +35,7 @@ hydraulic_conductivity = 0.34 #cm/s #ks
 dispersivity = 1.5  # cm #alpha_L #can also be calculated
 
 [water_flow]
+average_infiltration_rate = 0.5 #cm/s (q)
 
 #these are called hydro_properties in analytical_sol? 
 [sorption_solid]

@@ -47,32 +47,21 @@ class BoundaryConditions:
 
     Parameters
     ----------
-    pulse_intervals : list of (float, float)
-        Inlet concentration on/off periods in physical time (s).
-        Each tuple defines one active pulse period (t_start, t_end).
-
-    Examples
-    --------
-        - Continuous step:   ``[(0, np.inf)]``
-        - Pulse from t=0:    ``[(0, 5000)]``
-        - Delayed pulse:     ``[(2000, 5000)]``
-        - Multiple pulses:   ``[(0, 1000), (3000, 5000)]``
-    contaminant_release_rate : float
-        Contaminant mass flux at the inlet boundary (mg/m²/s).
-    solute_concentration_influx : float
-        Solute concentration in infiltrating water (mg/L).
+    C_list : list of float
+        Inlet concentrations for each interval [M L⁻³]. ``C_list[j]`` is
+        the concentration active from ``T_list[j]`` until ``T_list[j+1]``.
+        The last interval extends to infinity. Examples:
+        - Continuous step:   ``C_list=[C0],           T_list=[0]``
+        - Pulse from t=0:    ``C_list=[C0, 0],        T_list=[0, t1]``
+        - Delayed pulse:     ``C_list=[0, C0, 0],     T_list=[0, t1, t2]``
+        - Multiple pulses:   ``C_list=[f1, 0, f2],    T_list=[0, t1, t2]``
+    T_list : list of float
+        Switching times [T] at which the inlet concentration changes.
+        Must have the same length as ``C_list``. ``T_list[0]`` must be 0.
     """
 
-    def __init__(
-        self,
-        pulse_intervals: list[tuple[float, float]],
-        contaminant_release_rate: float,
-        solute_concentration_influx: float,
-    ) -> None:
-        self.pulse_intervals = pulse_intervals
-        self.contaminant_release_rate = contaminant_release_rate
-        self.solute_concentration_influx = solute_concentration_influx
-
+    C_list: list[float]
+    T_list: list[float]
 
 @dataclass
 class HydrologicalProperties:
@@ -155,14 +144,14 @@ class Adsorption:
 
 
 def analytical_soln(  # noqa: PLR0913
-    grid: SimulationGrid,
+    grid,
     bulk_density: float,
-    boundary_conditions: BoundaryConditions,
+    boundary_conditions,
     initial_contaminant_concentration: NDArray[np.float64],
-    hydro_properties: HydrologicalProperties,
-    adsorption: Adsorption,
+    hydro_properties,
+    adsorption,
     kinetic: bool = False,
-    volume_averaged: bool = False,
+    volume_averaged: bool = True,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64] | None, NDArray[np.float64]]:
     """Solve contaminant transport using analytical solutions.
 
@@ -179,47 +168,44 @@ def analytical_soln(  # noqa: PLR0913
     bulk_density : float
         Bulk density of the porous medium (kg/L).
     boundary_conditions : BoundaryConditions
-        Contaminant source boundary conditions. Must have `.pulse_intervals`
-        (list of (t_start, t_end) tuples in seconds) and
-        `.contaminant_release_rate`.
+        Contaminant source boundary conditions. Must have `.C_list` [M L⁻³]
+        and `.T_list` [T] defining the inlet concentration history.
     initial_contaminant_concentration : ndarray of shape (n_depth,)
-        Initial aqueous concentration distribution in the domain (mg/L).
+        Initial aqueous concentration distribution in the domain [M L⁻³].
     hydro_properties : HydrologicalProperties
-        Hydrological properties of the medium. Must have `.pore_velocity` (m/s),
-        `.dispersion_coefficient` (m²/s), and `.water_content` (-).
+        Hydrological properties. Must have `.pore_velocity` [L T⁻¹],
+        `.dispersion_coefficient` [L² T⁻¹], and `.water_content` [-].
     adsorption : Adsorption
         Adsorption parameters. Must have `.total_retardation`, `.Kd`,
         `.sp_retardation`, `.frac_int`, `.beta`, and `.beta_s`. When
         kinetic=True, also requires `.rate_const`.
     kinetic : bool, optional
-        If True, use the kinetic (non-equilibrium) sorption model and call
-        :func:`kinetic_solver`, which returns a separate sorbed phase C2.
-        If False (default), use the equilibrium model via
-        :func:`equilibrium_solver`, and C2 is returned as None.
+        If True, use the kinetic sorption model (:func:`kinetic_solver`),
+        which returns a separate sorbed phase C2. If False (default), use
+        the equilibrium model (:func:`equilibrium_solver`), and C2 is None.
     volume_averaged : bool, optional
-        If True, return volume-averaged concentrations. Only used by the
-        kinetic solver. Default is False.
+        If True, use volume-averaged (resident) concentrations in the kinetic
+        BVP kernel. If False (default), use flux-averaged concentrations.
+        Only used by the kinetic solver.
 
     Returns
     -------
     C1 : ndarray
-        Aqueous phase concentration (mg/L).
+        Aqueous phase concentration [M L⁻³].
     C2 : ndarray or None
-        Sorbed phase concentration (mg/kg). None when kinetic=False.
+        Sorbed phase concentration [M M⁻¹]. None when kinetic=False.
     C_tot : ndarray
-        Total concentration (mg/L bulk volume), combining aqueous and
-        sorbed phases weighted by water content and bulk density.
+        Total concentration [M L⁻³] bulk volume.
 
     Raises
     ------
     ValueError
-        If pore_velocity or dispersion_coefficient is zero (raised by
-        :func:`compute_dimensionless_params`).
+        If pore_velocity or dispersion_coefficient is zero.
     """
     dim = compute_dimensionless_params(
         grid,
         hydro_properties,
-        pulse_intervals=boundary_conditions.pulse_intervals,
+        T_list=boundary_conditions.T_list,
         adsorption=adsorption,
         kinetic=kinetic,
     )
@@ -230,7 +216,7 @@ def analytical_soln(  # noqa: PLR0913
         C1, C2, C_tot = kinetic_solver(
             adsorption.total_retardation,
             dim,
-            boundary_conditions.contaminant_release_rate,
+            boundary_conditions.C_list,
             initial_contaminant_concentration,
             adsorption.beta_s,
             adsorption.beta,
@@ -245,7 +231,7 @@ def analytical_soln(  # noqa: PLR0913
         C1, C_tot = equilibrium_solver(
             adsorption.total_retardation,
             dim,
-            boundary_conditions.solute_concentration_influx,
+            boundary_conditions.C_list,
             initial_contaminant_concentration,
             hydro_properties.water_content,
         )
