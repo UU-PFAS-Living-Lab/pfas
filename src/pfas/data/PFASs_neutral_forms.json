@@ -1,0 +1,359 @@
+{
+    "TFA": {
+        "name": "TFA",
+        "M": {
+            "value": 114.02,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 1,
+            "unit": null
+        },
+        "K_oc": null,
+        "K_sc": null,
+        "K_mo": null,
+
+        "n_CFx" : 1,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": 1,
+        "n_SO3" : null,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "PFBA": {
+        "name": "PFBA",
+        "M": {
+            "value": 214.0,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 3,
+            "unit": null
+        },
+        "K_oc": {
+            "value": 2.9,
+            "unit": "L/kg"
+        },
+        "K_sc": {
+            "value": 0.43,
+            "unit": "L/kg"
+        },
+        "K_mo": null,
+
+        "n_CFx" : 3,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": 1,
+        "n_SO3" : null,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "PFBS": {
+        "name": "PFBS",
+        "M": {
+            "value": 300.1,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 1.1e-05,
+            "unit": "cm**2/s"
+        },
+        "K_oc": {
+            "value": 11.0,
+            "unit": "L/kg"
+        },
+        "K_sc": {
+            "value": 0.44,
+            "unit": "L/kg"
+        },
+        "K_mo": null,
+
+        "n_CFx" : 4,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": null,
+        "n_SO3" : 1,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "PFPeA": {
+        "name": "PFPeA",
+        "M": {
+            "value": 264.05,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 1.2e-05,
+            "unit": "cm**2/s"
+        },
+        "K_oc": {
+            "value": 15.0,
+            "unit": "L/kg"
+        },
+        "K_sc": {
+            "value": 0.46,
+            "unit": "L/kg"
+        },
+        "K_mo": null,
+        
+        "n_CFx" : 4,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": 1,
+        "n_SO3" : null,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "PFHxA": {
+        "name": "PFHxA",
+        "M": {
+            "value": 314.05,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 7.8e-06,
+            "unit": "cm**2/s"
+        },
+        "K_oc": {
+            "value": 15.0,
+            "unit": "L/kg"
+        },
+        "K_sc": {
+            "value": 0.46,
+            "unit": "L/kg"
+        },
+        "K_mo": null,
+        
+        "n_CFx" : 5,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": 1,
+        "n_SO3" : null,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "PFHxS": {
+        "name": "PFHxS",
+        "M": {
+            "value": 400.12,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 4.5e-06,
+            "unit": "cm**2/s"
+        },
+        "K_oc": {
+            "value": 50.0,
+            "unit": "L/kg"
+        },
+        "K_sc": {
+            "value": 1.2,
+            "unit": "L/kg"
+        },
+        "K_mo": null,
+        
+        "n_CFx" : 6,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": null,
+        "n_SO3" : 1,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "PFHpA": {
+        "name": "PFHpA",
+        "M": {
+            "value": 364.06,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 9.3e-06,
+            "unit": "cm**2/s"
+        },
+        "K_oc": {
+            "value": 50.0,
+            "unit": "L/kg"
+        },
+        "K_sc": null,
+        "K_mo": null,
+                
+        "n_CFx" : 6,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": 1,
+        "n_SO3" : null,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "PFOA": {
+        "name": "PFOA",
+        "M": {
+            "value": 414.07,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 4.9e-06,
+            "unit": "cm**2/s"
+        },
+        "K_oc": {
+            "value": 107.0,
+            "unit": "L/kg"
+        },
+        "K_sc": {
+            "value": 3.3,
+            "unit": "L/kg"
+        },
+        "K_mo": null,
+                
+        "n_CFx" : 7,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": 1,
+        "n_SO3" : null,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "PFOS": {
+        "name": "PFOS",
+        "M": {
+            "value": 500.13,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 5.4e-06,
+            "unit": "cm**2/s"
+        },
+        "K_oc": {
+            "value": 609.0,
+            "unit": "L/kg"
+        },
+        "K_sc": {
+            "value": 9.4,
+            "unit": "L/kg"
+        },
+        "K_mo": null,
+        
+        "n_CFx" : 8,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": null,
+        "n_SO3" : 1,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "PFNA": {
+        "name": "PFNA",
+        "M": {
+            "value": 464.08,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 2.93e-06,
+            "unit": "cm**2/s"
+        },
+        "K_oc": {
+            "value": 324.0,
+            "unit": "L/kg"
+        },
+        "K_sc": {
+            "value": 2.0,
+            "unit": "L/kg"
+        },
+        "K_mo": null,
+        
+        "n_CFx" : 8,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": 1,
+        "n_SO3" : null,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "PFDA": {
+        "name": "PFDA",
+        "M": {
+            "value": 514.08,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 2.27e-06,
+            "unit": "cm**2/s"
+        },
+        "K_oc": {
+            "value": 604.0,
+            "unit": "L/kg"
+        },
+        "K_sc": {
+            "value": 14.0,
+            "unit": "L/kg"
+        },
+        "K_mo": null,
+                
+        "n_CFx" : 9,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": 1,
+        "n_SO3" : null,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : null,
+        "n__S_" : null
+    },
+    "HFPO-DA": {
+        "name": "HFPO-DA",
+        "M": {
+            "value": 330.05,
+            "unit": "g/mol"
+        },
+        "diffusivity": {
+            "value": 5,
+            "unit": null
+        },
+        "K_oc": null,
+        "K_sc": null,
+        "K_mo": null,
+        
+        "n_CFx" : 5,
+        "n_CHx" : null,
+        "n_COO" : null,
+        "n_COOH": 1,
+        "n_SO3" : null,
+        "n_R4N" : null,
+        "n_OH"  : null,
+        "n_OSO3": null,
+        "n__O_" : 1,
+        "n__S_" : null
+    }
+}
