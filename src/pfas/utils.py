@@ -95,6 +95,69 @@ def aaw_func_tracer(sw, x2, x1, x0):
     aaw = x2*sw**2 + x1*sw + x0
     return aaw
 
+def aaw_func_1(sw, poro, d50):
+    """Compute air-water interfacial area using empirical polynomial model.
+    
+    NOG NIET GEUPDATE
+    
+    Estimates air-water interfacial area per unit volume using polynomial
+    fitting coefficients derived from tracer experiments or pore-scale imaging.
+    This approach provides a simplified, computationally efficient alternative
+    to thermodynamic calculations.
+
+    Parameters
+    ----------
+    sw : float or ndarray
+        Water saturation (dimensionless, 0-1).
+    poro : float
+        Porosity of the porous medium (dimensionless, 0-1).
+    d50  : median grain size
+
+    Returns
+    -------
+    Aaw : float or ndarray
+        Air-water interfacial area per unit volume (cm²/cm³).
+
+    Notes
+    -----
+    N/A
+
+    """
+
+    GSSA = 6*(1-poro)/d50
+    aaw = (1-sw)*GSSA
+    return aaw
+
+def aaw_func_2(sw, d50):
+    """Compute air-water interfacial area using the d50 correlation.
+
+    Estimates the air-water interfacial area per unit bulk volume as a
+    linear function of water saturation, with the maximum interfacial
+    area estimated from median grain diameter.
+
+    Parameters
+    ----------
+    sw : float or ndarray
+        Water saturation (dimensionless, 0-1).
+    poro : float
+        Porosity of the porous medium (dimensionless, 0-1).
+    d50  : float
+        Median grain diameter (cm)
+
+    Returns
+    -------
+    Aaw : float or ndarray
+        Air-water interfacial area per unit volume (cm²/cm³).
+
+    Notes
+    -----
+    N/A
+    
+    """
+
+    aaw = (1-sw) * 3.9 * d50**-1.2
+    return aaw
+
 def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
     """Calculate distribution coefficient using Fabregat-Palau (2021) model.
 
@@ -203,7 +266,7 @@ def kd_freundlich(C_rep, K_freund, n_freund):  # noqa: N802
     Kd = K_freund * C_rep ** (n_freund - 1)
     return Kd
 
-#Kaw formule van : 
+#Kaw formule van Le et al. (2021): 
 def kaw_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n__S_, n_N_CH3_2_CH2_COO):
     """Calculate Partitioning coefficient using Le et al. (2021) model.
 
@@ -234,7 +297,7 @@ def kaw_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n
         Number of thioether sulfur atoms in the PFAS molecule.
     n_N_CH3_2_CH2_COO: int
         Number of dimethylamino-acetate functional groups in the PFAS molecule.
-        
+    
     Returns
     -------
     Kaw : float
@@ -242,7 +305,7 @@ def kaw_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n
 
     References
     ----------
-    Le et al. (2021). A group-contribution model for predicting the physicochemical 
+    Le et al. (2021). A group-contribution model for predicting the physicochemical
     behavior of PFAS components for understanding environmental fate.
     """
     
@@ -260,17 +323,17 @@ def kaw_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n
     N_CH3_2_CH2_COO = -1.07
     
     log10_Kiw = (
-        Intercept 
-        + CFx * n_CFx 
-        + CHx * n_CHx 
-        + COO * n_COO 
-        + COOH * n_COOH 
-        + SO3 * n_SO3 
-        + R4N * n_R4N 
-        + OH * n_OH 
-        + OSO3 * n_OSO3 
-        + _O_ * n__O_ 
-        + _S_ * n__S_ 
+        Intercept
+        + CFx * n_CFx
+        + CHx * n_CHx
+        + COO * n_COO
+        + COOH * n_COOH
+        + SO3 * n_SO3
+        + R4N * n_R4N
+        + OH * n_OH
+        + OSO3 * n_OSO3
+        + _O_ * n__O_
+        + _S_ * n__S_
         + N_CH3_2_CH2_COO * n_N_CH3_2_CH2_COO
     )
     Kaw = 10 ** log10_Kiw

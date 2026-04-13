@@ -38,6 +38,7 @@ import numpy as np
 from annotated_types import Ge, Gt, Interval
 from pydantic import BaseModel, Field, model_validator
 from scipy.optimize import fsolve
+from scipy.optimize import brentq
 
 from pfas.analytical_soln import (
     Adsorption,
@@ -69,6 +70,8 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         Longitudinal dispersivity (m). Must be positive.
     van_genuchten_n : float
         van Genuchten n parameter (dimensionless). Must be positive.
+    van_genuchten_l : float
+        van Genuchten l parameter (dimensionless). Must be positive.    
     init_sat : float
         Initial saturation estimate (dimensionless). Range: [0, 1].
     residual_water_content : float
@@ -100,7 +103,7 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     porosity: Annotated[float, Interval(ge=0, le=1)]
     dispersivity: Annotated[float, Gt(0)]
     van_genuchten_n: Annotated[float, Gt(0)]
-    van_genuchten_l: Annotated[float, Gt(0)]
+    van_genuchten_l: float
     init_sat: Annotated[float, Interval(ge=0, le=1)]
     residual_water_content: Annotated[float, Interval(ge=0, le=1)]
 
@@ -126,6 +129,11 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
 
         se = fsolve(relperm, self.init_sat)
         theta = se[0] * (self.porosity - self.residual_water_content) + self.residual_water_content
+
+        # Using a different solver in order to get a result for se.
+        #se = brentq(relperm, 1e-12, 1.0)
+        #theta = se * (self.porosity - self.residual_water_content) + self.residual_water_content
+
         v = self.average_infiltration_rate / theta
         d = v * self.dispersivity
         return {"hydro_properties": HydrologicalProperties(theta, v, d)}

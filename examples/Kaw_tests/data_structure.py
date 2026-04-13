@@ -27,7 +27,7 @@ def _():
         GridGenerator,
         SWCAdsorptionPreprocessor,
         SimulationRunner,
-        SorptionKawiDirectInput,
+        SorptionKawCalculated,
         SpRetardationPreprocessor,
         WaterPreprocessor,
         mo,
@@ -50,7 +50,7 @@ def _():
     from pfas.data_loader import load_dataset
 
     PFASs = load_dataset("PFASs")
-    soils = load_dataset("soils_Ksat")
+    soils = load_dataset("soils")
     spa_matrix = load_dataset("spa_matrix")
     # See what's available
     print("Available PFAS compounds:")
@@ -68,21 +68,20 @@ def _():
 def _(PFASs, soils, spa_matrix):
     # Pick a compound and soil for this run
     pfas_name = "PFOA"
-    soil_name = "Staring-O15"
+    soil_name = "Accusand"
 
     pfas = PFASs[pfas_name]
     soil = soils[soil_name]
 
     # Inspect PFAS properties
-    print(f"\nMolar mass     : {pfas['M']}")
+    print(f"\nMolar mass       : {pfas['M']}")
     print(f"K_oc             : {pfas['K_oc']}")
     print(f"Diffusivity      : {pfas['diffusivity']}")
 
     # Inspect soil properties
-    print(f"\nBulk density   : {soil['rho_b']}")
-    print(f"K_sat            : {soil['K_sat']}")
+    print(f"\nBulk density     : {soil['rho_b']}")
     print(f"Porosity         : {soil['porosity']}")
-    print(f"Guo_params       : {soil['tracer_fit']}")
+    print(f"K_sat            : {soil['K_sat']}")
 
     # Unpack van Genuchten parameters (stored as tuple of (field, value) pairs)
     vg_params = dict(soil["van_genuchten"])   # convert to dict for easy access
@@ -90,16 +89,14 @@ def _(PFASs, soils, spa_matrix):
     print(vg_params)
 
     # Pull scalar soil values used in the simulation
-    bulk_dens    = soil["rho_b"] ["value"]         # numeric value only (g/cm³)
-    vg_n         = vg_params["n"]
-    vg_l         = vg_params["l"]
-    theta_r      = soil["theta_r"]
-    vg_alpha     = vg_params["alpha"]["value"]    # numeric value (1/cm)
-    dispersivity = 4.5                            # cm (taken from thesis Hugo vd Berg)
-    porosity     = soil["porosity"]
-    tracer_fit   = soil["tracer_fit"]
+    bulk_dens   = soil["rho_b"]  ["value"]         # numeric value only (g/cm³)
+    porosity    = soil["porosity"]
+    vg_n        = vg_params["n"]
+    theta_r     = soil["theta_r"]
+    vg_alpha    = vg_params["alpha"]["value"]    # numeric value (1/cm)
+    dispersivity = 1.5                       # not present for Accusand, use default
     C_rep = 1 #indication of nonlinearity for freundlich sorption, can be between 0 and 1
-    # Check for solid phase adsorption parameters available:
+    # Check for solid phase adsorption paraeters available:
     if soil_name in spa_matrix and pfas_name in spa_matrix[soil_name]:
         spa = dict(spa_matrix[soil_name][pfas_name])
         freundlich_k = spa["Freundlich_K"]["value"]   # numeric value
@@ -115,33 +112,19 @@ def _(PFASs, soils, spa_matrix):
     else:
         print(f"\nNo spa_matrix entry for {pfas_name} in {soil_name}. Using fallback Kd.")
         use_spa = False
-
-    frac_int = 1.0
-    rate_const = 0.0
-
-    #Fabregat-Palau prep
-    f_silt_clay = (soil["f_clay"]["value"]/100) + (soil["f_silt"]["value"]/100)
-    f_c  = soil["f_clay"]["value"]/100
-    f_s  = soil["f_silt"]["value"]/100
-    f_oc = soil["f_oc"]["value"]/100
-    n_CFx = pfas["n_CFx"]
-    print(f_c, f_s, f_oc, f_silt_clay, n_CFx)
-    print('theta_r is', theta_r)
     return (
+        C_rep,
         bulk_dens,
         dispersivity,
-        f_oc,
-        f_silt_clay,
         frac_int,
-        n_CFx,
-        pfas,
+        freundlich_k,
+        freundlich_n,
         porosity,
         rate_const,
         soil,
         theta_r,
-        tracer_fit,
+        use_spa,
         vg_alpha,
-        vg_l,
         vg_n,
     )
 
@@ -157,70 +140,57 @@ def _(mo):
 @app.cell
 def _(
     BoundaryPreprocessor,
+    C_rep,
     GridGenerator,
     SWCAdsorptionPreprocessor,
     SimulationRunner,
-    SorptionKawiDirectInput,
+    SorptionKawCalculated,
     SpRetardationPreprocessor,
     WaterPreprocessor,
     bulk_dens,
     dispersivity,
-    f_oc,
-    f_silt_clay,
     frac_int,
-    n_CFx,
-    pfas,
+    freundlich_k,
+    freundlich_n,
     porosity,
     rate_const,
     soil,
     theta_r,
-    tracer_fit,
+    use_spa,
     vg_alpha,
-    vg_l,
     vg_n,
 ):
     ## Running simulation 
-    from pfas.utils import kd_fabregat_palau
+    from pfas.utils import kd_freundlich, kaw_Le2021
     # Step 1: Generate the grid
     grid_gen = GridGenerator(
-        domain_length=100,                              # cm
+        domain_length=60,
         spatial_resolution=1.0,
-        time_resolution=0.5*(60*60*24*365),                 # 1 year (in seconds for calculations)
-        time_total=250*(60*60*24*365),                  # 250 years (in seconds for calculations)
+        time_resolution=100,
+        time_total=5000,
     )
     grid_results = grid_gen.compute()
 
     # Step 2: Compute water flow / hydraulic properties
     water_prep = WaterPreprocessor(
-        average_infiltration_rate=9.51E-7,              # cm/s (is 300 mm/year)
-        hydraulic_conductivity=soil["K_sat"]["value"],  # pulled from soil data (cm/s)
+        average_infiltration_rate=1.5,
+        hydraulic_conductivity=soil["K_sat"]["value"],   # pulled from soil data
         porosity=porosity,
         dispersivity=dispersivity,
         van_genuchten_n=vg_n,
-        van_genuchten_l=vg_l,
         init_sat=0.2,
         residual_water_content=theta_r,
     )
     water_results = water_prep.compute()
 
-
-    pulse_duration = 25 * (60 * 60 * 24 * 365)
     # Step 3: Setup boundary conditions
     boundary_prep = BoundaryPreprocessor(
-        C_list=[
-            pfas['M']["value"] * 1e-9,  # mg/L for 1 pmol/L
-            0.0
-        ],
-        T_list=[
-            0.0,
-            pulse_duration
-        ]
+        C_list=[10.0, 0],
+        T_list=[0, 2000],        # pulse from t=0 to t=2000 s
     )
     boundary_results = boundary_prep.compute()
-
-    # Step 4: Solid phase adsorption
     sorption_solid = {
-            "kinetic_sorption": False,
+            "kinetic_sorption": use_spa,
             "sorption_isotherm": "linear",
             "kinetic": {
                 "frac_int": frac_int,
@@ -228,9 +198,10 @@ def _(
             },
             "linear": {
                 "Kd_method": "direct_input",
-                "Kd": kd_fabregat_palau(n_CFx, f_oc, f_silt_clay)
+                "Kd": kd_freundlich(C_rep, freundlich_k, freundlich_n),
             },
     }
+
 
     sp_retard = SpRetardationPreprocessor(
         sorption_solid= sorption_solid,
@@ -243,7 +214,7 @@ def _(
     swc_adsorp = SWCAdsorptionPreprocessor(
         hydro_properties=water_results["hydro_properties"],
         sigma0=71,
-        scaling_factor_awi=4.15,
+        scaling_factor_awi=1.0,
         AWI={
             "AWI_type": "SWC-based",
             "SWC-based": {
@@ -259,15 +230,15 @@ def _(
             "residual_water_content": water_prep.residual_water_content,
             "hydraulic_conductivity": water_prep.hydraulic_conductivity,
             "dispersivity": water_prep.dispersivity,
-            "tracer_fit":tracer_fit
         },
     )
     awi_results = swc_adsorp.compute()
 
     # Step 6: Kawi sorption
     # Step 6: Compute Kawi sorption
-    kawi_sorp = SorptionKawiDirectInput(
-        kaw=3.89E-4,
+    kawi_sorp = SorptionKawCalculated(
+        n_CFx = 7,
+        n_COO = 1,
         hydro_properties=water_results["hydro_properties"],
         aaw=awi_results["aaw"],
     )
@@ -281,17 +252,16 @@ def _(
         hydro_properties=water_results["hydro_properties"],
         awi_retardation=kawi_results["awi_retardation"],
         sorption_solid=sorption_solid,
-        kinetic_sorption=False,
-        volume_averaged=False
+        kinetic_sorption=True,
+        volume_averaged=True
     )
     final_results = sim_runner.compute()
     return (
         awi_results,
-        boundary_prep,
         final_results,
         grid_results,
         kawi_results,
-        sp_results,
+        kawi_sorp,
         water_results,
     )
 
@@ -299,34 +269,17 @@ def _(
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    Cheking results for saturation (S) and air-water interfacial area (aaw)
+    ##Testing SorptionKawCalculated
     """)
     return
 
 
 @app.cell
-def _(awi_results, kawi_results, porosity, sp_results, theta_r, water_results):
-    print(awi_results)
-    print(water_results)
-    print(sp_results)
-    print(kawi_results)
-
-    print('pore velocity is',((water_results['hydro_properties'].pore_velocity))*(60*60*24*365*10),'(mm/year)')
-    print('effective saturation is',(((water_results['hydro_properties'].water_content)-theta_r)/(porosity-theta_r)),'(-)')
-    print('air-water interfacial area is',((awi_results)['aaw']),'(cm2/cm3)')
-    return
-
-
-@app.cell
-def _(porosity, theta_r, tracer_fit, vg_alpha, vg_l, vg_n, water_results):
-    print("theta_r:", theta_r)
-    print("porosity:", porosity)
-    print("vg_alpha:", vg_alpha)
-    print("vg_n:", vg_n)
-    print("vg_l:", vg_l)
-    print("tracer_fit:", tracer_fit)
-    print("water_content:", water_results["hydro_properties"].water_content)
-    print("Se:", (water_results["hydro_properties"].water_content - theta_r) / (porosity - theta_r))
+def _(awi_results, kawi_results, kawi_sorp, water_results):
+    print("Computed Kaw:", kawi_sorp.kaw)
+    print("Aaw:", awi_results["aaw"])
+    print("Theta:", water_results["hydro_properties"].water_content)
+    print("AWI retardation:", kawi_results["awi_retardation"])
     return
 
 
@@ -348,7 +301,7 @@ def _(final_results, grid_results, plt):
     plt.figure(figsize=(8, 6))
 
     for t_idx in time_indices:
-        plt.plot(final_results['C_tot'][:, t_idx], simulation_grid.depth, label=f"t = {simulation_grid.time[t_idx]:.0f} years")
+        plt.plot(final_results['C_tot'][:, t_idx], simulation_grid.depth, label=f"t = {simulation_grid.time[t_idx]:.0f} s")
 
     plt.xlabel("Total PFAS Concentration (mg/L)")
     plt.ylabel("Depth (cm)")
@@ -358,65 +311,6 @@ def _(final_results, grid_results, plt):
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()
-    return (simulation_grid,)
-
-
-@app.cell
-def _(final_results, plt, simulation_grid):
-    #Breakthrough plot of total concentration at bottom of grid over time
-    C_tot = final_results['C_tot']
-
-    seconds_per_year = 60*60*24*365
-    bottom_idx = -1
-    bottom_depth = simulation_grid.depth[bottom_idx]
-
-    plt.figure(figsize=(8, 6))
-
-    plt.plot(
-        simulation_grid.time/seconds_per_year,
-        C_tot[bottom_idx, :],
-        label=f"Depth = {bottom_depth} cm",
-        color="blue"
-    )
-
-    plt.xlabel("Time (years)") 
-    plt.ylabel("Total PFAS Concentration (mg/L)")
-    plt.title("PFAS Concentration Over Time")
-    return C_tot, bottom_depth, bottom_idx, seconds_per_year
-
-
-@app.cell
-def _():
-    #HIER MOET NOG CODE OM DIT HIERONDER TE LATEN WERKEN
-    return
-
-
-@app.cell
-def _(
-    C_tot,
-    bottom_depth,
-    bottom_idx,
-    boundary_prep,
-    plt,
-    seconds_per_year,
-    simulation_grid,
-):
-    #Breakthrough plot of relative concentration at bottom of grid over time
-    # Relative concentration calculation!
-    C_0 = boundary_prep.solute_concentration_influx
-    C_rel = C_tot[bottom_idx, :]/C_0
-
-    plt.figure(figsize=(8, 6))
-
-    plt.plot(
-        simulation_grid.time/seconds_per_year, 
-        C_rel, 
-        label=f"Depth = {bottom_depth} cm", 
-        color="blue"
-    )
-    plt.xlabel("Time (years)") 
-    plt.ylabel("Relative PFAS Concentration (-)")
-    plt.title("PFAS Concentration Over Time")
     return
 
 

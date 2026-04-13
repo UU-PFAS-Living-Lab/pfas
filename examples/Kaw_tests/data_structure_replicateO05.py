@@ -50,7 +50,7 @@ def _():
     from pfas.data_loader import load_dataset
 
     PFASs = load_dataset("PFASs")
-    soils = load_dataset("soils_Ksat")
+    soils = load_dataset("soils")
     spa_matrix = load_dataset("spa_matrix")
     # See what's available
     print("Available PFAS compounds:")
@@ -68,7 +68,7 @@ def _():
 def _(PFASs, soils, spa_matrix):
     # Pick a compound and soil for this run
     pfas_name = "PFOA"
-    soil_name = "Staring-O15"
+    soil_name = "Staring-O05"
 
     pfas = PFASs[pfas_name]
     soil = soils[soil_name]
@@ -90,7 +90,7 @@ def _(PFASs, soils, spa_matrix):
     print(vg_params)
 
     # Pull scalar soil values used in the simulation
-    bulk_dens    = soil["rho_b"] ["value"]         # numeric value only (g/cm³)
+    bulk_dens    = soil["rho_b"]  ["value"]         # numeric value only (g/cm³)
     vg_n         = vg_params["n"]
     vg_l         = vg_params["l"]
     theta_r      = soil["theta_r"]
@@ -126,7 +126,6 @@ def _(PFASs, soils, spa_matrix):
     f_oc = soil["f_oc"]["value"]/100
     n_CFx = pfas["n_CFx"]
     print(f_c, f_s, f_oc, f_silt_clay, n_CFx)
-    print('theta_r is', theta_r)
     return (
         bulk_dens,
         dispersivity,
@@ -180,12 +179,12 @@ def _(
     vg_n,
 ):
     ## Running simulation 
-    from pfas.utils import kd_fabregat_palau
+    from pfas.utils import kd_fabregat_palau, kaw_Le2021
     # Step 1: Generate the grid
     grid_gen = GridGenerator(
         domain_length=100,                              # cm
         spatial_resolution=1.0,
-        time_resolution=0.5*(60*60*24*365),                 # 1 year (in seconds for calculations)
+        time_resolution=(60*60*24*365),                 # 1 year (in seconds for calculations)
         time_total=250*(60*60*24*365),                  # 250 years (in seconds for calculations)
     )
     grid_results = grid_gen.compute()
@@ -203,22 +202,15 @@ def _(
     )
     water_results = water_prep.compute()
 
-
-    pulse_duration = 25 * (60 * 60 * 24 * 365)
+    pulse_duration=25*(60*60*24*365)
     # Step 3: Setup boundary conditions
     boundary_prep = BoundaryPreprocessor(
-        C_list=[
-            pfas['M']["value"] * 1e-9,  # mg/L for 1 pmol/L
-            0.0
-        ],
-        T_list=[
-            0.0,
-            pulse_duration
-        ]
+        average_infiltration_rate=9.51E-7,                     # cm/s
+        solute_concentration_influx=pfas['M']["value"]*1E-9,   # (mg/L) input concentration of 1 pmol/L !!!
+        pulse_intervals=[(0, pulse_duration)],                 # 25 years (in seconds for calculations)
     )
     boundary_results = boundary_prep.compute()
 
-    # Step 4: Solid phase adsorption
     sorption_solid = {
             "kinetic_sorption": False,
             "sorption_isotherm": "linear",
@@ -305,28 +297,12 @@ def _(mo):
 
 
 @app.cell
-def _(awi_results, kawi_results, porosity, sp_results, theta_r, water_results):
+def _(awi_results, kawi_results, sp_results, water_results):
     print(awi_results)
     print(water_results)
     print(sp_results)
     print(kawi_results)
-
-    print('pore velocity is',((water_results['hydro_properties'].pore_velocity))*(60*60*24*365*10),'(mm/year)')
-    print('effective saturation is',(((water_results['hydro_properties'].water_content)-theta_r)/(porosity-theta_r)),'(-)')
-    print('air-water interfacial area is',((awi_results)['aaw']),'(cm2/cm3)')
-    return
-
-
-@app.cell
-def _(porosity, theta_r, tracer_fit, vg_alpha, vg_l, vg_n, water_results):
-    print("theta_r:", theta_r)
-    print("porosity:", porosity)
-    print("vg_alpha:", vg_alpha)
-    print("vg_n:", vg_n)
-    print("vg_l:", vg_l)
-    print("tracer_fit:", tracer_fit)
-    print("water_content:", water_results["hydro_properties"].water_content)
-    print("Se:", (water_results["hydro_properties"].water_content - theta_r) / (porosity - theta_r))
+    print('pore velocity is',((water_results['hydro_properties'].pore_velocity))*(60*60*24*365*10),'mm/year')
     return
 
 
@@ -362,6 +338,12 @@ def _(final_results, grid_results, plt):
 
 
 @app.cell
+def _():
+    #HIER MOET NOG CODE OM DIT HIERONDER TE LATEN WERKEN
+    return
+
+
+@app.cell
 def _(final_results, plt, simulation_grid):
     #Breakthrough plot of total concentration at bottom of grid over time
     C_tot = final_results['C_tot']
@@ -383,12 +365,6 @@ def _(final_results, plt, simulation_grid):
     plt.ylabel("Total PFAS Concentration (mg/L)")
     plt.title("PFAS Concentration Over Time")
     return C_tot, bottom_depth, bottom_idx, seconds_per_year
-
-
-@app.cell
-def _():
-    #HIER MOET NOG CODE OM DIT HIERONDER TE LATEN WERKEN
-    return
 
 
 @app.cell
