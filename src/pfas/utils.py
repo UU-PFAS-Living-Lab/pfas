@@ -267,8 +267,8 @@ def kd_freundlich(C_rep, K_freund, n_freund):  # noqa: N802
     return Kd
 
 #Kaw formule van Le et al. (2021): 
-def kaw_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n__S_, n_N_CH3_2_CH2_COO):
-    """Calculate Partitioning coefficient using Le et al. (2021) model.
+def Kaw_0_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n__S_, n_N_CH3_2_CH2_COO):
+    """Calculate low concentration air-water partitioning coefficient using Le et al. (2021) model.
 
     Computes the air-water interfacial partitioning coefficient (Kaw) for PFAS compounds
     based on the number of perfluorinated carbons and the specific headgroup.
@@ -301,7 +301,7 @@ def kaw_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n
     Returns
     -------
     Kaw : float
-        Distribution coefficient (???).
+        Distribution coefficient (cm3/cm2).
 
     References
     ----------
@@ -322,7 +322,7 @@ def kaw_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n
     _S_             = -0.21
     N_CH3_2_CH2_COO = -1.07
     
-    log10_Kiw = (
+    log10_Kaw_0 = (
         Intercept
         + CFx * n_CFx
         + CHx * n_CHx
@@ -336,5 +336,115 @@ def kaw_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n
         + _S_ * n__S_
         + N_CH3_2_CH2_COO * n_N_CH3_2_CH2_COO
     )
-    Kaw = 10 ** log10_Kiw
+    Kaw_0 = 10 ** log10_Kaw_0
+    return Kaw_0
+
+#dG0 formule van Le et al. (2021): 
+def dG0_Le2021(n_CFx, n_CHx, n_COO, n_COOH, n_SO3, n_R4N, n_OH, n_OSO3, n__O_, n__S_, n_N_CH3_2_CH2_COO):
+    """Calculates the Gibbs free energy change of adsorption using Le et al. (2021) model.
+
+    Computes the Gibbs free energy change of adsorption for PFAS compounds
+    based on the number of perfluorinated carbons and the specific headgroup.
+
+    Parameters
+    ----------
+    n_CFx  : int
+        Number of perfluorinated carbons (CF2 groups) in the PFAS molecule.
+    n_CHx  : int
+        Number of hydrocarbon groups in the PFAS molecule.
+    n_COO  : int
+        Number of carboxylate functional groups in the PFAS molecule.
+    n_COOH : int
+        Number of carboxylic acid functional groups in the PFAS molecule.
+    n_SO3  : int
+        Number of sulfonic acid functional groups in the PFAS molecule.
+    n_R4N  : int
+        Number of quaternary ammonium functional groups in the PFAS molecule.
+    n_OH  : int
+        Number of hydroxyl functional groups in the PFAS molecule.
+    n_OSO3 : int
+        Number of organosulfate functional groups in the PFAS molecule.
+    n__O_  : int
+        Number of ether oxygen atoms in the PFAS molecule.
+    n__S_  : int
+        Number of thioether sulfur atoms in the PFAS molecule.
+    n_N_CH3_2_CH2_COO: int
+        Number of dimethylamino-acetate functional groups in the PFAS molecule.
+    
+    Returns
+    -------
+    dG0 : float
+        Distribution coefficient ().
+
+    References
+    ----------
+    Le et al. (2021). A group-contribution model for predicting the physicochemical
+    behavior of PFAS components for understanding environmental fate.
+    """
+    
+    Intercept       = -14.29
+    CFx             = -3.57
+    CHx             = -2.07
+    COO             =  11.56
+    COOH            =  0.34
+    SO3             =  11.48
+    R4N             =  22.06
+    OH              =  4.22
+    OSO3            =  10.78
+    _O_             =  1.91
+    _S_             =  1.79
+    N_CH3_2_CH2_COO =  3.42
+    
+    dG0 = (
+        Intercept
+        + CFx * n_CFx
+        + CHx * n_CHx
+        + COO * n_COO
+        + COOH * n_COOH
+        + SO3 * n_SO3
+        + R4N * n_R4N
+        + OH * n_OH
+        + OSO3 * n_OSO3
+        + _O_ * n__O_
+        + _S_ * n__S_
+        + N_CH3_2_CH2_COO * n_N_CH3_2_CH2_COO
+    )
+    return dG0
+
+
+#dG0 formule van Le et al. (2021): 
+def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw):
+    """Calculates the Gibbs free energy change of adsorption using Le et al. (2021) model.
+
+    Computes the Gibbs free energy change of adsorption for PFAS compounds
+    based on the number of perfluorinated carbons and the specific headgroup.
+
+    Parameters
+    ----------
+    Gamma_max
+        maximum surface excess
+    Keq
+        equilibrium adsorption constant
+    Cw
+        concentration 
+    
+    Returns
+    -------
+    dG0 : float
+        Distribution coefficient ().
+
+    References
+    ----------
+    Le et al. (2021). A group-contribution model for predicting the physicochemical
+    behavior of PFAS components for understanding environmental fate.
+    """
+
+    omega = 55.3   # water molar concentration (mol/L) at 298K
+    R     = 0.008314  # gas constant (kJ/mol/K)
+    T     = 298    # temperature (K)
+    
+    Keq = (1/omega) * np.exp(-dG0/(R*T))
+    
+    Kaw = (Kaw_0)/(1 + Keq*Cw)
+
     return Kaw
