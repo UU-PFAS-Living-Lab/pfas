@@ -50,7 +50,7 @@ def _():
     from pfas.data_loader import load_dataset
 
     PFASs = load_dataset("PFASs")
-    soils = load_dataset("soils_Ksat")
+    soils = load_dataset("soils_Ksat_rho_b")
     spa_matrix = load_dataset("spa_matrix")
     # See what's available
     print("Available PFAS compounds:")
@@ -68,7 +68,7 @@ def _():
 def _(PFASs, soils, spa_matrix):
     # Pick a compound and soil for this run
     pfas_name = "PFOA"
-    soil_name = "Staring-O18"
+    soil_name = "Staring-O05"
 
     pfas = PFASs[pfas_name]
     soil = soils[soil_name]
@@ -179,7 +179,7 @@ def _(
     vg_n,
 ):
     ## Running simulation 
-    from pfas.utils import kd_fabregat_palau, kaw_Le2021
+    from pfas.utils import kd_fabregat_palau, Kaw_0_Le2021
     # Step 1: Generate the grid
     grid_gen = GridGenerator(
         domain_length=100,                              # cm

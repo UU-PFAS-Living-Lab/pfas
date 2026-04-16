@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.19.11"
+__generated_with = "0.23.1"
 app = marimo.App(width="medium")
 
 
@@ -16,7 +16,7 @@ def _(mo):
 @app.cell
 def _():
     #loading relevant modules 
-    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner, SorptionKawCalculated
+    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner, SorptionKawCalculated, SorptionKawLangmuir
     from pfas.configuration import read_toml
     from pfas.model import Model
     from matplotlib import pyplot as plt
@@ -46,8 +46,8 @@ def _(mo):
 def _():
     from pfas.data_loader import load_dataset
 
-    PFASs = load_dataset("PFASs_neutral_forms")
-    soils = load_dataset("soils")
+    PFASs = load_dataset("PFASs")
+    soils = load_dataset("soils_Ksat_rho_b")
     spa_matrix = load_dataset("spa_matrix")
     # See what's available
     print("Available PFAS compounds:")
@@ -64,7 +64,7 @@ def _():
 @app.cell
 def _(soils):
     # Pick a compound and soil for this run
-    soil_name = "Accusand"
+    soil_name = "Staring-O05"
 
     soil = soils[soil_name]
 
@@ -214,7 +214,6 @@ def _(awi_results, kawi_sorp, water_results):
     print("Computed Kaw:", kawi_sorp.kaw)
     print("Aaw:", awi_results["aaw"])
     print("Theta:", water_results["hydro_properties"].water_content)
-
     return
 
 
