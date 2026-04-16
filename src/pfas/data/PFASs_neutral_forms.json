@@ -14,15 +14,16 @@
         "K_mo": null,
 
         "n_CFx" : 1,
-        "n_CHx" : null,
-        "n_COO" : null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
         "n_COOH": 1,
-        "n_SO3" : null,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFBA": {
         "name": "PFBA",
@@ -45,15 +46,16 @@
         "K_mo": null,
 
         "n_CFx" : 3,
-        "n_CHx" : null,
-        "n_COO" : null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
         "n_COOH": 1,
-        "n_SO3" : null,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFBS": {
         "name": "PFBS",
@@ -76,15 +78,16 @@
         "K_mo": null,
 
         "n_CFx" : 4,
-        "n_CHx" : null,
-        "n_COO" : null,
-        "n_COOH": null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
+        "n_COOH": 0,
         "n_SO3" : 1,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFPeA": {
         "name": "PFPeA",
@@ -107,15 +110,16 @@
         "K_mo": null,
         
         "n_CFx" : 4,
-        "n_CHx" : null,
-        "n_COO" : null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
         "n_COOH": 1,
-        "n_SO3" : null,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFHxA": {
         "name": "PFHxA",
@@ -138,15 +142,16 @@
         "K_mo": null,
         
         "n_CFx" : 5,
-        "n_CHx" : null,
-        "n_COO" : null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
         "n_COOH": 1,
-        "n_SO3" : null,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFHxS": {
         "name": "PFHxS",
@@ -169,15 +174,16 @@
         "K_mo": null,
         
         "n_CFx" : 6,
-        "n_CHx" : null,
-        "n_COO" : null,
-        "n_COOH": null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
+        "n_COOH": 0,
         "n_SO3" : 1,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFHpA": {
         "name": "PFHpA",
@@ -197,15 +203,16 @@
         "K_mo": null,
                 
         "n_CFx" : 6,
-        "n_CHx" : null,
-        "n_COO" : null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
         "n_COOH": 1,
-        "n_SO3" : null,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFOA": {
         "name": "PFOA",
@@ -228,15 +235,16 @@
         "K_mo": null,
                 
         "n_CFx" : 7,
-        "n_CHx" : null,
-        "n_COO" : null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
         "n_COOH": 1,
-        "n_SO3" : null,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFOS": {
         "name": "PFOS",
@@ -259,15 +267,16 @@
         "K_mo": null,
         
         "n_CFx" : 8,
-        "n_CHx" : null,
-        "n_COO" : null,
-        "n_COOH": null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
+        "n_COOH": 0,
         "n_SO3" : 1,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFNA": {
         "name": "PFNA",
@@ -290,15 +299,16 @@
         "K_mo": null,
         
         "n_CFx" : 8,
-        "n_CHx" : null,
-        "n_COO" : null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
         "n_COOH": 1,
-        "n_SO3" : null,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFDA": {
         "name": "PFDA",
@@ -321,15 +331,16 @@
         "K_mo": null,
                 
         "n_CFx" : 9,
-        "n_CHx" : null,
-        "n_COO" : null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
         "n_COOH": 1,
-        "n_SO3" : null,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
-        "n__O_" : null,
-        "n__S_" : null
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "HFPO-DA": {
         "name": "HFPO-DA",
@@ -346,14 +357,15 @@
         "K_mo": null,
         
         "n_CFx" : 5,
-        "n_CHx" : null,
-        "n_COO" : null,
+        "n_CHx" : 0,
+        "n_COO" : 0,
         "n_COOH": 1,
-        "n_SO3" : null,
-        "n_R4N" : null,
-        "n_OH"  : null,
-        "n_OSO3": null,
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
         "n__O_" : 1,
-        "n__S_" : null
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     }
 }

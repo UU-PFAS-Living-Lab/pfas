@@ -12,10 +12,18 @@
         "K_oc": null,
         "K_sc": null,
         "K_mo": null,
-        "n_CFx": 1,
-        "n_COO": 1,
-        "n_SO3": null,
-        "n__O_": null
+
+        "n_CFx" : 1,
+        "n_CHx" : 0,
+        "n_COO" : 1,
+        "n_COOH": 0,
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFBA": {
         "name": "PFBA",
@@ -36,10 +44,18 @@
             "unit": "L/kg"
         },
         "K_mo": null,
-        "n_CFx": 3,
-        "n_COO": 1,
-        "n_SO3": null,
-        "n__O_": null
+
+        "n_CFx" : 3,
+        "n_CHx" : 0,
+        "n_COO" : 1,
+        "n_COOH": 0,
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFBS": {
         "name": "PFBS",
@@ -60,10 +76,18 @@
             "unit": "L/kg"
         },
         "K_mo": null,
-        "n_CFx": 4,
-        "n_COO": null,
-        "n_SO3": 1,
-        "n__O_": null
+
+        "n_CFx" : 4,
+        "n_CHx" : 0,
+        "n_COO" : 0,
+        "n_COOH": 0,
+        "n_SO3" : 1,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFPeA": {
         "name": "PFPeA",
@@ -84,10 +108,18 @@
             "unit": "L/kg"
         },
         "K_mo": null,
-        "n_CFx": 4,
-        "n_COO": 1,
-        "n_SO3": null,
-        "n__O_": null
+        
+        "n_CFx" : 4,
+        "n_CHx" : 0,
+        "n_COO" : 1,
+        "n_COOH": 0,
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFHxA": {
         "name": "PFHxA",
@@ -108,10 +140,18 @@
             "unit": "L/kg"
         },
         "K_mo": null,
-        "n_CFx": 5,
-        "n_COO": 1,
-        "n_SO3": null,
-        "n__O_": null
+        
+        "n_CFx" : 5,
+        "n_CHx" : 0,
+        "n_COO" : 1,
+        "n_COOH": 0,
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFHxS": {
         "name": "PFHxS",
@@ -132,10 +172,18 @@
             "unit": "L/kg"
         },
         "K_mo": null,
-        "n_CFx": 6,
-        "n_COO": null,
-        "n_SO3": 1,
-        "n__O_": null
+        
+        "n_CFx" : 6,
+        "n_CHx" : 0,
+        "n_COO" : 0,
+        "n_COOH": 0,
+        "n_SO3" : 1,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFHpA": {
         "name": "PFHpA",
@@ -153,10 +201,18 @@
         },
         "K_sc": null,
         "K_mo": null,
-        "n_CFx": 6,
-        "n_COO": 1,
-        "n_SO3": null,
-        "n__O_": null
+                
+        "n_CFx" : 6,
+        "n_CHx" : 0,
+        "n_COO" : 1,
+        "n_COOH": 0,
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFOA": {
         "name": "PFOA",
@@ -177,10 +233,18 @@
             "unit": "L/kg"
         },
         "K_mo": null,
-        "n_CFx": 7,
-        "n_COO": 1,
-        "n_SO3": null,
-        "n__O_": null
+                
+        "n_CFx" : 7,
+        "n_CHx" : 0,
+        "n_COO" : 1,
+        "n_COOH": 0,
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFOS": {
         "name": "PFOS",
@@ -201,10 +265,18 @@
             "unit": "L/kg"
         },
         "K_mo": null,
-        "n_CFx": 8,
-        "n_COO": null,
-        "n_SO3": 1,
-        "n__O_": null
+        
+        "n_CFx" : 8,
+        "n_CHx" : 0,
+        "n_COO" : 0,
+        "n_COOH": 0,
+        "n_SO3" : 1,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFNA": {
         "name": "PFNA",
@@ -225,10 +297,18 @@
             "unit": "L/kg"
         },
         "K_mo": null,
-        "n_CFx": 8,
-        "n_COO": 1,
-        "n_SO3": null,
-        "n__O_": null
+        
+        "n_CFx" : 8,
+        "n_CHx" : 0,
+        "n_COO" : 1,
+        "n_COOH": 0,
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "PFDA": {
         "name": "PFDA",
@@ -249,10 +329,18 @@
             "unit": "L/kg"
         },
         "K_mo": null,
-        "n_CFx": 9,
-        "n_COO": 1,
-        "n_SO3": null,
-        "n__O_": null
+                
+        "n_CFx" : 9,
+        "n_CHx" : 0,
+        "n_COO" : 1,
+        "n_COOH": 0,
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 0,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     },
     "HFPO-DA": {
         "name": "HFPO-DA",
@@ -267,9 +355,17 @@
         "K_oc": null,
         "K_sc": null,
         "K_mo": null,
-        "n_CFx": 5,
-        "n_COO": 1,
-        "n_SO3": null,
-        "n__O_": 1
+        
+        "n_CFx" : 5,
+        "n_CHx" : 0,
+        "n_COO" : 1,
+        "n_COOH": 0,
+        "n_SO3" : 0,
+        "n_R4N" : 0,
+        "n_OH"  : 0,
+        "n_OSO3": 0,
+        "n__O_" : 1,
+        "n__S_" : 0,
+        "n_N_CH3_2_CH2_COO": 0
     }
 }
