@@ -47,7 +47,7 @@ from pfas.analytical_soln import (
     SimulationGrid,
     analytical_soln,
 )
-from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich, kaw_Le2021
+from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich, Kaw_0_Le2021, Kaw_langmuir_Le2021, dG0_Le2021
 
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
@@ -127,12 +127,12 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         def relperm(se):
             return se**(self.van_genuchten_l) * (1 - (1 - se**(1/m))**m)**2 - kr
 
-        se = fsolve(relperm, self.init_sat)
-        theta = se[0] * (self.porosity - self.residual_water_content) + self.residual_water_content
+        #se = fsolve(relperm, self.init_sat)
+        #theta = se[0] * (self.porosity - self.residual_water_content) + self.residual_water_content
 
         # Using a different solver in order to get a result for se.
-        #se = brentq(relperm, 1e-12, 1.0)
-        #theta = se * (self.porosity - self.residual_water_content) + self.residual_water_content
+        se = brentq(relperm, 1e-12, 1.0)
+        theta = se * (self.porosity - self.residual_water_content) + self.residual_water_content
 
         v = self.average_infiltration_rate / theta
         d = v * self.dispersivity
@@ -564,16 +564,16 @@ class SorptionKawCalculated(BaseModel, validate_assignment=True, extra='forbid')
         List containing 'awi_retardation'.
     """
 
-    n_CFx : int = 0
-    n_CHx : int = 0
-    n_COO : int = 0
-    n_COOH : int = 0
-    n_SO3 : int = 0
-    n_R4N : int = 0
-    n_OH : int = 0
-    n_OSO3 : int = 0
-    n__O_ : int = 0
-    n__S_ : int = 0
+    n_CFx             : int = 0
+    n_CHx             : int = 0
+    n_COO             : int = 0
+    n_COOH            : int = 0
+    n_SO3             : int = 0
+    n_R4N             : int = 0
+    n_OH              : int = 0
+    n_OSO3            : int = 0
+    n__O_             : int = 0
+    n__S_             : int = 0
     n_N_CH3_2_CH2_COO : int = 0
 
     hydro_properties: HydrologicalProperties
@@ -581,7 +581,7 @@ class SorptionKawCalculated(BaseModel, validate_assignment=True, extra='forbid')
 
     @property    
     def kaw(self):
-        return kaw_Le2021(
+        return Kaw_0_Le2021(
             self.n_CFx,
             self.n_CHx,
             self.n_COO,
@@ -610,6 +610,141 @@ class SorptionKawCalculated(BaseModel, validate_assignment=True, extra='forbid')
 
     @property
     def outputs(self):
+        """List of output keys from compute() method."""
+        return ["awi_retardation"]
+
+class SorptionKawLangmuir(BaseModel, validate_assignment=True, extra='forbid'):
+    """
+    Compute adsorption parameters for air-water interface using Langmuir isotherm.
+
+    Calculates retardation factor for sorption at the air-water interface
+    using a concentration-dependent Langmuir partition coefficient,
+    according to Le et al. (2021). Both Kaw_0 and dG0 are derived from
+    molecular structure via group contributions; only Cw varies at runtime.
+
+    Parameters
+    ----------
+    hydro_properties : HydrologicalProperties
+        Hydraulic properties from WaterPreprocessor.
+    aaw : float
+        Air-water interfacial area (m²/m³).
+    n_CFx : int
+        Number of perfluorinated carbons (CF2 groups) in the PFAS molecule.
+    n_CHx : int
+        Number of hydrocarbon groups in the PFAS molecule.
+    n_COO : int
+        Number of carboxylate functional groups in the PFAS molecule.
+    n_COOH : int
+        Number of carboxylic acid functional groups in the PFAS molecule.
+    n_SO3 : int
+        Number of sulfonic acid functional groups in the PFAS molecule.
+    n_R4N : int
+        Number of quaternary ammonium functional groups in the PFAS molecule.
+    n_OH : int
+        Number of hydroxyl functional groups in the PFAS molecule.
+    n_OSO3 : int
+        Number of organosulfate functional groups in the PFAS molecule.
+    n__O_ : int
+        Number of ether oxygen atoms in the PFAS molecule.
+    n__S_ : int
+        Number of thioether sulfur atoms in the PFAS molecule.
+    n_N_CH3_2_CH2_COO : int
+        Number of dimethylamino-acetate functional groups in the PFAS molecule.
+
+    Attributes
+    ----------
+    outputs : list of str
+        List containing 'awi_retardation'.
+    """
+
+    n_CFx             : int = 0
+    n_CHx             : int = 0
+    n_COO             : int = 0
+    n_COOH            : int = 0
+    n_SO3             : int = 0
+    n_R4N             : int = 0
+    n_OH              : int = 0
+    n_OSO3            : int = 0
+    n__O_             : int = 0
+    n__S_             : int = 0
+    n_N_CH3_2_CH2_COO : int = 0
+
+    hydro_properties: HydrologicalProperties
+    aaw: float
+
+    @property
+    def Kaw_0(self) -> float:
+        """Dilute-limit air-water partition coefficient (m) from group contributions.
+        
+        This is the Langmuir numerator — the value Kaw approaches as Cw → 0.
+        """
+        return Kaw_0_Le2021(
+            self.n_CFx,
+            self.n_CHx,
+            self.n_COO,
+            self.n_COOH,
+            self.n_SO3,
+            self.n_R4N,
+            self.n_OH,
+            self.n_OSO3,
+            self.n__O_,
+            self.n__S_,
+            self.n_N_CH3_2_CH2_COO,
+        )
+
+    @property
+    def dG0(self) -> float:
+        """Gibbs free energy of adsorption (kJ/mol) from group contributions."""
+        return dG0_Le2021(
+            self.n_CFx,
+            self.n_CHx,
+            self.n_COO,
+            self.n_COOH,
+            self.n_SO3,
+            self.n_R4N,
+            self.n_OH,
+            self.n_OSO3,
+            self.n__O_,
+            self.n__S_,
+            self.n_N_CH3_2_CH2_COO,
+        )
+
+    def Kaw(self, Cw: float) -> float:
+        """Concentration-dependent air-water partition coefficient via Langmuir isotherm (m).
+
+        Parameters
+        ----------
+        Cw : float
+            Aqueous-phase concentration of the PFAS compound (mol/L).
+
+        Returns
+        -------
+        float
+            Kaw at the given concentration.
+        """
+        return Kaw_langmuir_Le2021(self.Kaw_0, self.dG0, Cw)
+
+    def compute(self, Cw: float) -> dict:
+        """
+        Calculate air-water interface retardation factor at a given concentration.
+
+        Parameters
+        ----------
+        Cw : float
+            Aqueous-phase concentration of the PFAS compound (mol/L),
+            typically C_list[j] for the active time interval.
+
+        Returns
+        -------
+        dict
+            Dictionary with key 'awi_retardation'.
+        """
+    
+        awi_retardation = (self.Kaw(Cw) * self.aaw) / self.hydro_properties.water_content
+        return {"awi_retardation": awi_retardation, "Kaw": self.Kaw(Cw)}
+
+    @property
+    def outputs(self) -> list[str]:
         """List of output keys from compute() method."""
         return ["awi_retardation"]
 
