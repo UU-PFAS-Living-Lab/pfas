@@ -10,14 +10,13 @@ PFAS is a toolkit for simulating the movement and fate of PFAS contaminants in s
 
 ## Features
 
-- **Modular Architecture**: Build complex transport models using pluggable preprocessors and solvers
-- **Flexible Configuration**: Define simulations using intuitive TOML configuration files
-- **Sorption Modeling**: Support for linear and non-linear sorption processes (Kawi model)
+- **Modular Architecture**: Build complex transport models using pluggable preprocessors and solvers.
+- **Flexible Configuration**: Define simulations using intuitive TOML configuration files or directly in code.
+- **Sorption Modeling**: Support for linear and non-linear sorption processes to soil particles and Air-Water Interface
 - **Vadose Zone Transport**: Simulate PFAS movement through the unsaturated zone
 - **Soil-Water Content Effects**: Account for soil-water characteristic curves in moisture dynamics
 - **Grid Generation**: Automatic mesh generation for spatial domains
 - **Boundary Condition Management**: Flexible handling of domain boundaries
-- **Type-Safe**: Full type annotations for better IDE support and code reliability
 
 ## Requirements
 
