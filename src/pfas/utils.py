@@ -95,7 +95,7 @@ def aaw_func_tracer(sw, x2, x1, x0):
     aaw = x2*sw**2 + x1*sw + x0
     return aaw
 
-def aaw_func_1(sw, poro, d50):
+def aaw_func_1(th, ths, poro, d50):
     """Compute air-water interfacial area using empirical polynomial model.
     
     NOG NIET GEUPDATE
@@ -124,10 +124,11 @@ def aaw_func_1(sw, poro, d50):
 
     """
 
+    sw = np.linspace(th/ths,1,1000)
     aaw = (1-sw)*6*(1-poro)/d50
     return aaw
 
-def aaw_func_2(sw, d50):
+def aaw_func_2(th, ths, d50):
     """Compute air-water interfacial area using the d50 correlation.
 
     Estimates the air-water interfacial area per unit bulk volume as a
@@ -154,6 +155,7 @@ def aaw_func_2(sw, d50):
     
     """
 
+    sw = np.linspace(th/ths,1,1000)
     aaw = (1-sw) * 3.9 * d50**-1.2
     return aaw
 
