@@ -98,13 +98,7 @@ grid = data["grid"]    # Grid information
 
 ## Documentation
 
-Full documentation is available at [Read the Docs](https://pfas.readthedocs.io/) and includes:
-
-- [Installation Guide](docs/source/installation.rst)
-- [Quick Start Tutorial](docs/source/quick_start.rst)
-- [Detailed Tutorials](docs/source/tutorials.rst)
-- [API Reference](docs/source/api.rst)
-- [FAQ](docs/source/faq.rst)
+Full documentation is available at [Read the Docs](https://pfas.readthedocs.io/). 
 
 ## Examples
 
@@ -116,7 +110,7 @@ Several example scripts are provided in the `examples/` directory, demonstrating
 - `factory.py` - Factory patterns for model creation
 - `gen_example.py` - Configuration generation
 
-
+To run these examples, you need Marimo.
 
 ## License
 
