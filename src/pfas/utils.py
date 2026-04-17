@@ -124,8 +124,7 @@ def aaw_func_1(sw, poro, d50):
 
     """
 
-    GSSA = 6*(1-poro)/d50
-    aaw = (1-sw)*GSSA
+    aaw = (1-sw)*6*(1-poro)/d50
     return aaw
 
 def aaw_func_2(sw, d50):
@@ -448,3 +447,4 @@ def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw):
     Kaw = (Kaw_0)/(1 + Keq*Cw)
 
     return Kaw
+
