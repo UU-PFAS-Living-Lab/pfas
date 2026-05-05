@@ -47,7 +47,7 @@ from pfas.analytical_soln import (
     SimulationGrid,
     analytical_soln,
 )
-from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich, Kaw_0_Le2021, Kaw_langmuir_Le2021, dG0_Le2021
+from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich, Kaw_0_Le2021, Kaw_langmuir_Le2021, Kaw_Szyszkowski, dG0_Le2021, aaw_func_1, aaw_func_2
 
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
@@ -326,6 +326,12 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
             x1 = guo_params["guo_x1"]
             x2 = guo_params["guo_x2"]
             aaw = aaw_func_tracer(theta, x2, x1, x0)
+        elif self.AWI["AWI_type"] == "Func1":
+            d50 = self.soil["d50"]
+            aaw = aaw_func_1(theta, thetas, poro, d50)
+        elif self.AWI["AWI_type"] == "Func2":
+            d50 = self.soil["d50"]
+            aaw = aaw_func_2(theta, thetas, d50)
 
         return {"aaw": aaw}
 
@@ -606,7 +612,7 @@ class SorptionKawCalculated(BaseModel, validate_assignment=True, extra='forbid')
         """
         
         awi_retardation = (self.kaw * self.aaw) / self.hydro_properties.water_content
-        return {"awi_retardation": awi_retardation}
+        return {"awi_retardation": awi_retardation, "Kaw": self.kaw}
 
     @property
     def outputs(self):
@@ -676,7 +682,6 @@ class SorptionKawLangmuir(BaseModel, validate_assignment=True, extra='forbid'):
     def Kaw_0(self) -> float:
         """Dilute-limit air-water partition coefficient (m) from group contributions.
         
-        This is the Langmuir numerator — the value Kaw approaches as Cw → 0.
         """
         return Kaw_0_Le2021(
             self.n_CFx,
@@ -710,7 +715,7 @@ class SorptionKawLangmuir(BaseModel, validate_assignment=True, extra='forbid'):
         )
 
     def Kaw(self, Cw: float) -> float:
-        """Concentration-dependent air-water partition coefficient via Langmuir isotherm (m).
+        """Concentration dependent air-water partition coefficient via Langmuir isotherm (m).
 
         Parameters
         ----------
@@ -739,13 +744,95 @@ class SorptionKawLangmuir(BaseModel, validate_assignment=True, extra='forbid'):
         dict
             Dictionary with key 'awi_retardation'.
         """
-    
         awi_retardation = (self.Kaw(Cw) * self.aaw) / self.hydro_properties.water_content
         return {"awi_retardation": awi_retardation, "Kaw": self.Kaw(Cw)}
 
     @property
     def outputs(self) -> list[str]:
         """List of output keys from compute() method."""
+        return ["awi_retardation"]
+    
+class SorptionKawSzyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
+    """
+    Compute air-water interfacial retardation using a Szyszkowski-based
+    air-water partition coefficient with parameters from Guo et al. (2022).
+
+    Parameters
+    ----------
+    sigma0 : float, optional
+        Surface tension of water (N/m). Default is 0.072.
+    a : float
+        Szyszkowski fitting parameter (mol/L).
+    b : float
+        Szyszkowski fitting parameter (dimensionless).
+    chi : int, optional
+        Ionisation coefficient. Use 1 for nonionic PFAS or ionic PFAS
+        with swamping electrolyte, and 2 for ionic PFAS without
+        swamping electrolyte. Default is 2.
+    T : float, optional
+        Temperature (K). Default is 298 K.
+    hydro_properties : HydrologicalProperties
+        Hydraulic properties from WaterPreprocessor.
+    aaw : float
+        Air-water interfacial area (cm²/cm³).
+
+    Attributes
+    ----------
+    outputs : list of str
+        List containing 'awi_retardation'.
+    """
+
+    sigma0: Annotated[float, Gt(0)] = 0.072
+    a: float
+    b: float
+    chi: int = 2
+    T: Annotated[float, Gt(0)] = 298.0
+    hydro_properties: HydrologicalProperties
+    aaw: float
+
+    def Kaw(self, Cw: float) -> float:
+        """
+        Calculate Kaw from aqueous concentration and Szyszkowski fitting parameters
+
+        Parameters
+        ----------
+        Cw : float
+            Aqueous-phase concentration of the PFAS compound (mol/L).
+
+        Returns
+        -------
+        float
+            Kaw at the given concentration.
+        """
+        return Kaw_Szyszkowski(
+            sigma0=self.sigma0,
+            a=self.a,
+            b=self.b,
+            Cw=Cw,
+            chi=self.chi,
+            T=self.T,
+        )
+
+    def compute(self, Cw: float) -> dict:
+        """
+        Calculate air-water interface retardation factor at a given concentration.
+
+        Parameters
+        ----------
+        Cw : float
+            Aqueous-phase concentration of the PFAS compound (mol/L),
+            typically C_list[j] for the active time interval.
+
+        Returns
+        -------
+        dict
+            Dictionary with key 'awi_retardation'.
+        """
+        awi_retardation = (self.Kaw(Cw) * self.aaw) / self.hydro_properties.water_content
+        return {"awi_retardation": awi_retardation, "Kaw": self.Kaw(Cw)}
+
+    @property
+    def outputs(self) -> list[str]:
         return ["awi_retardation"]
 
 class AdsorptionCollector(BaseModel, validate_assignment=True, extra='forbid'):
