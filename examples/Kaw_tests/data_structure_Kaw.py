@@ -132,7 +132,7 @@ def _(
     vg_n,
 ):
     ## Running simulation 
-    from pfas.utils import kd_freundlich, kaw_Le2021
+    from pfas.utils import kd_freundlich, Kaw_0_Le2021
 
     # Step 1: Generate the grid
     grid_gen = GridGenerator(

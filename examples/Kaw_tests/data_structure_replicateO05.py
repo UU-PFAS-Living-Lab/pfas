@@ -27,7 +27,7 @@ def _():
         GridGenerator,
         SWCAdsorptionPreprocessor,
         SimulationRunner,
-        SorptionKawLangmuir,
+        SorptionKawCalculated,
         SpRetardationPreprocessor,
         WaterPreprocessor,
         mo,
@@ -50,7 +50,7 @@ def _():
     from pfas.data_loader import load_dataset
 
     PFASs = load_dataset("PFASs")
-    soils = load_dataset("soils_Ksat_rho_b")
+    soils = load_dataset("soils_Ksat_rho_b_d50")
     spa_matrix = load_dataset("spa_matrix")
     # See what's available
     print("Available PFAS compounds:")
@@ -68,7 +68,7 @@ def _():
 def _(PFASs, soils, spa_matrix):
     # Pick a compound and soil for this run
     pfas_name = "PFOA"
-    soil_name = "Staring-O05"
+    soil_name = "Staring-O18"
 
     pfas = PFASs[pfas_name]
     soil = soils[soil_name]
@@ -161,7 +161,7 @@ def _(
     GridGenerator,
     SWCAdsorptionPreprocessor,
     SimulationRunner,
-    SorptionKawLangmuir,
+    SorptionKawCalculated,
     SpRetardationPreprocessor,
     WaterPreprocessor,
     bulk_dens,
@@ -207,14 +207,8 @@ def _(
     pulse_duration = 25 * (60 * 60 * 24 * 365)
     # Step 3: Setup boundary conditions
     boundary_prep = BoundaryPreprocessor(
-        C_list=[
-            pfas['M']["value"] * 1e-9,  # mg/L for 1 pmol/L
-            0.0
-        ],
-        T_list=[
-            0.0,
-            pulse_duration
-        ]
+        C_list=[pfas['M']["value"] * 1e-9, 0.0], # mg/L for 1 pmol/L
+        T_list=[0.0, pulse_duration]
     )
     boundary_results = boundary_prep.compute()
 
@@ -266,7 +260,7 @@ def _(
 
     # Step 6: Kawi sorption
     # Step 6: Compute Kawi sorption
-    kawi_sorp = SorptionKawLangmuir(
+    kawi_sorp = SorptionKawCalculated(
         n_CFx             = pfas["n_CFx"],
         n_CHx             = pfas["n_CHx"],
         n_COO             = pfas["n_COO"],
@@ -281,8 +275,7 @@ def _(
         hydro_properties  = water_results["hydro_properties"],
         aaw               = awi_results["aaw"],
     )
-    Cw_mol_L = 1e-12  # = 1e-9 mol/L (1 pmol/L)
-    kawi_results = kawi_sorp.compute(Cw=Cw_mol_L)
+    kawi_results = kawi_sorp.compute()
 
     # Step 7: Run the simulation
     sim_runner = SimulationRunner(

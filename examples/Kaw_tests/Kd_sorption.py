@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.23.1"
 app = marimo.App(width="medium")
 
 
@@ -223,11 +223,12 @@ def _(
 
     # Water flow
     water_prep = WaterPreprocessor(
-        average_infiltration_rate=1.5,
+        average_infiltration_rate=1.5/100,
         hydraulic_conductivity=K_sat,
         porosity=porosity,
         dispersivity=dispersivity,
         van_genuchten_n=vg_n,
+        van_genuchten_l=0.5,
         init_sat=0.2,
         residual_water_content=theta_r,
     )

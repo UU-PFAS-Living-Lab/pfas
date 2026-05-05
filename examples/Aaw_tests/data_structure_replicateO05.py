@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.19.11"
+__generated_with = "0.23.1"
 app = marimo.App(width="medium")
 
 
@@ -50,7 +50,7 @@ def _():
     from pfas.data_loader import load_dataset
 
     PFASs = load_dataset("PFASs")
-    soils = load_dataset("soils_Ksat_rho_b")
+    soils = load_dataset("soils_Ksat_rho_b_d50")
     spa_matrix = load_dataset("spa_matrix")
     # See what's available
     print("Available PFAS compounds:")
@@ -134,9 +134,11 @@ def _(PFASs, soils, spa_matrix):
         frac_int,
         n_CFx,
         pfas,
+        pfas_name,
         porosity,
         rate_const,
         soil,
+        soil_name,
         theta_r,
         tracer_fit,
         vg_alpha,
@@ -205,14 +207,8 @@ def _(
     pulse_duration = 25 * (60 * 60 * 24 * 365)
     # Step 3: Setup boundary conditions
     boundary_prep = BoundaryPreprocessor(
-        C_list=[
-            pfas['M']["value"] * 1e-9,  # mg/L for 1 pmol/L
-            0.0
-        ],
-        T_list=[
-            0.0,
-            pulse_duration
-        ]
+        C_list=[pfas['M']["value"] * 1e-9, 0.0],
+        T_list=[0.0, pulse_duration]
     )
     boundary_results = boundary_prep.compute()
 
@@ -243,8 +239,8 @@ def _(
         sigma0=71,
         scaling_factor_awi=4.15,
         AWI={
-            "AWI_type": "SWC-based",
-            "SWC-based": {
+            "AWI_type": "Func1",
+            "Func1": {
                 "scaling_factor_awi": 4.15,
             },
         },
@@ -257,7 +253,8 @@ def _(
             "residual_water_content": water_prep.residual_water_content,
             "hydraulic_conductivity": water_prep.hydraulic_conductivity,
             "dispersivity": water_prep.dispersivity,
-            "tracer_fit":tracer_fit
+            "tracer_fit":tracer_fit,
+            "d50":soil["d50"]["value"]/10000
         },
     )
     awi_results = swc_adsorp.compute()
@@ -265,7 +262,7 @@ def _(
     # Step 6: Kawi sorption
     # Step 6: Compute Kawi sorption
     kawi_sorp = SorptionKawiDirectInput(
-        kaw=3.89E-4,
+        kaw=0.0003890451444857423,
         hydro_properties=water_results["hydro_properties"],
         aaw=awi_results["aaw"],
     )
@@ -285,7 +282,6 @@ def _(
     final_results = sim_runner.compute()
     return (
         awi_results,
-        boundary_prep,
         final_results,
         grid_results,
         kawi_results,
@@ -324,26 +320,32 @@ def _(mo):
 
 
 @app.cell
-def _(final_results, grid_results, plt):
+def _(final_results, grid_results, pfas_name, plt, soil_name):
     simulation_grid = grid_results["grid"]
+    seconds_per_year = (60*60*24*365)
     # Select specific time indices to plot
     t_len = final_results['C_tot'].shape[1]
-    time_indices = [0, t_len//4, t_len//2, 3*t_len//4, -1]  # First, and some intermediate, and last time step
+    time_indices = [0, t_len//40, t_len//20, t_len//10, t_len//5]  # First, and some intermediate, and last time step
 
     plt.figure(figsize=(8, 6))
 
     for t_idx in time_indices:
-        plt.plot(final_results['C_tot'][:, t_idx], simulation_grid.depth, label=f"t = {simulation_grid.time[t_idx]:.0f} years")
+        time_years = simulation_grid.time[t_idx] / seconds_per_year
+        plt.plot(
+            final_results['C_tot'][:, t_idx], 
+            simulation_grid.depth, 
+            label=f"t = {time_years:.1f} years"
+        )
 
     plt.xlabel("Total PFAS Concentration (mg/L)")
     plt.ylabel("Depth (cm)")
-    plt.title("PFAS Concentration Depth Profile at Different Times")
+    plt.title(f"PFAS Concentration Profile - {soil_name} - {pfas_name}")
     plt.legend()
     plt.gca().invert_yaxis()  # Invert y-axis so depth increases downward
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()
-    return (simulation_grid,)
+    return seconds_per_year, simulation_grid
 
 
 @app.cell
@@ -353,11 +355,10 @@ def _():
 
 
 @app.cell
-def _(final_results, plt, simulation_grid):
+def _(final_results, plt, seconds_per_year, simulation_grid):
     #Breakthrough plot of total concentration at bottom of grid over time
     C_tot = final_results['C_tot']
 
-    seconds_per_year = 60*60*24*365
     bottom_idx = -1
     bottom_depth = simulation_grid.depth[bottom_idx]
 
@@ -373,35 +374,40 @@ def _(final_results, plt, simulation_grid):
     plt.xlabel("Time (years)") 
     plt.ylabel("Total PFAS Concentration (mg/L)")
     plt.title("PFAS Concentration Over Time")
-    return C_tot, bottom_depth, bottom_idx, seconds_per_year
+    return bottom_depth, bottom_idx
 
 
 @app.cell
 def _(
-    C_tot,
     bottom_depth,
     bottom_idx,
-    boundary_prep,
+    final_results,
+    pfas,
+    pfas_name,
     plt,
     seconds_per_year,
     simulation_grid,
+    soil_name,
 ):
-    #Breakthrough plot of relative concentration at bottom of grid over time
-    # Relative concentration calculation!
-    C_0 = boundary_prep.solute_concentration_influx
-    C_rel = C_tot[bottom_idx, :]/C_0
+    #Breakthrough curve of relative concentration at 1m
+
+    C_in = pfas['M']["value"] * 1e-9  # mg/L for 1 pmol/L
+    C_rel = final_results['C1'][bottom_idx, :] / C_in
 
     plt.figure(figsize=(8, 6))
-
     plt.plot(
-        simulation_grid.time/seconds_per_year, 
-        C_rel, 
-        label=f"Depth = {bottom_depth} cm", 
+        simulation_grid.time / seconds_per_year,
+        C_rel,
+        label=f"Depth = {bottom_depth} cm",
         color="blue"
     )
-    plt.xlabel("Time (years)") 
-    plt.ylabel("Relative PFAS Concentration (-)")
-    plt.title("PFAS Concentration Over Time")
+    plt.xlabel("Time (years)")
+    plt.ylabel("Relative aqueous PFAS concentration (-)")
+    plt.title(f"PFAS breakthrough curve - {soil_name} - {pfas_name}")
+    plt.ylim(0, 1.05)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
     return
 
 
