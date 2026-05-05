@@ -305,8 +305,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 139.2517,
-            "unit": "mm"
+            "value": 134.0151,
+            "unit": "μm"
         }
     },
     "Staring-O02": {
@@ -349,8 +349,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 103.8115,
-            "unit": "mm"
+            "value": 102.0409,
+            "unit": "μm"
         }
     },
     "Staring-O03": {
@@ -393,8 +393,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 104.7331,
-            "unit": "mm"
+            "value": 108.3076,
+            "unit": "μm"
         }
     },
     "Staring-O04": {
@@ -437,8 +437,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 68.3869,
-            "unit": "mm"
+            "value": 57.4566,
+            "unit": "μm"
         }
     },
     "Staring-O05": {
@@ -481,8 +481,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 315.1785,
-            "unit": "mm"
+            "value": 282.0889,
+            "unit": "μm"
         }
     },
     "Staring-O06": {
@@ -525,8 +525,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 104.21,
-            "unit": "mm"
+            "value": 94.5621,
+            "unit": "μm"
         }
     },
     "Staring-O07": {
@@ -569,8 +569,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 69.3231,
-            "unit": "mm"
+            "value": 69.8943,
+            "unit": "μm"
         }
     },
     "Staring-O08": {
@@ -613,8 +613,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 71.0893,
-            "unit": "mm"
+            "value": 71.7130,
+            "unit": "μm"
         }
     },
     "Staring-O09": {
@@ -657,8 +657,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 56.0967,
-            "unit": "mm"
+            "value": 56.2685,
+            "unit": "μm"
         }
     },
     "Staring-O10": {
@@ -701,8 +701,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 50.0888,
-            "unit": "mm"
+            "value": 51.5041,
+            "unit": "μm"
         }
     },
     "Staring-O11": {
@@ -745,8 +745,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 17.8693,
-            "unit": "mm"
+            "value": 17.4554,
+            "unit": "μm"
         }
     },
     "Staring-O12": {
@@ -789,8 +789,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 3.5708,
-            "unit": "mm"
+            "value": 3.1238,
+            "unit": "μm"
         }
     },
     "Staring-O13": {
@@ -833,8 +833,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 1.7501,
-            "unit": "mm"
+            "value": 1.7397,
+            "unit": "μm"
         }
     },
     "Staring-O14": {
@@ -877,8 +877,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 28.6852,
-            "unit": "mm"
+            "value": 27.7223,
+            "unit": "μm"
         }
     },
     "Staring-O15": {
@@ -921,8 +921,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 19.8167,
-            "unit": "mm"
+            "value": 19.8580,
+            "unit": "μm"
         }
     },
     "Staring-O16": {
@@ -965,8 +965,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 22.7477,
-            "unit": "mm"
+            "value": 24.2890,
+            "unit": "μm"
         }
     },
     "Staring-O17": {
@@ -1009,8 +1009,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 10.6601,
-            "unit": "mm"
+            "value": 3.0624,
+            "unit": "μm"
         }
     },
     "Staring-O18": {
@@ -1053,8 +1053,8 @@
             "unit": "percent"
         },
         "d50": {
-            "value": 106.5343,
-            "unit": "mm"
+            "value": 106.5260,
+            "unit": "μm"
         }
     }
 }
