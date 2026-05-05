@@ -96,22 +96,23 @@ def aaw_func_tracer(sw, x2, x1, x0):
     return aaw
 
 def aaw_func_1(th, ths, poro, d50):
-    """Compute air-water interfacial area using empirical polynomial model.
-    
-    NOG NIET GEUPDATE
-    
-    Estimates air-water interfacial area per unit volume using polynomial
-    fitting coefficients derived from tracer experiments or pore-scale imaging.
-    This approach provides a simplified, computationally efficient alternative
-    to thermodynamic calculations.
+    """Compute air-water interfacial area using the GSSA-based linear model.
+
+    Estimates the air-water interfacial area per unit bulk volume as a
+    linear function of water saturation, assuming that the geometric
+    smooth-surface specific solid surface area (GSSA) represents the
+    maximum possible interfacial area.
 
     Parameters
     ----------
-    sw : float or ndarray
-        Water saturation (dimensionless, 0-1).
+    th : float or ndarray
+        Volumetric water content.
+    ths : float
+        Saturated volumetric water content.
     poro : float
         Porosity of the porous medium (dimensionless, 0-1).
-    d50  : median grain size
+    d50 : float
+        Median grain diameter (cm).
 
     Returns
     -------
@@ -124,8 +125,8 @@ def aaw_func_1(th, ths, poro, d50):
 
     """
 
-    sw = np.linspace(th/ths,1,1000)
-    aaw = (1-sw)*6*(1-poro)/d50
+    sw = th/ths
+    aaw = (1-sw) * (6*(1-poro)/d50)
     return aaw
 
 def aaw_func_2(th, ths, d50):
@@ -139,8 +140,6 @@ def aaw_func_2(th, ths, d50):
     ----------
     sw : float or ndarray
         Water saturation (dimensionless, 0-1).
-    poro : float
-        Porosity of the porous medium (dimensionless, 0-1).
     d50  : float
         Median grain diameter (cm)
 
@@ -155,7 +154,7 @@ def aaw_func_2(th, ths, d50):
     
     """
 
-    sw = np.linspace(th/ths,1,1000)
+    sw = th/ths
     aaw = (1-sw) * 3.9 * d50**-1.2
     return aaw
 
@@ -450,3 +449,40 @@ def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw):
 
     return Kaw
 
+def Kaw_Szyszkowski(sigma0, a, b, Cw, chi=2, T=298):
+    """Calculate air-water partitioning coefficient using the Szyszkowski equation.
+
+    Parameters
+    ----------
+    sigma0 : float
+        Surface tension of PFAS-free water (dyn/cm).
+    a : float
+        Szyszkowski fitting parameter (mol/L).
+    b : float
+        Szyszkowski fitting parameter (dimensionless).
+    Cw : float
+        Aqueous PFAS concentration (mol/L).
+    chi : int, optional
+        Ionisation coefficient. Use 1 for nonionic PFAS or ionic PFAS
+        with swamping electrolyte, and 2 for ionic PFAS without
+        swamping electrolyte. Default is 2.
+    T : float, optional
+        Temperature (K). Default is 298 K.
+
+    Returns
+    -------
+    Kaw : float
+        Air-water interfacial adsorption coefficient (cm3/cm2), equivalent to cm.
+    """
+
+    R = 8.314e7  # dyn cm / mol / K
+
+    # Convert mol/L to mol/cm3
+    a_mol_cm3 = a / 1000
+    Cw_mol_cm3 = Cw / 1000  
+
+    Kaw = (sigma0 * b) / (
+        chi * R * T * (a_mol_cm3 + Cw_mol_cm3)
+    )
+
+    return Kaw
