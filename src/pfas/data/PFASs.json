@@ -5,12 +5,28 @@
             "value": 114.02,
             "unit": "g/mol"
         },
+        "Szyszkowski_params":{
+            "a":{
+                "value": null,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": null,
+                "unit": "-"
+            }
+        },
         "diffusivity": {
             "value": 1,
             "unit": null
         },
-        "K_oc": null,
-        "K_sc": null,
+        "K_oc": {
+            "value": null,
+            "unit": "L/kg"
+        },
+        "K_sc": {
+            "value": null,
+            "unit": "L/kg"
+        },
         "K_mo": null,
 
         "n_CFx" : 1,
@@ -30,6 +46,16 @@
         "M": {
             "value": 214.0,
             "unit": "g/mol"
+        },
+        "Szyszkowski_params":{
+            "a":{
+                "value": null,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": null,
+                "unit": "-"
+            }
         },
         "diffusivity": {
             "value": 3,
@@ -63,6 +89,16 @@
             "value": 300.1,
             "unit": "g/mol"
         },
+        "Szyszkowski_params":{
+            "a":{
+                "value": 8.0e-03,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": 0.15,
+                "unit": "-"
+            }
+        },
         "diffusivity": {
             "value": 1.1e-05,
             "unit": "cm**2/s"
@@ -94,6 +130,16 @@
         "M": {
             "value": 264.05,
             "unit": "g/mol"
+        },
+        "Szyszkowski_params":{
+            "a":{
+                "value": 1.200E-02,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": 0.22,
+                "unit": "-"
+            }
         },
         "diffusivity": {
             "value": 1.2e-05,
@@ -127,6 +173,16 @@
             "value": 314.05,
             "unit": "g/mol"
         },
+        "Szyszkowski_params":{
+            "a":{
+                "value": 4.300E-03,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": 0.21,
+                "unit": "-"
+            }
+        },
         "diffusivity": {
             "value": 7.8e-06,
             "unit": "cm**2/s"
@@ -158,6 +214,16 @@
         "M": {
             "value": 400.12,
             "unit": "g/mol"
+        },
+        "Szyszkowski_params":{
+            "a":{
+                "value": 4.000E-04,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": 0.14,
+                "unit": "-"
+            }
         },
         "diffusivity": {
             "value": 4.5e-06,
@@ -191,6 +257,16 @@
             "value": 364.06,
             "unit": "g/mol"
         },
+        "Szyszkowski_params":{
+            "a":{
+                "value": 9.500E-04,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": 0.22,
+                "unit": "-"
+            }
+        },
         "diffusivity": {
             "value": 9.3e-06,
             "unit": "cm**2/s"
@@ -199,7 +275,10 @@
             "value": 50.0,
             "unit": "L/kg"
         },
-        "K_sc": null,
+        "K_sc": {
+            "value": null,
+            "unit": "L/kg"
+        },
         "K_mo": null,
                 
         "n_CFx" : 6,
@@ -219,6 +298,16 @@
         "M": {
             "value": 414.07,
             "unit": "g/mol"
+        },
+        "Szyszkowski_params":{
+            "a":{
+                "value": 1.500E-04,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": 0.19,
+                "unit": "-"
+            }
         },
         "diffusivity": {
             "value": 4.9e-06,
@@ -252,6 +341,16 @@
             "value": 500.13,
             "unit": "g/mol"
         },
+        "Szyszkowski_params":{
+            "a":{
+                "value": 7.298E-06,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": 0.12,
+                "unit": "-"
+            }
+        },
         "diffusivity": {
             "value": 5.4e-06,
             "unit": "cm**2/s"
@@ -283,6 +382,16 @@
         "M": {
             "value": 464.08,
             "unit": "g/mol"
+        },
+        "Szyszkowski_params":{
+            "a":{
+                "value": 1.101E-05,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": 0.16,
+                "unit": "-"
+            }
         },
         "diffusivity": {
             "value": 2.93e-06,
@@ -316,6 +425,16 @@
             "value": 514.08,
             "unit": "g/mol"
         },
+        "Szyszkowski_params":{
+            "a":{
+                "value": 7.197E-06,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": 0.17,
+                "unit": "-"
+            }
+        },
         "diffusivity": {
             "value": 2.27e-06,
             "unit": "cm**2/s"
@@ -347,6 +466,16 @@
         "M": {
             "value": 330.05,
             "unit": "g/mol"
+        },
+        "Szyszkowski_params":{
+            "a":{
+                "value": null,
+                "unit": "mol/L"
+            },
+            "b":{
+                "value": null,
+                "unit": "-"
+            }
         },
         "diffusivity": {
             "value": 5,
