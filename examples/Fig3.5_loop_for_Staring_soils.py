@@ -31,6 +31,7 @@ def _():
     from pfas.data_loader import load_dataset, available_datasets
     from matplotlib import pyplot as plt
     import marimo as mo
+    import numpy as np
 
     print("Available datasets:", available_datasets())
     return (
@@ -44,6 +45,7 @@ def _():
         available_datasets,
         load_dataset,
         mo,
+        np,
     )
 
 
@@ -150,6 +152,7 @@ def _(
     WaterPreprocessor,
     grid_results,
     kaw_input,
+    np,
     pfas,
     pulse_duration,
     sigma0,
@@ -195,10 +198,46 @@ def _(
         theta = water_results["hydro_properties"].water_content
 
         # Step 3: Boundary conditions (same pulse for all soils)
-        boundary_prep = BoundaryPreprocessor(
-            C_list=[pfas['M']["value"] * 1e-15, 0.0],           # g/cm3
-            T_list=[0.0, pulse_duration]
+        # boundary_prep = BoundaryPreprocessor(
+        #     C_list=[pfas['M']["value"] * 1e-15, 0.0],           # g/cm3
+        #     T_list=[0.0, pulse_duration]
+        # )
+        # boundary_results = boundary_prep.compute()
+
+        # Alternative Step 3: Boundary conditions with smoothed pulse ending
+        C0 = pfas["M"]["value"] * 1e-15  # g/cm3
+    
+        seconds_per_year = 60 * 60 * 24 * 365
+    
+        transition_duration = 1.0 * seconds_per_year  # 1 year in seconds
+    
+        t_start_transition = pulse_duration - 0.5 * transition_duration
+        t_end_transition = pulse_duration + 0.5 * transition_duration
+    
+        n_transition_points = 25
+    
+        transition_times = np.linspace(
+            t_start_transition,
+            t_end_transition,
+            n_transition_points
         )
+    
+        transition_concs = C0 * 0.5 * (
+            1 + np.cos(
+                np.pi * (transition_times - t_start_transition) / transition_duration
+            )
+        )
+    
+        # T_list must be strictly increasing.
+        # The final transition time already has concentration 0, so do not append it again.
+        T_list = [0.0] + transition_times.tolist()
+        C_list = [C0] + transition_concs.tolist()
+    
+        boundary_prep = BoundaryPreprocessor(
+            C_list=C_list,
+            T_list=T_list
+        )
+    
         boundary_results = boundary_prep.compute()
 
         # Step 4: Solid phase adsorption
@@ -329,22 +368,16 @@ def _(all_soil_results, grid_results, pfas, pfas_name, pulse_duration):
             "Staring-O18": "brown",
         }
 
-        # Time (years)
         t          = grid_results["grid"].time / (60 * 60 * 24 * 365)
         depth      = grid_results["grid"].depth
         C_recharge = pfas['M']["value"] * 1e-15  # g/cm3, equivalent to 1 pmol/L
         average_infiltration_rate  =9.51E-7
 
-        fig, axes = plt.subplots(4, 1, figsize=(4, 11))
+        fig, axes = plt.subplots(3, 1, figsize=(4, 9))    
         # fig.suptitle()
 
-        # Concentration profile
-        C_profile_time = 40
-        idx_40 = np.argmin(np.abs(t - C_profile_time))
-        actual_time = t[idx_40]
-
-        for s in selected_soils:
-            res   = all_soil_results[s]
+        for soil in selected_soils:
+            res   = all_soil_results[soil]
             C1    = res["sim"]["C1"]            # mg/cm
             Kd    = res["Kd"]                   # cm3/g
             Kaw   = res["kawi"]["Kaw"]          # cm3/cm2
@@ -360,12 +393,9 @@ def _(all_soil_results, grid_results, pfas, pfas_name, pulse_duration):
             Cs_normalised  = np.trapezoid(Cs_bulk,  depth, axis=0) / input_mass_per_area
             Caq_normalised = C1[-1, :] / C_recharge
 
-            C_profile_40yr = C1[:, idx_40] / C_recharge
-
-            axes[0].plot(t, Caw_normalised, color=soil_colours[s], label=s)
-            axes[1].plot(t, Cs_normalised, color=soil_colours[s])
-            axes[2].plot(t, Caq_normalised, color=soil_colours[s])
-            axes[3].plot(C_profile_40yr, depth, color=soil_colours[s])
+            axes[0].plot(t, Caw_normalised, color=soil_colours[soil], label=soil)
+            axes[1].plot(t, Cs_normalised, color=soil_colours[soil])
+            axes[2].plot(t, Caq_normalised, color=soil_colours[soil])
 
         for ax in axes[:3]:
             ax.set_ybound(0, 1)
@@ -376,9 +406,6 @@ def _(all_soil_results, grid_results, pfas, pfas_name, pulse_duration):
         axes[1].set_ybound(0,1)
         axes[2].set_ylabel("Caq/Crecharge (-)")
         axes[2].set_xlabel("Time (yrs)")
-        axes[3].set_ylabel("Depth (cm)")
-        axes[3].set_xlabel("Caq / Crecharge (-)")
-        axes[3].invert_yaxis()
         axes[0].set_title(f"Breakthrough curves for {pfas_name}")
         axes[0].legend()
 
@@ -389,6 +416,58 @@ def _(all_soil_results, grid_results, pfas, pfas_name, pulse_duration):
         plt.show()
 
     plot_breakthrough(all_soil_results, grid_results, pfas)
+
+    return
+
+
+@app.cell
+def _(all_soil_results, grid_results, pfas, pfas_name):
+    def plot_concentration_profile(all_soil_results, grid_results, pfas):
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        selected_soils = [
+            "Staring-O05", 
+            "Staring-O12", 
+            "Staring-O15", 
+            "Staring-O18"]
+    
+        soil_colours   = {
+            "Staring-O05": "red",
+            "Staring-O12": "green",
+            "Staring-O15": "blue",
+            "Staring-O18": "brown",
+        }
+
+        time       = grid_results["grid"].time / (60*60*24*365)
+        depth      = grid_results["grid"].depth
+        C_recharge = pfas['M']["value"] * 1e-15  # g/cm3, equivalent to 1 pmol/L
+        average_infiltration_rate  =9.51E-7
+
+        C_profile_time = 35 # years
+        idx_35     = np.argmin(np.abs(time - C_profile_time))
+        time       = time[idx_35]
+    
+        fig, axes = plt.subplots(2, 1, figsize=(4, 8))
+        for soil in selected_soils:
+            res   = all_soil_results[soil]
+            C1    = res["sim"]["C1"]            # mg/cm
+
+            C_profile_35yr = C1[:, idx_35] / C_recharge
+
+            axes.plot(C_profile_35yr, depth, color=soil_colours[soil], label=soil)
+
+        axes.set_ylabel("Depth (cm)")
+        axes.set_xlabel("Caq / Crecharge (-)")
+        axes.invert_yaxis()
+        axes.set_title(f"Concentration profile for {pfas_name}")
+        axes.legend()
+        axes.grid(True)
+    
+        plt.tight_layout()
+        plt.show()        
+
+    plot_concentration_profile(all_soil_results, grid_results, pfas)    
     return
 
 
