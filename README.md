@@ -1,20 +1,22 @@
 [![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
+[![Documentation Status](https://readthedocs.org/projects/pfas/badge/?version=latest)](https://pfas.readthedocs.io/en/latest/)
+[![PyPI version](https://img.shields.io/pypi/v/pfas)](https://pypi.org/project/pfas/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pfas)](https://pypi.org/project/pfas/)
 # PFAS - *a package for semi-analytical modeling of PFAS transport in the vadose zone*
-# PFAS Transport Modeling Package
 
 A Python package for modeling the transport of per- and polyfluoroalkyl substances (PFAS) through the unsaturated zone.
 
 ## Overview
 
-PFAS is a toolkit for simulating the movement and fate of PFAS contaminants in soil and groundwater systems. It provides a flexible, modular framework for constructing transport models with configurable preprocessing steps and analytical solvers. The package is designed for researchers and engineers studying PFAS contamination and remediation.
+PFAS is a toolkit for simulating the movement and fate of PFAS contaminants in the unsaturated zone. It provides a flexible, modular framework for constructing transport models with configurable preprocessing steps and analytical solvers. The package is designed for researchers and engineers studying PFAS contamination and remediation.
 
 ## Features
 
 - **Modular Architecture**: Build complex transport models using pluggable preprocessors and solvers.
 - **Flexible Configuration**: Define simulations using intuitive TOML configuration files or directly in code.
-- **Sorption Modeling**: Support for linear and non-linear sorption processes to soil particles and Air-Water Interface
-- **Vadose Zone Transport**: Simulate PFAS movement through the unsaturated zone
-- **Soil-Water Content Effects**: Account for soil-water characteristic curves in moisture dynamics
+- **Sorption Modeling**: Support for linear and non-linear sorption processes to soil particles and Air-Water Interface, in combination with flexible approaches for defining these processes.
+- **Vadose Zone Transport**: Simulate PFAS movement through the unsaturated zone under steady-state flow conditions.
+- **Embedded PFAS data**: The package contains modules with sorption data for Air-Water interface computation, Air-Water interfacial sorption coefficients and solid phase sorption coefficients.
 - **Grid Generation**: Automatic mesh generation for spatial domains
 - **Boundary Condition Management**: Flexible handling of domain boundaries
 
@@ -29,7 +31,7 @@ PFAS is a toolkit for simulating the movement and fate of PFAS contaminants in s
 
 ## Installation
 
-### From PyPI (coming soon)
+### From PyPI
 
 ```bash
 pip install pfas
@@ -127,9 +129,9 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Contact
 
-For questions and support, please contact:
+For questions and support, please contact: Valerie de Rijk (v.derijk@uu.nl)
 
 ## Acknowledgments
 
-This package was developed at Utrecht University as part of the PFAS Living Lab initiative.
+This package was developed at Utrecht University as part of the PFAS Living Lab.
 
