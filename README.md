@@ -27,7 +27,7 @@ PFAS is a toolkit for simulating the movement and fate of PFAS contaminants in t
 - SciPy
 - Matplotlib
 - Pydantic
-- Marimo (for interactive documentation)
+- Marimo (for tutorials)
 
 ## Installation
 
