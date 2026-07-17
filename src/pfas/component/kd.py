@@ -2,7 +2,6 @@ from typing import Annotated
 
 from annotated_types import Gt
 from pydantic import BaseModel
-from pfas.analytical_soln import HydrologicalProperties
 from pfas.utils import kd_fabregat_palau, kd_freundlich
 
 class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
