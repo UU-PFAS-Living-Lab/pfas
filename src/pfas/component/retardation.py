@@ -61,11 +61,11 @@ class Retardation(BaseModel, validate_assignment=True, extra='forbid'):
 
         return {
             "adsorption": Adsorption(
+                Kd=self.Kd,
                 rate_const=kin_params.get("rate_const", 0.0),
                 frac_int=kin_params.get("frac_int", 1.0),
                 sp_retardation=sp_retardation,
                 awi_retardation=awi_retardation,
-                Kd=self.Kd,
             )
         }
 

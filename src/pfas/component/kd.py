@@ -2,7 +2,6 @@
 """Solid-phase sorption preprocessing components."""
 
 from pydantic import BaseModel
-
 from pfas.utils import kd_fabregat_palau, kd_freundlich
 
 
