@@ -48,7 +48,6 @@ class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
     outputs : list of str
         List containing ``'Kd'``.
     """
-
     sorption_solid: dict
 
     def compute(self):
@@ -103,7 +102,6 @@ class FreundlichSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
     outputs : list of str
         List containing ``'Kd'``.
     """
-
     sorption_solid: dict
     def compute(self):
 
