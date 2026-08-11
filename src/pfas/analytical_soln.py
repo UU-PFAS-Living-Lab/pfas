@@ -99,6 +99,7 @@ class Adsorption:
     awi_retardation : float
         Air-water interface retardation factor (Raw) (dimensionless).
     """
+
     Kd: float  # noqa: N815
     rate_const: float
     frac_int: float

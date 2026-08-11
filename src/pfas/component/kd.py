@@ -2,6 +2,7 @@
 """Solid-phase sorption preprocessing components."""
 
 from pydantic import BaseModel
+
 from pfas.utils import kd_fabregat_palau, kd_freundlich
 
 
@@ -47,6 +48,7 @@ class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
     outputs : list of str
         List containing ``'Kd'``.
     """
+
     sorption_solid: dict
 
     def compute(self):
@@ -101,6 +103,7 @@ class FreundlichSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
     outputs : list of str
         List containing ``'Kd'``.
     """
+
     sorption_solid: dict
     def compute(self):
 

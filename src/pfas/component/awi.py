@@ -44,7 +44,7 @@ class SWCsorption(BaseModel, validate_assignment=True, extra='forbid'):
 
     def compute(self):
         """
-        Calculate air-water interfacial area based on the soil water characteristic curve. 
+        Calculate air-water interfacial area based on the soil water characteristic curve.
 
         Returns
         -------
@@ -55,28 +55,28 @@ class SWCsorption(BaseModel, validate_assignment=True, extra='forbid'):
         poro = self.soil["porosity"]
         alpha = self.soil["van_genuchten_alpha"]
         n_vg = self.soil["van_genuchten_n"]
-        theta = self.hydro_properties.water_content 
+        theta = self.hydro_properties.water_content
         thetar = self.soil["residual_water_content"]
         thetas = poro
 
         aaw = aaw_func_thermo(
                 self.sigma0, poro, alpha, n_vg, theta, thetar, thetas, self.scaling_factor_awi
             )
-        
+
         return {"aaw": aaw}
 
     @property
     def outputs(self):
         """List of output keys from compute() method."""
         return ["aaw"]
-    
+
 
 
 class GuoTracer(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Calculate air-water interface area using thermodynamic relations.
 
-    Uses the Guo et al. (2022) tracer method to estimate total air-water interfacial area 
+    Uses the Guo et al. (2022) tracer method to estimate total air-water interfacial area.
 
     Parameters
     ----------
@@ -128,8 +128,7 @@ class GuoTracer(BaseModel, validate_assignment=True, extra='forbid'):
             Dictionary with key 'aaw' containing the calculated
             air-water interfacial area (m²/m³).
         """
-
-        theta = self.hydro_properties.water_content 
+        theta = self.hydro_properties.water_content
 
         guo_params = self.AWI["Guo"]
         x0 = guo_params["guo_x0"]
