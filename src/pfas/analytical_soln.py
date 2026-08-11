@@ -88,6 +88,8 @@ class Adsorption:
 
     Parameters
     ----------
+    Kd : float
+        Solid-phase partition coefficient (m3/kg).
     rate_const : float
         Rate constant for kinetic sorption (alphas) (1/s).
     frac_int : float
@@ -97,6 +99,7 @@ class Adsorption:
     awi_retardation : float
         Air-water interface retardation factor (Raw) (dimensionless).
     """
+    Kd: float  # noqa: N815
     rate_const: float
     frac_int: float
     sp_retardation: float
@@ -172,7 +175,7 @@ def analytical_soln(  # noqa: PLR0913
         Hydrological properties. Must have `.pore_velocity` [L T⁻¹],
         `.dispersion_coefficient` [L² T⁻¹], and `.water_content` [-].
     adsorption : Adsorption
-        Adsorption parameters. Must have `.total_retardation`, `.Kd`,
+        Adsorption parameters. Must have `.Kd`, `.total_retardation`,
         `.sp_retardation`, `.frac_int`, `.beta`, and `.beta_s`. When
         kinetic=True, also requires `.rate_const`.
     kinetic : bool, optional
