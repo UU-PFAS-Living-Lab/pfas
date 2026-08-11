@@ -378,7 +378,7 @@ _IVP_FUNCTIONS: dict[str, Callable[..., NDArray[np.float64]]] = {
 # IVP helpers — kinetic (non-equilibrium) sorption
 # ---------------------------------------------------------------------------
 
-def _ivp_neq(  # noqa: PLR0913
+def _ivp_neq(  # noqa: PLR0913, PLR0917
     T: float,
     R: float,
     Z: float,
@@ -442,7 +442,7 @@ def _ivp_neq(  # noqa: PLR0913
     )
 
 
-def _H0(  # noqa: PLR0913, N802
+def _H0(  # noqa: PLR0913, PLR0917, N802
     T: float,
     R: float,
     tau: NDArray[np.float64],
@@ -513,7 +513,7 @@ def _H0(  # noqa: PLR0913, N802
     )
 
 
-def _Hs(  # noqa: PLR0913, N802
+def _Hs(  # noqa: PLR0913, PLR0917, N802
     T: float,
     R: float,
     tau: NDArray[np.float64],
@@ -589,7 +589,7 @@ def _Hs(  # noqa: PLR0913, N802
 # (CXTFIT eqs. 3.21–3.22; van Genuchten, 1981)
 # ---------------------------------------------------------------------------
 
-def _FT(  # noqa: N802, PLR0913
+def _FT(  # noqa: N802, PLR0913, PLR0917
     tau: float | NDArray[np.float64],
     Z: float,
     P: float,
@@ -730,7 +730,7 @@ def _goldstein_J(  # noqa: N806, N802
     return Jab, Jba
 
 
-def _bvp_neq_integrand(  # noqa: PLR0913, N806, N803
+def _bvp_neq_integrand(  # noqa: PLR0913, PLR0917, N806, N803
     tau: float,
     T: float,
     Z: float,
@@ -801,7 +801,7 @@ def _bvp_neq_integrand(  # noqa: PLR0913, N806, N803
     return ft * Jab, ft * (1.0 - Jba)
 
 
-def _bvp_neq(  # noqa: PLR0913, N806, N803
+def _bvp_neq(  # noqa: PLR0913, PLR0917, N806, N803
     Z: float,
     T: float,
     omega: float,

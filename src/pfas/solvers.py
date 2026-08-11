@@ -27,7 +27,7 @@ from pfas.solver_utils import (
 )
 
 
-def equilibrium_solver(  # noqa: PLR0913
+def equilibrium_solver(  # noqa: PLR0913, PLR0917
     R: float,
     dim: DimensionlessParams,
     C_list: list[float],
@@ -159,7 +159,7 @@ def equilibrium_solver(  # noqa: PLR0913
 
     return C1, C_tot
 
-def kinetic_solver(  # noqa: PLR0913
+def kinetic_solver(  # noqa: PLR0913, PLR0917
     R: float,
     dim: DimensionlessParams,
     C_list: list[float],
