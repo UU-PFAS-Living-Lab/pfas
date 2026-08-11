@@ -88,6 +88,8 @@ class Adsorption:
 
     Parameters
     ----------
+    Kd : float
+        Solid-phase partition coefficient (m3/kg).
     rate_const : float
         Rate constant for kinetic sorption (alphas) (1/s).
     frac_int : float
@@ -97,6 +99,7 @@ class Adsorption:
     awi_retardation : float
         Air-water interface retardation factor (Raw) (dimensionless).
     """
+    Kd: float  # noqa: N815
     rate_const: float
     frac_int: float
     sp_retardation: float
