@@ -1,13 +1,14 @@
-from typing import Annotated
 
-from annotated_types import Gt
+"""Solid-phase sorption preprocessing components."""
+
 from pydantic import BaseModel
+
 from pfas.utils import kd_fabregat_palau, kd_freundlich
 
-class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
-    """
 
-    Calculates the retardation factor for sorption to the solid phase.
+class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
+    """Calculate the retardation factor for sorption to the solid phase.
+
     Three Kd resolution methods are supported, selected via the
     ``sorption_isotherm`` and ``Kd_method`` keys inside *sorption_solid*:
 
@@ -47,6 +48,7 @@ class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
     outputs : list of str
         List containing ``'Kd'``.
     """
+
     sorption_solid: dict
 
     def compute(self):
@@ -65,7 +67,7 @@ class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
                     "Kd_method 'direct_input' requires 'Kd' "
                     "inside sorption_solid['linear']."
                 )
-            Kd = cfg["Kd"]
+            kd = cfg["Kd"]
 
         elif kd_method == "fabregat_palau":
             for key in ("n_CFx", "f_oc", "f_silt_clay"):
@@ -74,7 +76,7 @@ class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
                         f"Kd_method 'fabregat_palau' requires '{key}' "
                         "inside sorption_solid['linear']."
                     )
-            Kd = kd_fabregat_palau(cfg["n_CFx"], cfg["f_oc"], cfg["f_silt_clay"])
+            kd = kd_fabregat_palau(cfg["n_CFx"], cfg["f_oc"], cfg["f_silt_clay"])
 
         else:
             raise ValueError(
@@ -82,12 +84,10 @@ class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
                 "Choose from: 'direct_input', 'fabregat_palau'."
             )
 
-        return {"Kd": Kd}
+        return {"Kd": kd}
 
 class FreundlichSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
-    """
-    Calculates the retardation factor for sorption to the solid phase
-    using a Freundlich isotherm.
+    """Calculate the solid-phase retardation factor using a Freundlich isotherm.
 
     Parameters
     ----------
@@ -103,6 +103,7 @@ class FreundlichSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
     outputs : list of str
         List containing ``'Kd'``.
     """
+
     sorption_solid: dict
     def compute(self):
 
@@ -119,5 +120,5 @@ class FreundlichSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
                     "inside sorption_solid['freundlich']."
                 )
         C_rep = cfg.get("C_rep", 1.0)  # noqa: N806
-        Kd = kd_freundlich(C_rep, cfg["K_freund"], cfg["n_freund"])
-        return {"Kd": Kd}
+        kd = kd_freundlich(C_rep, cfg["K_freund"], cfg["n_freund"])
+        return {"Kd": kd}

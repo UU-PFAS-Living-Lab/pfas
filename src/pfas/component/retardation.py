@@ -1,3 +1,5 @@
+"""Retardation-factor assembly components."""
+
 from typing import Annotated, Optional
 
 from annotated_types import Gt

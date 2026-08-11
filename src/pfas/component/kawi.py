@@ -1,1 +1,3 @@
-#placeholder for other kaw methods
+"""Air-water partition coefficient preprocessing components."""
+
+# Placeholder for other Kaw methods.
