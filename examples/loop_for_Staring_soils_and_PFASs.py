@@ -665,7 +665,7 @@ def _(all_pfas_results, pd, pfas_names, plt, ticker):
 @app.cell
 def _(Path, np, pd, plt):
     def plot_kaw_comparison():
-        csv_path = Path(r"C:\Users\youri\Documents\ESW\Thesis_v2\04_Processing\1_Kaw\Kaw_v3.csv")
+        csv_path = Path(__file__).parent / "Kaw_v3.csv"
 
         kaw_df = pd.read_csv(
             csv_path,
