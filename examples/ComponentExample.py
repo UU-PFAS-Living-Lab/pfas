@@ -411,7 +411,8 @@ def _(all_soil_results, grid_results, pfas, pfas_name):
 
         for soil in selected_soils:
             res = all_soil_results[soil]
-            C1  = res["sim"]["C1"]  # mg/cm
+            print(res)
+            C1  =  res["sim"][0]
             ax.plot(t, C1[-1, :] / C_recharge, color=soil_colours[soil], label=soil)
 
         ax.set_ybound(0, 1)
@@ -481,7 +482,7 @@ def _(all_soil_results, grid_results, pfas, pfas_name):
         fig, axes  = plt.subplots(1, 2, figsize=(8, 4))
         for soil in selected_soils:
             res    = all_soil_results[soil]
-            C1     = res["sim"]["C1"]            # mg/cm
+            C1     = res["sim"][0]           # mg/cm
 
             C_profile_35yr = C1[:, idx_35] / C_recharge
 
