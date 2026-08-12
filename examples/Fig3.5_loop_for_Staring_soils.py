@@ -26,8 +26,13 @@ def _():
         #SorptionKawCalculated,
         #SorptionKawLangmuir,
         #SorptionKawSzyszkowski,
-        SimulationRunner,
+       # SimulationRunner,
     )
+    from pfas.analytical_soln import analytical_soln
+    from pfas.component.kd import LinearSPsorption
+    from pfas.component.kaw import Le2021_langmuir, Szyszkowski
+    from pfas.component.awi import SWCsorption
+    from pfas.component.retardation import Retardation 
     from pfas.data_loader import load_dataset, available_datasets
     from matplotlib import pyplot as plt
     import marimo as mo
@@ -37,12 +42,17 @@ def _():
     return (
         BoundaryPreprocessor,
         GridGenerator,
-        SimulationRunner,
-        SpRetardationPreprocessor,
+        Le2021_langmuir,
+        LinearSPsorption,
+        Retardation,
+        SWCsorption,
+        Szyszkowski,
         WaterPreprocessor,
+        analytical_soln,
         available_datasets,
         load_dataset,
         mo,
+        np,
     )
 
 
@@ -84,7 +94,7 @@ def _(load_dataset):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ##Utilities from the original code (Aaw_mulitple_methods.py)
+    ##Grid generation
     """)
     return
 
@@ -100,11 +110,10 @@ def _(GridGenerator):
         time_total=250*(60*60*24*365),          # seconds
     )
     grid_results = grid_gen.compute()
+    grid = grid_results["grid"]
 
     pulse_duration = 25 * (60 * 60 * 24 * 365)  # seconds
-
-
-    return grid_results, pulse_duration
+    return grid, grid_results, pulse_duration
 
 
 @app.cell
@@ -130,13 +139,16 @@ def _(
     BoundaryPreprocessor,
     K_oc,
     K_sc,
-    SimulationRunner,
-    SorptionKawLangmuir,
-    SorptionKawSzyszkowski,
-    SpRetardationPreprocessor,
+    Le2021_langmuir,
+    LinearSPsorption,
+    Retardation,
+    SWCsorption,
+    Szyszkowski,
     WaterPreprocessor,
+    analytical_soln,
+    grid,
     grid_results,
-    kaw_input,
+    np,
     pfas,
     pulse_duration,
     sigma0,
@@ -175,7 +187,6 @@ def _(
             dispersivity=dispersivity,
             van_genuchten_n=vg_n,
             van_genuchten_l=vg_l,
-            init_sat=0.2,
             residual_water_content=theta_r,
         )
         water_results = water_prep.compute()
@@ -199,73 +210,72 @@ def _(
                 "Kd": (K_oc*f_oc) + (K_sc*f_silt_clay),
             },
         }
+        sorption = LinearSPsorption(sorption_solid=sorption_solid)
 
-        sp_prep = SpRetardationPreprocessor(
-            sorption_solid=sorption_solid,
-            bulk_density=bulk_dens,
-            hydro_properties=water_results["hydro_properties"],
-        )
-        sp_results = sp_prep.compute()
+        spsorption_result = sorption.compute()
+
+
+
+
 
         # Aaw-preprocessor
-        func_thermo_Aaw = aaw_func_thermo(
-            sigma0=sigma0, 
-            poro=porosity, 
-            alpha=vg_alpha, 
-            n=vg_n,
-            th=theta, 
-            thr=theta_r, 
-            ths=theta_s, 
-            sf=4.15
+        aaw_preprocessor = SWCsorption(
+            hydro_properties=water_results["hydro_properties"],
+            sigma0=sigma0,
+            scaling_factor_awi=4.15,
+            soil={
+                "porosity": porosity,
+                "van_genuchten_alpha": vg_alpha,
+                "van_genuchten_n": vg_n,
+                "residual_water_content": theta_r,
+            },
         )
-
+        aaw = aaw_preprocessor.compute()["aaw"]
         # Select Kaw estimation method; use Szyszkowski parameters when available, otherwise use Langmuir
-        def select_Kaw_method(pfas: dict, hydro_properties, aaw: float):
+        def select_Kaw_method(pfas: dict):
             a = pfas["Szyszkowski_params"]["a"]["value"]
             b = pfas["Szyszkowski_params"]["b"]["value"]
 
             if a is not None and b is not None:
-                return SorptionKawSzyszkowski(
+                return Szyszkowski(
                     sigma0=sigma0,
                     a=a,
                     b=b,
-                    hydro_properties=hydro_properties,
-                    aaw=func_thermo_Aaw,
                     chi = 1,
                     T = 293.15,
                 )
             else:
-                return SorptionKawLangmuir(
-                    **kaw_input,
-                    hydro_properties=water_results["hydro_properties"],
-                    aaw=func_thermo_Aaw,
+                return Le2021_langmuir(
+                    pfas["structural_properties"]
                 )
 
         # Kawi for each Aaw method
-        kawi_sorp = select_Kaw_method(pfas, water_results["hydro_properties"], func_thermo_Aaw)
+        kawi_sorp = select_Kaw_method(pfas)
         kawi_results = kawi_sorp.compute(Cw=1e-12)
 
+        ret = Retardation(Kd = spsorption_result["Kd"], Kaw = kawi_results["Kaw"], aaw = aaw, kinetic ="False", bulk_density = bulk_dens, hydro_properties= water_results["hydro_properties"])
+        ret_result = ret.compute()
         # Simulations
-        sim_runner = SimulationRunner(
+        sim_runner = analytical_soln(
             grid=grid_results["grid"],
             bulk_density=bulk_dens,
             boundary_conditions=boundary_results["boundary_conditions"],
             hydro_properties=water_results["hydro_properties"],
-            awi_retardation=kawi_results["awi_retardation"],
-            sorption_solid=sorption_solid,
-            kinetic_sorption=False,
+            adsorption = ret_result["adsorption"],
+            kinetic=False,
             volume_averaged=True,
+            initial_contaminant_concentration= np.zeros(len(grid.depth))
         )
-        final_results = sim_runner.compute()
+        final_results = sim_runner
 
         all_soil_results[soil_name] = {
-            "Aaw": {"thermo": func_thermo_Aaw},
+            "Aaw": aaw,
             "kawi": kawi_results,
             "sim": final_results,
             "water": water_results,
             "soil": soil,
-            "sp_retardation": sp_results["sp_retardation"],
-            "Kd": sp_results["Kd"],
+            "retardation" : ret_result["adsorption"],
+            "Kd": spsorption_result["Kd"],
         }
 
     print(f"\nDone — {len(all_soil_results)} soils processed.")
@@ -276,25 +286,27 @@ def _(
 def _(all_soil_results):
     def print_retardation_values(all_soil_results):
         for soil_name, results in all_soil_results.items():
-            soil      = results["soil"]
-            hydro     = results["water"]["hydro_properties"]
-            theta     = hydro.water_content
-            theta_s   = soil["theta_s"]
-            theta_r   = soil["theta_r"]
+            soil = results["soil"]
+            hydro = results["water"]["hydro_properties"]
+            theta = hydro.water_content
+            theta_s = soil["theta_s"]
+            theta_r = soil["theta_r"]
+
+            # Retardation object
+            retardation = results["retardation"]
 
             # Derived quantities
-            Se        = (theta - theta_r) / (theta_s - theta_r)  # effective saturation (-)
-            v         = hydro.pore_velocity                      # cm/s
-            Aaw       = results["Aaw"]["thermo"]                 # cm2/cm3
-            v_mm_yr   = v * (60 * 60 * 24 * 365 * 10)            # mm/yr
+            Se = (theta - theta_r) / (theta_s - theta_r)
+            v = hydro.pore_velocity
+            v_mm_yr = v * (60 * 60 * 24 * 365 * 10)
 
             print(f"\n{soil_name}")
             print(f"  v:   {v_mm_yr:.2f} mm/yr")
             print(f"  Se:  {Se:.2f} (-)")
-            print(f"  Aaw: {Aaw:.2f} cm2/cm3")
+            print(f"  Aaw: {results['Aaw']:.2f} cm2/cm3")
             print(f"  Kd:  {results['Kd']:.4e} cm3/g")
-            print(f"  Solid-phase retardation: {results['sp_retardation']}")
-            print(f"  AWI retardation:         {results['kawi']['awi_retardation']}")
+            print(f"  Solid-phase retardation: {retardation.sp_retardation:.4f}")
+            print(f"  AWI retardation:         {retardation.awi_retardation:.4f}")
 
     print_retardation_values(all_soil_results)
     return

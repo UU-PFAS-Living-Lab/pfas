@@ -3,9 +3,9 @@
 from typing import Annotated
 
 from pfas.utils import Kaw_0_Le2021, Kaw_langmuir_Le2021, dG0_Le2021, Kaw_Szyszkowski
-from pydantic import BaseModel, Gt, model_validator
-
-class SorptionKawCalculated(BaseModel, validate_assignment=True, extra='forbid'):
+from pydantic import BaseModel,  model_validator
+from annotated_types import Gt
+class Le2021_asymptote(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Compute adsorption parameters for air-water interface.
 
@@ -64,7 +64,7 @@ def outputs(self) -> list[str]:
     return ["Kaw"]
 
 
-class SorptionKawLangmuir(BaseModel, validate_assignment=True, extra='forbid'):
+class Le2021_langmuir(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Compute adsorption parameters for air-water interface using Langmuir isotherm.
 
@@ -94,8 +94,7 @@ _REQUIRED_STRUCTURAL_KEYS = {
 }
 
 @model_validator(mode="after")
-def validate_structural_properties(self) -> "SorptionKawLangmuir":
-    """Validate that all required structural group keys are present."""
+def validate_structural_properties(self):
     missing = self._REQUIRED_STRUCTURAL_KEYS.difference(self.structural_properties.keys())
     if missing:
         raise ValueError(
@@ -127,7 +126,7 @@ def Kaw(self, Cw: float) -> float:
     float
         Kaw at the given concentration.
     """
-    return Kaw_langmuir_Le2021(self.structural_properties, Cw)
+    return Kaw_langmuir_Le2021(self.Kaw_0, self.dG0, Cw)
 
 def compute(self, Cw: float) -> dict:
     """
@@ -153,7 +152,7 @@ def outputs(self) -> list[str]:
     return ["Kaw"]
 
 
-class SorptionKawSzyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
+class Szyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Compute air-water interfacial retardation using a Szyszkowski-based
     air-water partition coefficient with parameters from Guo et al. (2022).
