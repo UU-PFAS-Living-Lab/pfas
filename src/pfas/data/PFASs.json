@@ -16,8 +16,8 @@
             }
         },
         "diffusivity": {
-            "value": 1,
-            "unit": null
+            "value": 2.3e-5,
+            "unit": "cm**2/s"
         },
         "K_oc": {
             "value": null,
@@ -58,8 +58,8 @@
             }
         },
         "diffusivity": {
-            "value": 3,
-            "unit": null
+            "value": 1.4e-5,
+            "unit": "cm**2/s"
         },
         "K_oc": {
             "value": 2.9,
@@ -478,8 +478,8 @@
             }
         },
         "diffusivity": {
-            "value": 5,
-            "unit": null
+            "value": 8.3e-6,
+            "unit": "cm**2/s"
         },
         "K_oc": null,
         "K_sc": null,

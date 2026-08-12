@@ -47,8 +47,7 @@ from pfas.analytical_soln import (
     SimulationGrid,
     analytical_soln,
 )
-from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich, Kaw_0_Le2021, Kaw_langmuir_Le2021, Kaw_Szyszkowski, dG0_Le2021, aaw_func_1, aaw_func_2
-
+from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich, Kaw_0_Le2021, Kaw_langmuir_Le2021, Kaw_Szyszkowski, dG0_Le2021, aaw_func_GSSA, aaw_func_d50, aaw_func_nonlinear_d50
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     """
@@ -326,15 +325,17 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
             x1 = guo_params["guo_x1"]
             x2 = guo_params["guo_x2"]
             aaw = aaw_func_tracer(theta, x2, x1, x0)
-        elif self.AWI["AWI_type"] == "Func1":
+        elif self.AWI["AWI_type"] == "GSSA-based":
             d50 = self.soil["d50"]
-            aaw = aaw_func_1(theta, thetas, poro, d50)
-        elif self.AWI["AWI_type"] == "Func2":
+            aaw = aaw_func_GSSA(theta, thetas, poro, d50)
+        elif self.AWI["AWI_type"] == "d50-based":
             d50 = self.soil["d50"]
-            aaw = aaw_func_2(theta, thetas, d50)
-
+            aaw = aaw_func_d50(theta, thetas, d50)
+        elif self.AWI["AWI_type"] == "d50-nonlinear-sat":
+            d50 = self.soil["d50"]
+            aaw = aaw_func_nonlinear_d50(theta, thetas, d50)
         return {"aaw": aaw}
-
+ 
     @property
     def outputs(self):
         """List of output keys from compute() method."""

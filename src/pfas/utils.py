@@ -9,7 +9,7 @@ air-water interface area estimation, and numerical integration support.
 import numpy as np
 
 
-def aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf): #noqa: PLR0913
+def aaw_func_thermo(sigma0, poro, sf, n, thr, ths, alpha, th=None, sw=None): #noqa: PLR0913
     """Compute air-water interfacial area using thermodynamic approach.
 
     Estimates the air-water interfacial area per unit volume of porous medium
@@ -52,11 +52,15 @@ def aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf): #noqa: PLR0913
     g = 9.81
     m = 1 - 1/n
     sr = thr/ths
-    sw = np.linspace(th/ths,1,1000)
-    def pc(sw):
-        return (((1-sr)/(sw-sr))**(1/m) - 1)**(1/n)/alpha/100*rhow*g
+    if sw is None:
+        sw_first = th/ths
+    else:
+        sw_first = sw
+    sw_int = np.linspace(sw_first,1,1000)
+    def pc(sw_int):
+        return (((1-sr)/(sw_int-sr))**(1/m) - 1)**(1/n)/alpha/100*rhow*g
 
-    aaw = 10*np.trapezoid(poro/sigma0*pc(sw),sw)
+    aaw = 10*np.trapezoid(poro/sigma0*pc(sw_int),sw_int)
     aaw = aaw*sf
 
     return aaw
@@ -95,7 +99,7 @@ def aaw_func_tracer(sw, x2, x1, x0):
     aaw = x2*sw**2 + x1*sw + x0
     return aaw
 
-def aaw_func_1(th, ths, poro, d50):
+def aaw_func_GSSA(d50, poro, th=None, ths=None, sw=None):
     """Compute air-water interfacial area using the GSSA-based linear model.
 
     Estimates the air-water interfacial area per unit bulk volume as a
@@ -124,12 +128,12 @@ def aaw_func_1(th, ths, poro, d50):
     N/A
 
     """
-
-    sw = th/ths
+    if sw is None:
+        sw = th/ths    
     aaw = (1-sw) * (6*(1-poro)/d50)
     return aaw
 
-def aaw_func_2(th, ths, d50):
+def aaw_func_d50(d50, th=None, ths=None, sw=None):
     """Compute air-water interfacial area using the d50 correlation.
 
     Estimates the air-water interfacial area per unit bulk volume as a
@@ -153,9 +157,36 @@ def aaw_func_2(th, ths, d50):
     N/A
     
     """
-
-    sw = th/ths
+    if sw is None:
+        sw = th/ths 
     aaw = (1-sw) * 3.9 * d50**-1.2
+    return aaw
+
+def aaw_func_nonlinear_d50(d50, th=None, ths=None, sw=None):
+    """Compute air-water interfacial area using a nonlinear grain-diameter
+    approximation based on saturation.
+
+    Parameters
+    ----------
+    sw : float or ndarray
+        Water saturation (dimensionless, 0-1).
+    d50  : float
+        Median grain diameter (cm)
+
+    Returns
+    -------
+    Aaw : float or ndarray
+        Air-water interfacial area per unit volume (cm²/cm³).
+
+    Notes
+    -----
+    N/A
+    
+    """
+
+    if sw is None:
+        sw = th/ths 
+    aaw = (-2.85 * sw + 3.6) * ((1-sw) * 3.9 * d50**-1.2)
     return aaw
 
 def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
@@ -439,9 +470,9 @@ def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw):
     behavior of PFAS components for understanding environmental fate.
     """
 
-    omega = 55.3   # water molar concentration (mol/L) at 298K
+    omega = 55.3      # water molar concentration (mol/L) at 298K
     R     = 0.008314  # gas constant (kJ/mol/K)
-    T     = 298    # temperature (K)
+    T     = 298       # temperature (K)
     
     Keq = (1/omega) * np.exp(-dG0/(R*T))
     
