@@ -39,7 +39,6 @@ class SWCsorption(BaseModel, validate_assignment=True, extra='forbid'):
     hydro_properties: HydrologicalProperties
     sigma0: Annotated[float, Gt(0)] = 0.072
     scaling_factor_awi: Annotated[float, Gt(0)]
-    AWI: dict
     soil: dict
 
     def compute(self):

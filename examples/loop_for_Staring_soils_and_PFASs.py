@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.1"
+__generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
@@ -22,10 +22,10 @@ def _():
         GridGenerator,
         SpRetardationPreprocessor,
         SWCAdsorptionPreprocessor,
-        SorptionKawiDirectInput,
-        SorptionKawCalculated,
-        SorptionKawLangmuir,
-        SorptionKawSzyszkowski,
+        #SorptionKawiDirectInput,
+        #SorptionKawCalculated,
+        #SorptionKawLangmuir,
+        #SorptionKawSzyszkowski,
         SimulationRunner,
     )
     from pfas.data_loader import load_dataset, available_datasets
@@ -43,8 +43,6 @@ def _():
         GridGenerator,
         Path,
         SimulationRunner,
-        SorptionKawLangmuir,
-        SorptionKawSzyszkowski,
         WaterPreprocessor,
         available_datasets,
         load_dataset,
@@ -69,7 +67,7 @@ def _(mo):
 @app.cell
 def _(load_dataset):
     pfas_db = load_dataset("PFASs")
-    soil_db = load_dataset("soils_Ksat_rho_b_d50")
+    soil_db = load_dataset("soils")
 
     pfas_names = ['TFA', 'PFBA', 'HFPO-DA', 'PFPeA', 'PFBS', 'PFHxA', 'PFHpA', 'PFHxS', 'PFOA', 'PFNA', 'PFOS', 'PFDA']  # add/remove as needed
 
