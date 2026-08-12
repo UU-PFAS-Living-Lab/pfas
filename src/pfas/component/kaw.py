@@ -64,93 +64,105 @@ def outputs(self) -> list[str]:
     return ["Kaw"]
 
 
-class Le2021_langmuir(BaseModel, validate_assignment=True, extra='forbid'):
-    """
-    Compute adsorption parameters for air-water interface using Langmuir isotherm.
+from pydantic import BaseModel, ConfigDict, model_validator
 
-    Calculates retardation factor for sorption at the air-water interface
-    using a concentration-dependent Langmuir partition coefficient,
-    according to Le et al. (2021). Both Kaw_0 and dG0 are derived from
-    molecular structure via group contributions; only Cw varies at runtime.
+
+class Le2021_langmuir(BaseModel):
+    """
+    Compute the air-water partition coefficient using the
+    Langmuir isotherm from Le et al. (2021).
 
     Parameters
     ----------
     structural_properties : dict
-        Dictionary of PFAS molecular group counts, with keys:
-        'n_CFx', 'n_CHx', 'n_COO', 'n_COOH', 'n_SO3', 'n_R4N', 'n_OH',
-        'n_OSO3', 'n__O_', 'n__S_', 'n_N_CH3_2_CH2_COO'.
-
-    Attributes
-    ----------
-    outputs : list of str
-        List containing 'awi_retardation'.
+        Dictionary of PFAS molecular group counts.
     """
 
-structural_properties: dict
+    model_config = ConfigDict(
+        validate_assignment=True,
+        extra="forbid",
+    )
 
-_REQUIRED_STRUCTURAL_KEYS = {
-    "n_CFx", "n_CHx", "n_COO", "n_COOH", "n_SO3", "n_R4N",
-    "n_OH", "n_OSO3", "n__O_", "n__S_", "n_N_CH3_2_CH2_COO",
-}
+    structural_properties: dict
 
-@model_validator(mode="after")
-def validate_structural_properties(self):
-    missing = self._REQUIRED_STRUCTURAL_KEYS.difference(self.structural_properties.keys())
-    if missing:
-        raise ValueError(
-            f"structural_properties is missing required keys: {', '.join(sorted(missing))}"
+    _REQUIRED_STRUCTURAL_KEYS = {
+        "n_CFx",
+        "n_CHx",
+        "n_COO",
+        "n_COOH",
+        "n_SO3",
+        "n_R4N",
+        "n_OH",
+        "n_OSO3",
+        "n__O_",
+        "n__S_",
+        "n_N_CH3_2_CH2_COO",
+    }
+
+    @model_validator(mode="after")
+    def validate_structural_properties(self):
+        missing = (
+            self._REQUIRED_STRUCTURAL_KEYS
+            - self.structural_properties.keys()
         )
-    return self
 
-@property
-def Kaw_0(self) -> float:
-    """Dilute-limit air-water partition coefficient (m) from group contributions."""
-    return Kaw_0_Le2021(self.structural_properties)
+        if missing:
+            raise ValueError(
+                "structural_properties is missing required keys: "
+                + ", ".join(sorted(missing))
+            )
 
-@property
-def dG0(self) -> float:
-    """Gibbs free energy of adsorption (kJ/mol) from group contributions."""
-    return dG0_Le2021(self.structural_properties)
+        return self
 
-def Kaw(self, Cw: float) -> float:
-    """
-    Concentration-dependent air-water partition coefficient via Langmuir isotherm (m).
+    @property
+    def Kaw_0(self) -> float:
+        """Dilute-limit air-water partition coefficient."""
+        return Kaw_0_Le2021(
+            self.structural_properties
+        )
 
-    Parameters
-    ----------
-    Cw : float
-        Aqueous-phase concentration of the PFAS compound (mol/L).
+    @property
+    def dG0(self) -> float:
+        """Gibbs free energy of adsorption."""
+        return dG0_Le2021(
+            self.structural_properties
+        )
 
-    Returns
-    -------
-    float
-        Kaw at the given concentration.
-    """
-    return Kaw_langmuir_Le2021(self.Kaw_0, self.dG0, Cw)
+    def Kaw(self, Cw: float) -> float:
+        """
+        Calculate the concentration-dependent air-water
+        partition coefficient.
+        """
+        return Kaw_langmuir_Le2021(
+            self.Kaw_0,
+            self.dG0,
+            Cw,
+        )
 
-def compute(self, Cw: float) -> dict:
-    """
-    Calculate the air-water partition coefficient at a given concentration.
+    def compute(self, Cw: float) -> dict:
+        """
+        Calculate the air-water partition coefficient.
 
-    Parameters
-    ----------
-    Cw : float
-        Aqueous-phase concentration of the PFAS compound (mol/L),
-        typically C_list[j] for the active time interval.
+        Parameters
+        ----------
+        Cw : float
+            Aqueous-phase concentration (mol/L).
 
-    Returns
-    -------
-    dict
-        Dictionary with key 'Kaw'.
-    """
-    kaw = self.Kaw(Cw)
-    return {"Kaw": kaw}
+        Returns
+        -------
+        dict
+            Dictionary containing 'Kaw'.
+        """
+        kaw = self.Kaw(Cw)
 
-@property
-def outputs(self) -> list[str]:
-    """List of output keys from compute() method."""
-    return ["Kaw"]
+        return {
+            "Kaw": kaw
+        }
 
+    @property
+    def outputs(self) -> list[str]:
+        """List of output keys."""
+        return ["Kaw"]
 
 class Szyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
     """
