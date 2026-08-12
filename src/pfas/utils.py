@@ -95,6 +95,102 @@ def aaw_func_tracer(sw, x2, x1, x0):
     aaw = x2*sw**2 + x1*sw + x0
     return aaw
 
+def aaw_func_GSSA(d50, poro, th=None, ths=None, sw=None):
+    """Compute air-water interfacial area using the GSSA-based linear model.
+
+    Estimates the air-water interfacial area per unit bulk volume as a
+    linear function of water saturation, assuming that the geometric
+    smooth-surface specific solid surface area (GSSA) represents the
+    maximum possible interfacial area.
+
+    Parameters
+    ----------
+    th : float or ndarray
+        Volumetric water content.
+    ths : float
+        Saturated volumetric water content.
+    poro : float
+        Porosity of the porous medium (dimensionless, 0-1).
+    d50 : float
+        Median grain diameter (cm).
+
+    Returns
+    -------
+    Aaw : float or ndarray
+        Air-water interfacial area per unit volume (cm²/cm³).
+
+    Notes
+    -----
+    N/A
+
+    """
+    if sw is None:
+        sw = th / ths
+
+    aaw = (1 - sw) * (6 * (1 - poro) / d50)
+
+    return aaw
+
+
+def aaw_func_d50(d50, th=None, ths=None, sw=None):
+    """ Compute air-water interfacial area using the d50 correlation.
+
+    Estimates the air-water interfacial area per unit bulk volume as a
+    linear function of water saturation, with the maximum interfacial
+    area estimated from median grain diameter.
+
+    Parameters
+    ----------
+    sw : float or ndarray
+        Water saturation (dimensionless, 0-1).
+    d50  : float
+        Median grain diameter (cm)
+
+    Returns
+    -------
+    Aaw : float or ndarray
+        Air-water interfacial area per unit volume (cm²/cm³).
+
+    Notes
+    -----
+    N/A
+    
+    """
+    if sw is None:
+        sw = th / ths
+
+    aaw = (1 - sw) * 3.9 * d50**-1.2
+
+    return aaw
+
+
+def aaw_func_nonlinear_d50(d50, th=None, ths=None, sw=None):
+    """Compute air-water interfacial area using a nonlinear grain-diameter
+    approximation based on saturation.
+
+    Parameters
+    ----------
+    sw : float or ndarray
+        Water saturation (dimensionless, 0-1).
+    d50  : float
+        Median grain diameter (cm)
+
+    Returns
+    -------
+    Aaw : float or ndarray
+        Air-water interfacial area per unit volume (cm²/cm³).
+
+    Notes
+    -----
+    N/A
+    
+    """
+    if sw is None:
+        sw = th / ths
+
+    aaw = (-2.85 * sw + 3.6) * ((1 - sw) * 3.9 * d50**-1.2)
+
+    return aaw
 
 def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
     """Calculate distribution coefficient using Fabregat-Palau (2021) model.
