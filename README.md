@@ -4,6 +4,8 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/pfas)](https://pypi.org/project/pfas/)
 # PFAS - *a package for semi-analytical modeling of PFAS transport in the vadose zone*
 
+![PFAS Logo](docs/source/images/logo_pfas.png)
+
 A Python package for modeling the transport of per- and polyfluoroalkyl substances (PFAS) through the unsaturated zone.
 
 ## Overview
