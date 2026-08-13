@@ -37,7 +37,7 @@ from typing import Annotated, Optional
 import numpy as np
 from annotated_types import Ge, Gt, Interval
 from pydantic import BaseModel, Field, model_validator
-from scipy.optimize import fsolve
+from scipy.optimize import brentq, fsolve
 
 from pfas.analytical_soln import (
     Adsorption,
@@ -47,6 +47,11 @@ from pfas.analytical_soln import (
     analytical_soln,
 )
 from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich
+
+
+from typing import Annotated
+from pydantic import BaseModel, field_validator
+from annotated_types import Gt, Interval
 
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
@@ -69,8 +74,10 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         Longitudinal dispersivity (m). Must be positive.
     van_genuchten_n : float
         van Genuchten n parameter (dimensionless). Must be positive.
-    init_sat : float
-        Initial saturation estimate (dimensionless). Range: [0, 1].
+    van_genuchten_l : float, optional
+        van Genuchten l parameter (dimensionless). Must be positive.
+        If not provided, or if null/None, defaults to 0.5 (the standard
+        Mualem assumption).
     residual_water_content : float
         Residual water content (dimensionless). Range: [0, 1].
 
@@ -87,7 +94,7 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     ...     porosity=0.4,
     ...     dispersivity=0.1,
     ...     van_genuchten_n=2.0,
-    ...     init_sat=0.5,
+    ...     van_genuchten_l=None,
     ...     residual_water_content=0.05
     ... )
     >>> result = preprocessor.compute()
@@ -100,8 +107,16 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     porosity: Annotated[float, Interval(ge=0, le=1)]
     dispersivity: Annotated[float, Gt(0)]
     van_genuchten_n: Annotated[float, Gt(0)]
-    init_sat: Annotated[float, Interval(ge=0, le=1)]
+    van_genuchten_l: float = 0.5
     residual_water_content: Annotated[float, Interval(ge=0, le=1)]
+
+    @field_validator("van_genuchten_l", mode="before")
+    @classmethod
+    def default_l_when_null(cls, v):
+        """Treat None/'null' as 'not provided' and fall back to 0.5."""
+        if v is None or (isinstance(v, str) and v.strip().lower() == "null"):
+            return 0.5
+        return v
 
     def compute(self):
         """
@@ -121,10 +136,10 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         m = 1 - 1 / self.van_genuchten_n
 
         def relperm(se):
-            return se**0.5 * (1 - (1 - se**(1/m))**m)**2 - kr
+            return se**self.van_genuchten_l * (1 - (1 - se**(1/m))**m)**2 - kr
 
-        se = fsolve(relperm, self.init_sat)
-        theta = se[0] * (self.porosity - self.residual_water_content) + self.residual_water_content
+        se = brentq(relperm, 1e-12, 1.0)
+        theta = se * (self.porosity - self.residual_water_content) + self.residual_water_content
         v = self.average_infiltration_rate / theta
         d = v * self.dispersivity
         return {"hydro_properties": HydrologicalProperties(theta, v, d)}
@@ -133,7 +148,6 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     def outputs(self):
         """List of output keys from compute() method."""
         return ["hydro_properties"]
-
 
 class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     """Calculate boundary conditions for contaminant input.
