@@ -18,13 +18,13 @@ def test_simulation(configuration):
     model = Model(configuration)
 
     # Add each preprocessor in order
-    model.add(GridGenerator)
-    model.add(WaterPreprocessor)
-    model.add(BoundaryPreprocessor)
-    model.add(SpRetardationPreprocessor)
-    model.add(SWCAdsorptionPreprocessor)
-    model.add(SorptionKawiDirectInput)
-    model.add(SimulationRunner)
+    model.compute(GridGenerator)
+    model.compute(WaterPreprocessor)
+    model.compute(BoundaryPreprocessor)
+    model.compute(SpRetardationPreprocessor)
+    model.compute(SWCAdsorptionPreprocessor)
+    model.compute(SorptionKawiDirectInput)
+    model.compute(SimulationRunner)
 
     # Extract results from generated_data
     C1 = model.generated_data["C1"]
