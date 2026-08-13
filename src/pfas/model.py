@@ -5,7 +5,7 @@ of preprocessing and solving steps with a fluent builder pattern.
 """
 
 from collections import defaultdict
-
+from pydantic_core import PydanticUndefined
 ALL_COMPONENTS = []
 
 class Model:
@@ -54,6 +54,7 @@ class Model:
         """
         self.generated_data = {}
         self.input_data = {}
+        self.default_values = {}
 
 
 
@@ -77,14 +78,18 @@ class Model:
         self : Model
             Returns self for method chaining (builder pattern).
         """
-        extra_keys = set(kwargs) - set(model_class.__annotations__)
+        extra_keys = set(kwargs) - set(model_class.model_fields.keys())
         if len(extra_keys) > 0:
             raise ValueError(f"Unknown keyword arguments supplied: {extra_keys}")
-        all_data = kwargs | self.input_data | self.generated_data
+        fields = model_class.model_fields
+        default_vals = {key: fields[key].default for key in fields
+                        if fields[key].default != PydanticUndefined}
+        self.default_values.update(default_vals)
+        all_data = self.default_values | kwargs | self.input_data | self.generated_data
         try:
-            class_kwargs = {key: all_data[key] for key in model_class.__annotations__}
+            class_kwargs = {key: all_data[key] for key in model_class.model_fields}
         except KeyError:
-            missing_keys = {key for key in model_class.__annotations__ if key not in all_data}
+            missing_keys = {key for key in model_class.model_fields if key not in all_data}
             all_keys = set(all_data)
             candidates = list(self._find_add_components(missing_keys, all_keys))
             if len(candidates) > 0:
@@ -104,7 +109,7 @@ class Model:
             else:
                 for comp in candidates:
                     self.compute(self, comp)
-                class_kwargs = {key: all_data[key] for key in model_class.__annotations__}
+                class_kwargs = {key: all_data[key] for key in model_class.model_fields}
 
         model = model_class(**class_kwargs)
         self.generated_data.update(model.compute())

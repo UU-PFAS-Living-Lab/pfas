@@ -55,6 +55,15 @@ def _():
     return (bulk_dens,)
 
 
+@app.cell
+def _(WaterPreprocessor):
+    from pydantic_core import PydanticUndefined
+
+    for k, v in WaterPreprocessor.model_fields.items():
+        print(k, v)
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -75,11 +84,10 @@ def _(
     SorptionKawiDirectInput,
     SpRetardationPreprocessor,
     WaterPreprocessor,
-    awi_results,
     boundary_results,
     bulk_dens,
     grid_results,
-    water_prep,
+    kawi_results,
     water_results,
 ):
     # Step 1: Generate the grid
@@ -100,7 +108,6 @@ def _(
         porosity=0.34,
         dispersivity=1.5,
         van_genuchten_n=1.31,
-        init_sat=0.2,
         residual_water_content=0.04
     )
 
@@ -141,25 +148,15 @@ def _(
                 "scaling_factor_awi": 1.0
             },
         },
-        soil={
-            "bulk_density": bulk_dens,
-            "porosity": water_prep.porosity,
-            "van_genuchten_alpha": 0.019,
-            "van_genuchten_n": water_prep.van_genuchten_n,
-            "saturated_water_content": 0.34,
-            "residual_water_content": water_prep.residual_water_content,
-            "hydraulic_conductivity": water_prep.hydraulic_conductivity,
-            "dispersivity": water_prep.dispersivity
-        }
+        van_genuchten_alpha = 0.019,
+    #    saturated_water_content = 0.34,
     )
 
     # Step 6: Compute Kawi sorption
-    kawi_sorp = SorptionKawiDirectInput(
+    model.compute(
+        SorptionKawiDirectInput,
         kaw=0.5,
-        hydro_properties=water_results["hydro_properties"],
-        aaw=awi_results["aaw"],
     )
-    kawi_results = kawi_sorp.compute()
 
     # Step 7: Run simulation
     sim_runner = SimulationRunner(
