@@ -106,20 +106,6 @@ class Model:
                     self.compute(self, comp)
                 class_kwargs = {key: all_data[key] for key in model_class.__annotations}
 
-        # # config_data = {key: getattr(self.config, key) for key in model_class.__annotations__
-        #             #    if hasattr(self.config, key)}
-        # gen_data = {key: self.generated_data[key] for key in model_class.__annotations__
-        #             if key in self.generated_data}
-        # input_kwargs = {key: self.input_data[key] for key in model_class.__annotations__
-        #                 if key in self.input_data}
-        # config_data.update(gen_data)
-        # config_data.update(kwargs)
-        # config_data.update(input_kwargs)
-
-        # missing_kwargs = set(model_class.__annotations__) - set(config_data)
-        # if len(missing_kwargs) != 0:
-
-
         model = model_class(**class_kwargs)
         self.generated_data.update(model.compute())
         self.input_data.update(kwargs)
