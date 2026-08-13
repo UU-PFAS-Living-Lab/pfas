@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Feb  3 14:26:22 2022.
+Package for analyzing PFAS transport in the subsurface.
 
-@author: boguo
 """
 
 from pfas.analytical_soln import analytical_soln
