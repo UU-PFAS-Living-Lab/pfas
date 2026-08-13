@@ -5,7 +5,7 @@ of preprocessing and solving steps with a fluent builder pattern.
 """
 
 from collections import defaultdict
-
+from pydantic_core import PydanticUndefined
 ALL_COMPONENTS = []
 
 class Model:
@@ -44,7 +44,7 @@ class Model:
     ... )
     """
 
-    def __init__(self, config):
+    def __init__(self):
         """Initialize Model with configuration.
 
         Parameters
@@ -52,11 +52,9 @@ class Model:
         config : object
             Configuration object containing simulation parameters.
         """
-        self.config = config
         self.generated_data = {}
         self.input_data = {}
-
-
+        self.default_values = {}
 
     def compute(self, model_class, **kwargs):
         """Add and execute a preprocessing or solving component.
@@ -78,16 +76,20 @@ class Model:
         self : Model
             Returns self for method chaining (builder pattern).
         """
-        extra_keys = set(kwargs) - set(model_class.__annotations__)
+        extra_keys = set(kwargs) - set(model_class.model_fields.keys())
         if len(extra_keys) > 0:
             raise ValueError(f"Unknown keyword arguments supplied: {extra_keys}")
-        all_data = kwargs | self.input_data | self.generated_data
+        fields = model_class.model_fields
+        default_vals = {key: fields[key].default for key in fields
+                        if fields[key].default != PydanticUndefined}
+        self.default_values.update(default_vals)
+        all_data = self.default_values | kwargs | self.input_data | self.generated_data
         try:
-            class_kwargs = {key: all_data[key] for key in model_class.__annotations}
+            class_kwargs = {key: all_data[key] for key in model_class.model_fields}
         except KeyError:
-            missing_keys = {key for key in model_class.__annotations__ if key not in all_data}
+            missing_keys = {key for key in model_class.model_fields if key not in all_data}
             all_keys = set(all_data)
-            candidates = self._find_add_components(missing_keys, all_keys)
+            candidates = list(self._find_add_components(missing_keys, all_keys))
             if len(candidates) > 0:
                 raise ValueError("Multiple possible ways to compute the missing arguments,"
                                  f" add them manually: {candidates}")
@@ -97,19 +99,26 @@ class Model:
                     for component in ALL_COMPONENTS:
                         if missing in component.outputs:
                             messages[missing].append(component.__class__.__name__)
+                missing_keys_message = f"Missing following arguments: {missing_keys}"
                 suggest_message = ", ".join(f"Please supply argument {arg} directly or through "
                                             f"component(s) {', '.join(messages[arg])}"
                                             for arg in messages)
-                raise ValueError(suggest_message)
+                raise ValueError(missing_keys_message + suggest_message)
             else:
                 for comp in candidates:
                     self.compute(self, comp)
-                class_kwargs = {key: all_data[key] for key in model_class.__annotations}
+                class_kwargs = {key: all_data[key] for key in model_class.model_fields}
 
         model = model_class(**class_kwargs)
         self.generated_data.update(model.compute())
         self.input_data.update(kwargs)
         return self
+
+    def __getattr__(self, key):
+        all_data = self.default_values | self.generated_data | self.input_data
+        if key in all_data:
+            return all_data[key]
+        return super().__getattribute__(key)
 
     def _find_add_components(self, missing_arguments, all_keys):
         if len(missing_arguments) == 0:

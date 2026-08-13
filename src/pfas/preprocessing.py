@@ -302,7 +302,10 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
     sigma0: Annotated[float, Gt(0)] = 0.072
     scaling_factor_awi: Annotated[float, Gt(0)]
     AWI: dict
-    soil: dict
+    van_genuchten_n: Annotated[float, Gt(0)]
+    van_genuchten_alpha: Annotated[float, Gt(0)]
+    porosity: Annotated[float, Interval(ge=0, le=1)]
+    residual_water_content: Annotated[float, Interval(ge=0, le=1)]
 
     def compute(self):
         """
@@ -314,11 +317,11 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
             Dictionary with key 'aaw' containing the calculated
             air-water interfacial area (m²/m³).
         """
-        poro = self.soil["porosity"]
-        alpha = self.soil["van_genuchten_alpha"]
-        n_vg = self.soil["van_genuchten_n"]
+        poro = self.porosity
+        alpha = self.van_genuchten_alpha
+        n_vg = self.van_genuchten_n
         theta = self.hydro_properties.water_content
-        thetar = self.soil["residual_water_content"]
+        thetar = self.residual_water_content
         thetas = poro
 
         if self.AWI["AWI_type"] == "SWC-based":
