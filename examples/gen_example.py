@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.23.16"
 app = marimo.App(width="medium")
 
 
@@ -21,9 +21,11 @@ def _():
     from pfas.model import Model
     from matplotlib import pyplot as plt
     import marimo as mo
+
     return (
         BoundaryPreprocessor,
         GridGenerator,
+        Model,
         SWCAdsorptionPreprocessor,
         SimulationRunner,
         SorptionKawiDirectInput,
@@ -67,24 +69,32 @@ def _(mo):
 def _(
     BoundaryPreprocessor,
     GridGenerator,
+    Model,
     SWCAdsorptionPreprocessor,
     SimulationRunner,
     SorptionKawiDirectInput,
     SpRetardationPreprocessor,
     WaterPreprocessor,
+    awi_results,
+    boundary_results,
     bulk_dens,
+    grid_results,
+    water_prep,
+    water_results,
 ):
     # Step 1: Generate the grid
-    grid_gen = GridGenerator(
+    model = Model()
+    model.compute(
+        GridGenerator,
         domain_length=60,
         spatial_resolution=1.0,
         time_resolution=100,
         time_total=10000
     )
-    grid_results = grid_gen.compute()
 
     # Step 2: Compute water flow properties
-    water_prep = WaterPreprocessor(
+    model.compute(
+        WaterPreprocessor,
         average_infiltration_rate=1.5,
         hydraulic_conductivity=6,
         porosity=0.34,
@@ -93,14 +103,13 @@ def _(
         init_sat=0.2,
         residual_water_content=0.04
     )
-    water_results = water_prep.compute()
+
 
     # Step 3: Setup boundary conditions
-    boundary_prep = BoundaryPreprocessor(
+    model.compute(BoundaryPreprocessor,
         C_list=[10.0, 0],
         T_list=[0, 2000]
     )
-    boundary_results = boundary_prep.compute()
 
     # Step 4: Compute solid phase retardation
     sorption_solid = {
@@ -115,16 +124,15 @@ def _(
             "Kd": 5.0
         },
     }
-    sp_retard = SpRetardationPreprocessor(
+    model.compute(
+        SpRetardationPreprocessor,
         sorption_solid=sorption_solid,
         bulk_density=bulk_dens,
-        hydro_properties=water_results["hydro_properties"]
     )
-    sp_results = sp_retard.compute()
 
     # Step 5: Compute AWI adsorption
-    swc_adsorp = SWCAdsorptionPreprocessor(
-        hydro_properties=water_results["hydro_properties"],
+    model.compute(
+        SWCAdsorptionPreprocessor,
         sigma0=71,
         scaling_factor_awi=1.0,
         AWI={
@@ -144,7 +152,6 @@ def _(
             "dispersivity": water_prep.dispersivity
         }
     )
-    awi_results = swc_adsorp.compute()
 
     # Step 6: Compute Kawi sorption
     kawi_sorp = SorptionKawiDirectInput(
@@ -167,7 +174,7 @@ def _(
     )
     final_results = sim_runner.compute()
     print("Simulation completed successfully!")
-    return final_results, grid_results
+    return (final_results,)
 
 
 @app.cell(hide_code=True)

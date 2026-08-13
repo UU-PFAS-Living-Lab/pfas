@@ -44,7 +44,7 @@ class Model:
     ... )
     """
 
-    def __init__(self, config):
+    def __init__(self):
         """Initialize Model with configuration.
 
         Parameters
@@ -52,7 +52,6 @@ class Model:
         config : object
             Configuration object containing simulation parameters.
         """
-        self.config = config
         self.generated_data = {}
         self.input_data = {}
 
@@ -83,11 +82,11 @@ class Model:
             raise ValueError(f"Unknown keyword arguments supplied: {extra_keys}")
         all_data = kwargs | self.input_data | self.generated_data
         try:
-            class_kwargs = {key: all_data[key] for key in model_class.__annotations}
+            class_kwargs = {key: all_data[key] for key in model_class.__annotations__}
         except KeyError:
             missing_keys = {key for key in model_class.__annotations__ if key not in all_data}
             all_keys = set(all_data)
-            candidates = self._find_add_components(missing_keys, all_keys)
+            candidates = list(self._find_add_components(missing_keys, all_keys))
             if len(candidates) > 0:
                 raise ValueError("Multiple possible ways to compute the missing arguments,"
                                  f" add them manually: {candidates}")
@@ -97,14 +96,15 @@ class Model:
                     for component in ALL_COMPONENTS:
                         if missing in component.outputs:
                             messages[missing].append(component.__class__.__name__)
+                missing_keys_message = f"Missing following arguments: {missing_keys}"
                 suggest_message = ", ".join(f"Please supply argument {arg} directly or through "
                                             f"component(s) {', '.join(messages[arg])}"
                                             for arg in messages)
-                raise ValueError(suggest_message)
+                raise ValueError(missing_keys_message + suggest_message)
             else:
                 for comp in candidates:
                     self.compute(self, comp)
-                class_kwargs = {key: all_data[key] for key in model_class.__annotations}
+                class_kwargs = {key: all_data[key] for key in model_class.__annotations__}
 
         model = model_class(**class_kwargs)
         self.generated_data.update(model.compute())
