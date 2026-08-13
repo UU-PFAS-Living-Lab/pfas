@@ -56,8 +56,6 @@ class Model:
         self.input_data = {}
         self.default_values = {}
 
-
-
     def compute(self, model_class, **kwargs):
         """Add and execute a preprocessing or solving component.
 
@@ -115,6 +113,12 @@ class Model:
         self.generated_data.update(model.compute())
         self.input_data.update(kwargs)
         return self
+
+    def __getattr__(self, key):
+        all_data = self.default_values | self.generated_data | self.input_data
+        if key in all_data:
+            return all_data[key]
+        return super().__getattribute__(key)
 
     def _find_add_components(self, missing_arguments, all_keys):
         if len(missing_arguments) == 0:

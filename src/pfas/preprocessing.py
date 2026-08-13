@@ -307,8 +307,6 @@ class SWCAdsorptionPreprocessor(BaseModel, validate_assignment=True, extra='forb
     porosity: Annotated[float, Interval(ge=0, le=1)]
     residual_water_content: Annotated[float, Interval(ge=0, le=1)]
 
-    # soil: dict
-
     def compute(self):
         """
         Calculate air-water interfacial area.

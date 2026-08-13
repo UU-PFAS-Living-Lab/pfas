@@ -16,20 +16,22 @@ def _(mo):
 @app.cell
 def _():
     #loading relevant modules 
-    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner
+    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator
+    from pfas.component import SWCsorption, LinearSPsorption, Retardation
     from pfas.configuration import read_toml
     from pfas.model import Model
     from matplotlib import pyplot as plt
     import marimo as mo
+    from pfas.component import EquilibriumSolver
 
     return (
         BoundaryPreprocessor,
+        EquilibriumSolver,
         GridGenerator,
+        LinearSPsorption,
         Model,
-        SWCAdsorptionPreprocessor,
-        SimulationRunner,
-        SorptionKawiDirectInput,
-        SpRetardationPreprocessor,
+        Retardation,
+        SWCsorption,
         WaterPreprocessor,
         mo,
         plt,
@@ -47,23 +49,6 @@ def _(mo):
     return
 
 
-@app.cell
-def _():
-    # Shared parameters: 
-
-    bulk_dens = 1.6
-    return (bulk_dens,)
-
-
-@app.cell
-def _(WaterPreprocessor):
-    from pydantic_core import PydanticUndefined
-
-    for k, v in WaterPreprocessor.model_fields.items():
-        print(k, v)
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -77,18 +62,13 @@ def _(mo):
 @app.cell
 def _(
     BoundaryPreprocessor,
+    EquilibriumSolver,
     GridGenerator,
+    LinearSPsorption,
     Model,
-    SWCAdsorptionPreprocessor,
-    SimulationRunner,
-    SorptionKawiDirectInput,
-    SpRetardationPreprocessor,
+    Retardation,
+    SWCsorption,
     WaterPreprocessor,
-    boundary_results,
-    bulk_dens,
-    grid_results,
-    kawi_results,
-    water_results,
 ):
     # Step 1: Generate the grid
     model = Model()
@@ -132,46 +112,32 @@ def _(
         },
     }
     model.compute(
-        SpRetardationPreprocessor,
+        LinearSPsorption,
         sorption_solid=sorption_solid,
-        bulk_density=bulk_dens,
     )
 
     # Step 5: Compute AWI adsorption
     model.compute(
-        SWCAdsorptionPreprocessor,
+        SWCsorption,
         sigma0=71,
         scaling_factor_awi=1.0,
-        AWI={
-            "AWI_type": "SWC-based",
-            "SWC-based": {
-                "scaling_factor_awi": 1.0
-            },
-        },
         van_genuchten_alpha = 0.019,
-    #    saturated_water_content = 0.34,
     )
 
-    # Step 6: Compute Kawi sorption
+    # Step 6: Compute retardation
     model.compute(
-        SorptionKawiDirectInput,
-        kaw=0.5,
+        Retardation,
+        Kaw=0.5,
+        bulk_density=1.6,
     )
 
     # Step 7: Run simulation
-    sim_runner = SimulationRunner(
-        grid=grid_results["grid"],
-        bulk_density=bulk_dens,
-        boundary_conditions=boundary_results["boundary_conditions"],
-        hydro_properties=water_results["hydro_properties"],
-        awi_retardation=kawi_results["awi_retardation"],
-        sorption_solid=sorption_solid,
-        kinetic_sorption=False,
-        volume_averaged=True
+    model.compute(
+        EquilibriumSolver,
     )
-    final_results = sim_runner.compute()
+
     print("Simulation completed successfully!")
-    return (final_results,)
+    return (model,)
 
 
 @app.cell(hide_code=True)
@@ -183,16 +149,16 @@ def _(mo):
 
 
 @app.cell
-def _(final_results, grid_results, plt):
-    simulation_grid = grid_results["grid"]
+def _(model, plt):
+    simulation_grid = model.grid
     # Select specific time indices to plot
-    t_len = final_results['C_tot'].shape[1]
+    t_len = model.C_tot.shape[1]
     time_indices = [0, t_len//4, t_len//2, 3*t_len//4, -1]  # First, and some intermediate, and last time step
 
     plt.figure(figsize=(8, 6))
 
     for t_idx in time_indices:
-        plt.plot(final_results['C_tot'][:, t_idx], simulation_grid.depth, label=f"t = {simulation_grid.time[t_idx]:.0f} s")
+        plt.plot(model.C_tot[:, t_idx], simulation_grid.depth, label=f"t = {simulation_grid.time[t_idx]:.0f} s")
 
     plt.xlabel("Total PFAS Concentration (mg/L)")
     plt.ylabel("Depth (cm)")
