@@ -20,15 +20,13 @@ def _():
         WaterPreprocessor,
         BoundaryPreprocessor,
         GridGenerator,
-        SpRetardationPreprocessor,
-        SWCAdsorptionPreprocessor
     )
     from pfas.component import LinearSPsorption, Le2021_langmuir, Szyszkowski, SWCsorption, Retardation, EquilibriumSolver
     from pfas.data_loader import load_dataset, available_datasets
     from matplotlib import pyplot as plt
     import marimo as mo
     import numpy as np
-
+    from pfas.model import Model
     print("Available datasets:", available_datasets())
     return (
         BoundaryPreprocessor,
@@ -36,13 +34,13 @@ def _():
         GridGenerator,
         Le2021_langmuir,
         LinearSPsorption,
+        Model,
         Retardation,
         SWCsorption,
         Szyszkowski,
         WaterPreprocessor,
         load_dataset,
         mo,
-        np,
     )
 
 
@@ -58,7 +56,7 @@ def _(mo):
 
 
 @app.cell
-def _(GridGenerator, load_dataset):
+def _(GridGenerator, Model, load_dataset):
     # ── Load datasets from the pfas library ───────────────────────────────────
     pfas_db = load_dataset("PFASs")
     soil_db = load_dataset("soils")
@@ -74,38 +72,30 @@ def _(GridGenerator, load_dataset):
     sigma0=72.8
     T = 293.15
 
-    # Solid-phase adsorption: linear
-    frac_int = 1.0
-    rate_const = 0.0
-
     print(f"PFAS : {pfas_name}  |  n_CFx = {n_CFx}")
     print(f"       K_oc = {K_oc} L/kg  |  K_sc = {K_sc} L/kg")
 
-
-    from pfas.utils import kd_fabregat_palau
-    # Step 1: generate grid
-    grid_gen = GridGenerator(
+    model = Model()
+    model.compute(
+        GridGenerator,
+        domain_length=60,
+        spatial_resolution=1.0,
+        time_resolution=100,
+        time_total=10000
+    )
+    # Step 1: initialize model and generate grid
+    model = Model()
+    model.compute(GridGenerator,
         domain_length=100,                      # cm
         spatial_resolution=0.5,                 # cm
         time_resolution=(1/12) * (60*60*24*365),  # seconds
         time_total=250*(60*60*24*365),          # seconds
     )
-    grid_results = grid_gen.compute()
-    grid = grid_results["grid"]
+    #grid_results = grid_gen.compute()
+    #grid = grid_results["grid"]
 
     pulse_duration = 25 * (60 * 60 * 24 * 365)  # seconds
-    return (
-        K_oc,
-        K_sc,
-        T,
-        grid,
-        grid_results,
-        pfas,
-        pfas_name,
-        pulse_duration,
-        sigma0,
-        soil_db,
-    )
+    return K_oc, K_sc, T, model, pfas, pfas_name, pulse_duration, soil_db
 
 
 @app.cell(hide_code=True)
@@ -131,12 +121,16 @@ def _(
     Szyszkowski,
     T,
     WaterPreprocessor,
-    grid,
-    np,
+    final_results,
+    kaw_method,
+    kawi_results,
+    model,
     pfas,
     pulse_duration,
-    sigma0,
+    ret_result,
     soil_db,
+    spsorption_result,
+    water_results,
 ):
     staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")
         ]
@@ -174,25 +168,19 @@ def _(
         # ---------------------------------------------------------------------
         # 1. Water / hydraulic properties
         # ---------------------------------------------------------------------
-        water_prep = WaterPreprocessor(
-            average_infiltration_rate=9.51e-7,
-            hydraulic_conductivity=K_sat,
-            porosity=porosity,
-            dispersivity=dispersivity,
-            van_genuchten_n=vg_n,
-            van_genuchten_l=vg_l,
-            residual_water_content=theta_r,
+        model.compute(
+        WaterPreprocessor,
+        average_infiltration_rate=9.51e-7,
+        hydraulic_conductivity=K_sat,
+        porosity=porosity,
+        dispersivity=dispersivity,
+        van_genuchten_n=vg_n,
+        van_genuchten_l = vg_l,
+        residual_water_content=theta_r
         )
 
-        water_results = water_prep.compute()
 
-        hydro_properties = water_results["hydro_properties"]
-
-        # ---------------------------------------------------------------------
-        # 2. Boundary conditions
-        # Same PFAS pulse for every soil
-        # ---------------------------------------------------------------------
-        boundary_prep = BoundaryPreprocessor(
+        model.compute(BoundaryPreprocessor,
             C_list=[
                 pfas["M"]["value"] * 1e-15,
                 0.0,
@@ -203,7 +191,7 @@ def _(
             ],
         )
 
-        boundary_results = boundary_prep.compute()
+    
 
         # ---------------------------------------------------------------------
         # 3. Solid-phase adsorption
@@ -224,29 +212,18 @@ def _(
             },
         }
 
-        sorption = LinearSPsorption(
-            sorption_solid=sorption_solid
+        model.compute(LinearSPsorption,
+        sorption_solid=sorption_solid,
         )
 
-        spsorption_result = sorption.compute()
-
-        # ---------------------------------------------------------------------
-        # 4. Air-water interfacial area
-        # ---------------------------------------------------------------------
-        aaw_sorp = SWCsorption(
-            hydro_properties=hydro_properties,
-            sigma0=sigma0,
-            scaling_factor_awi=4.15,
-            soil={
-                "porosity": porosity,
-                "van_genuchten_alpha": vg_alpha,
-                "van_genuchten_n": vg_n,
-                "residual_water_content": theta_r,
-            },
+        model.compute(
+        SWCsorption,
+        sigma0=71,
+        scaling_factor_awi=4.15,
+        van_genuchten_alpha = vg_alpha,
         )
+    
 
-        aaw_result = aaw_sorp.compute()
-        aaw = aaw_result["aaw"]
 
         # ---------------------------------------------------------------------
         # 5. Select Kaw method
@@ -258,67 +235,47 @@ def _(
         b = pfas["Szyszkowski_params"]["b"]["value"]
 
         if a is not None and b is not None:
-
-            kawi_sorp = Szyszkowski(
-                sigma0=sigma0,
-                a=a,
-                b=b,
-                chi=1,
-                T=T,
-            )
-
-            kaw_method = "Szyszkowski"
-
+            model.compute(
+                    Szyszkowski,
+                    a=a,
+                    b=b,
+                    chi=1,
+                    T=T,
+                )
         else:
 
-            kawi_sorp = Le2021_langmuir(
-                pfas["structural_properties"]
+            model.compute(Le2021_langmuir,
+                pfas["structural_properties"], 
+                Cw = 1e-12
             )
 
-            kaw_method = "Le2021_langmuir"
 
-        kawi_results = kawi_sorp.compute(
-            Cw=1e-12
+        model.compute(
+            Retardation,
+            bulk_density = bulk_dens
         )
 
-        # ---------------------------------------------------------------------
-        # 6. Retardation
-        # ---------------------------------------------------------------------
-        ret = Retardation(
-            Kd=spsorption_result["Kd"],
-            Kaw=kawi_results["Kaw"],
-            aaw=aaw,
-            kinetic=False,
-            bulk_density=bulk_dens,
-            hydro_properties=hydro_properties,
-        )
+        model.compute(
+        EquilibriumSolver,
+    )
 
-        ret_result = ret.compute()
-
+    
         # ---------------------------------------------------------------------
         # 7. EquilibriumSolver
         #
         # IMPORTANT:
         # Every soil is now simulated using EquilibriumSolver.
         # ---------------------------------------------------------------------
-        sim_runner = EquilibriumSolver(
-            grid=grid,
-            boundary_conditions=boundary_results["boundary_conditions"],
-            hydro_properties=hydro_properties,
-            adsorption=ret_result["adsorption"],
-            initial_contaminant_concentration=np.zeros(
-                len(grid.depth)
-            ),
-        )
-
-        final_results = sim_runner.compute()
 
         # ---------------------------------------------------------------------
         # Store all results for this soil
         # ---------------------------------------------------------------------
+        print(type(model))
+
+    
         all_soil_results[soil_name] = {
-            "Aaw": aaw,
-            "kawi": kawi_results,
+            "Aaw": model.Aaw,
+            "kawi": model.Kaw,
             "kaw_method": kaw_method,
             "sim": final_results,
             "water": water_results,
@@ -332,7 +289,6 @@ def _(
             f"Kd = {spsorption_result['Kd']:.4g} | "
             f"Kaw = {kawi_results['Kaw']:.4g}"
         )
-
     return (all_soil_results,)
 
 
