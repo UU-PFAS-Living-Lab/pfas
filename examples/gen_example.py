@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.16"
+__generated_with = "0.19.4"
 app = marimo.App(width="medium")
 
 
@@ -23,7 +23,6 @@ def _():
     from matplotlib import pyplot as plt
     import marimo as mo
     from pfas.component import EquilibriumSolver
-
     return (
         BoundaryPreprocessor,
         EquilibriumSolver,
@@ -41,7 +40,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Defining shared parameters betweenthe model classes
+    ## Defining shared parameters between the model classes
     Some classes require the same parameters. When providing a TOML file, this is handled correctly, but when providing the parameters seperately to the different classes, we need to take care of this ourselves.
 
     In the next line of code, we will define bulk density. Furthermore, in our calling of the different classes, we will reuse some of the parameters that we have defined (`i.e. "residual_water_content": water_prep.residual_water_content` )
