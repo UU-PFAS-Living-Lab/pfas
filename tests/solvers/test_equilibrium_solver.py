@@ -1,25 +1,22 @@
 import numpy as np
-from pfas.solvers import equilibrium_solver
+from pfas.component.solver import EquilibriumSolver
 
 
 def test_equilibrium_solver_basic(grid, hydro, bc_constant,
                                   adsorption_equilibrium, dim_equilibrium, initial):
-    """
-    Test equilibrium solver using canonical fixtures.
-    Verifies:
-    - correct output shapes
-    - non-negativity
-    - initial condition preservation
-    - concentration increase over time
-    - C_tot = theta * C1
-    """
-    C1, C_tot = equilibrium_solver(
-        adsorption_equilibrium.total_retardation,
-        dim_equilibrium,
-        bc_constant.C_list,
-        initial,
-        hydro.water_content,
+    """Test EquilibriumSolver using canonical fixtures."""
+    solver = EquilibriumSolver(
+        grid=grid,
+        hydro_properties=hydro,
+        adsorption=adsorption_equilibrium,
+        boundary_conditions=bc_constant,
+        initial_contaminant_concentration=initial,
+        bc="resident",
     )
+
+    out = solver.compute()
+    C1 = out["C1"]
+    C_tot = out["C_tot"]
 
     assert C1.shape == (len(grid.depth), len(grid.time))
     assert C_tot.shape == (len(grid.depth), len(grid.time))
