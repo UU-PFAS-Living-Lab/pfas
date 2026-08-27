@@ -8,7 +8,7 @@ from pfas.component.awi import (
     D50AWI,
     NonlinearD50AWI,
 )
-from pfas.analytical_soln import HydrologicalProperties
+from pfas.data_structure import HydrologicalProperties
 
 
 class Dummy:

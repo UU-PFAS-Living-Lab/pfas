@@ -5,7 +5,7 @@ from typing import Annotated
 from annotated_types import Gt, Interval
 from pydantic import BaseModel, model_validator
 
-from pfas.analytical_soln import HydrologicalProperties
+from pfas.data_structure import HydrologicalProperties
 from pfas.utils import (
     aaw_func_thermo,
     aaw_func_tracer,

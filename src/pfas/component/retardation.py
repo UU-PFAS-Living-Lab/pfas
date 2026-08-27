@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 from annotated_types import Gt
 from pydantic import BaseModel, model_validator
 
-from pfas.analytical_soln import Adsorption, HydrologicalProperties
+from pfas.data_structure import Adsorption, HydrologicalProperties
 
 
 class Retardation(BaseModel, validate_assignment=True, extra='forbid'):

@@ -1,6 +1,6 @@
 import numpy as np
 from pfas.preprocessing import GridGenerator
-from pfas.analytical_soln import SimulationGrid
+from pfas.data_structure import SimulationGrid
 
 
 def test_grid_generator_basic():
