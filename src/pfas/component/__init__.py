@@ -16,8 +16,11 @@ __all__ = [
     "FreundlichSPsorption",
     "Retardation",
     "EquilibriumSolver",
-    "KineticSolver", 
+    "KineticSolver",
     "Le2021_asymptote",
     "Le2021_langmuir",
     "Szyszkowski",
 ]
+
+ALL_COMPONENTS = [GuoTracer, SWCsorption, LinearSPsorption, FreundlichSPsorption, Retardation,
+                  EquilibriumSolver, KineticSolver, Le2021_asymptote, Le2021_langmuir, Szyszkowski]
