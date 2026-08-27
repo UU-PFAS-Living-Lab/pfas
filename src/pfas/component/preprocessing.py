@@ -10,10 +10,6 @@ The preprocessors handle calculations for:
 - Water flow properties
 - Boundary conditions
 - Spatial and temporal grids
-- Adsorption parameters (solid-phase and air-water interface)
-- Air-water interface adsorption
-- Simulation execution
-
 Classes
 -------
 WaterPreprocessor
@@ -22,31 +18,20 @@ BoundaryPreprocessor
     Calculates boundary conditions for contaminant input.
 GridGenerator
     Generates spatial and temporal discretization grids.
-SWCAdsorptionPreprocessor
-    Calculates air-water interface area using thermodynamic relations.
-AdsorptionCollector
-    Consolidates solid-phase and air-water interface sorption parameters
-    into a single Adsorption object.
-SimulationRunner
-    Executes the analytical solution with preprocessed parameters.
-
 """
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import numpy as np
 from annotated_types import Ge, Gt, Interval
 from pydantic import BaseModel, Field, model_validator
-from scipy.optimize import brentq, fsolve
+from scipy.optimize import brentq
 
 from pfas.data_structure import (
     BoundaryConditions,
     HydrologicalProperties,
-    SimulationGrid,
+    SimulationGrid
 )
-from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich
-
-
 from typing import Annotated
 from pydantic import BaseModel, field_validator
 from annotated_types import Gt, Interval

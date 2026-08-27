@@ -2,10 +2,10 @@
 
 from typing import Annotated
 
-from annotated_types import Gt
+from annotated_types import Gt, Interval
 from pydantic import BaseModel, model_validator
 
-from pfas.analytical_soln import HydrologicalProperties
+from pfas.data_structure import HydrologicalProperties
 from pfas.utils import (
     aaw_func_thermo,
     aaw_func_tracer,
@@ -26,15 +26,18 @@ class SWCsorption(BaseModel, validate_assignment=True, extra="forbid"):
     hydro_properties: HydrologicalProperties
     sigma0: Annotated[float, Gt(0)] = 0.072
     scaling_factor_awi: Annotated[float, Gt(0)]
-    soil: dict
+    van_genuchten_n: Annotated[float, Gt(0)]
+    van_genuchten_alpha: Annotated[float, Gt(0)]
+    porosity: Annotated[float, Interval(ge=0, le=1)]
+    residual_water_content: Annotated[float, Interval(ge=0, le=1)]
 
     def compute(self):
         """Calculate air-water interfacial area."""
-        poro = self.soil["porosity"]
-        alpha = self.soil["van_genuchten_alpha"]
-        n_vg = self.soil["van_genuchten_n"]
+        poro = self.porosity
+        alpha = self.van_genuchten_alpha
+        n_vg = self.van_genuchten_n
         theta = self.hydro_properties.water_content
-        thetar = self.soil["residual_water_content"]
+        thetar = self.residual_water_content
         thetas = poro
 
         aaw = aaw_func_thermo(
