@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from pfas.analytical_soln import analytical_soln, HydrologicalProperties
+from pfas.data_structure import analytical_soln, HydrologicalProperties
 
 
 def test_analytical_equilibrium(grid, hydro, bc_constant,

@@ -27,7 +27,7 @@ def _():
         #SorptionKawSzyszkowski,
        # SimulationRunner,
     )
-    from pfas.analytical_soln import analytical_soln
+    from pfas.data_structure import analytical_soln
     from pfas.component.kd import LinearSPsorption
     from pfas.component.kaw import Le2021_langmuir, Szyszkowski
     from pfas.component.awi import SWCsorption

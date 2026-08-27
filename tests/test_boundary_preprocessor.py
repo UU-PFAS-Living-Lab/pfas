@@ -1,6 +1,6 @@
 import pytest
 from pfas.preprocessing import BoundaryPreprocessor
-from pfas.analytical_soln import BoundaryConditions
+from pfas.data_structure import BoundaryConditions
 
 
 def test_boundary_preprocessor_basic():

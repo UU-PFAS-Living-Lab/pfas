@@ -29,7 +29,7 @@ def _():
     from pfas.component.kd import LinearSPsorption
     from pfas.component.kaw import Le2021_langmuir, Szyszkowski
     from pfas.component.retardation import Retardation 
-    from pfas.analytical_soln import analytical_soln
+    from pfas.data_structure import analytical_soln
     from matplotlib import pyplot as plt
     from pathlib import Path
     import marimo as mo

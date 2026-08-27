@@ -25,7 +25,7 @@ from pfas.solver_utils import (
     _ivp_neq,
 )
 from typing import Annotated
-from pfas.analytical_soln import Adsorption, HydrologicalProperties
+from pfas.data_structure import Adsorption, HydrologicalProperties
 from annotated_types import Gt
 from pydantic import BaseModel, field_validator
 

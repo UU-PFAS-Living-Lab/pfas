@@ -1,6 +1,6 @@
 import pytest
 
-from pfas.analytical_soln import Adsorption, HydrologicalProperties
+from pfas.data_structure import Adsorption, HydrologicalProperties
 
 
 class Dummy:

@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from pfas.analytical_soln import (
+from pfas.data_structure import (
     SimulationGrid,
     HydrologicalProperties,
     BoundaryConditions,
