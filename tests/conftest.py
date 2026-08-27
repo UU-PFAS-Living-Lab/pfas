@@ -1,222 +1,87 @@
-from pathlib import Path
-
-import numpy as np
 import pytest
-
-from pfas.analytical_soln import SimulationGrid
-from pfas.configuration import read_toml
-from pfas.preprocessing import (
-    BoundaryPreprocessor,
-    GridGenerator,
-    SimulationRunner,
-    SorptionKawiDirectInput,
-    SpRetardationPreprocessor,
-    SWCAdsorptionPreprocessor,
-    WaterPreprocessor,
+import numpy as np
+from pfas.analytical_soln import (
+    SimulationGrid,
+    HydrologicalProperties,
+    BoundaryConditions,
+    Adsorption,
 )
-
-
-@pytest.fixture(scope="session")
-def configuration():
-    config_path = Path("examples", "data", "config.toml")
-    return read_toml(config_path)
-
-@pytest.fixture
-def valid_water_preprocessor():
-    """A valid WaterPreprocessor instance with realistic parameters."""
-    return WaterPreprocessor(
-        average_infiltration_rate=1e-8,
-        hydraulic_conductivity=1e-5,
-        porosity=0.4,
-        dispersivity=0.1,
-        van_genuchten_n=2.0,
-        init_sat=0.5,
-        residual_water_content=0.05,
-    )
-
-@pytest.fixture
-def result_water(valid_water_preprocessor):
-    """Computed result dictionary."""
-    return valid_water_preprocessor.compute()
-
-@pytest.fixture
-def valid_boundary_preprocessor():
-    """A valid BoundaryPreprocessor instance."""
-    return BoundaryPreprocessor(
-        C_list=[100.0, 0],
-        T_list=[0, 3600]
-    )
-@pytest.fixture
-def result_boundary(valid_boundary_preprocessor):
-    """Computed result dictionary."""
-    return valid_boundary_preprocessor.compute()
-
-@pytest.fixture
-def valid_grid_generator():
-    return GridGenerator(
-        domain_length=10.0,
-        spatial_resolution=1.0,
-        time_resolution=2.0,
-        time_total=10.0,
-    )
-
-@pytest.fixture
-def sorption_solid_linear():
-    return {
-        "sorption_isotherm": "linear",
-        "linear": {
-            "Kd_method": "direct_input",
-            "Kd": 0.8,
-        },
-    }
-
-@pytest.fixture
-def valid_sp_retardation_preprocessor(result_water, sorption_solid_linear):
-    return SpRetardationPreprocessor(
-        sorption_solid=sorption_solid_linear,
-        bulk_density=1600.0,
-        hydro_properties=result_water["hydro_properties"],
-    )
-
-@pytest.fixture
-def soil_params(valid_water_preprocessor):
-    """Soil parameters consistent with WaterPreprocessor."""
-    return {
-        "porosity": valid_water_preprocessor.porosity,
-        "van_genuchten_alpha": 1.0,
-        "van_genuchten_n": valid_water_preprocessor.van_genuchten_n,
-        "residual_water_content": valid_water_preprocessor.residual_water_content,
-    }
+from pfas.solver_utils import compute_dimensionless_params
 
 
 @pytest.fixture
-def awi_swc_based():
-    return {
-        "AWI_type": "SWC-based",
-    }
+def grid():
+    """Simple spatial and temporal grid for solver tests."""
+    depth = np.linspace(0, 1, 5)
+    time = np.linspace(0, 10, 6)
+    return SimulationGrid(depth, time)
 
 
 @pytest.fixture
-def awi_guo():
-    return {
-        "AWI_type": "Guo",
-        "Guo": {
-            "guo_x0": 0.1,
-            "guo_x1": 0.5,
-            "guo_x2": 2.0,
-        },
-    }
-
-
-@pytest.fixture
-def valid_swc_adsorption_swc(
-    result_water,
-    soil_params,
-    awi_swc_based,
-):
-    return SWCAdsorptionPreprocessor(
-        hydro_properties=result_water["hydro_properties"],
-        scaling_factor_awi=1.0,
-        AWI=awi_swc_based,
-        soil=soil_params,
+def hydro():
+    """Hydrological properties with small but realistic values."""
+    return HydrologicalProperties(
+        water_content=0.3,
+        pore_velocity=1e-4,
+        dispersion_coefficient=1e-6,
     )
 
 
 @pytest.fixture
-def valid_swc_adsorption_guo(
-    result_water,
-    soil_params,
-    awi_guo,
-):
-    return SWCAdsorptionPreprocessor(
-        hydro_properties=result_water["hydro_properties"],
-        scaling_factor_awi=1.0,
-        AWI=awi_guo,
-        soil=soil_params,
+def bc_constant():
+    """Constant inlet concentration boundary condition."""
+    return BoundaryConditions(C_list=[1.0], T_list=[0.0])
+
+
+@pytest.fixture
+def adsorption_equilibrium():
+    """Adsorption parameters for equilibrium solver."""
+    return Adsorption(
+        Kd=0.0,
+        rate_const=0.0,
+        frac_int=1.0,
+        sp_retardation=0.0,
+        awi_retardation=0.0,
     )
 
-@pytest.fixture
-def valid_sorption_solid_awi():
-    """Solid-phase sorption parameters for AWI sorption."""
-    return {
-        "rate_const": 1.0e-4,
-        "fraction_instantaneous": 0.8,
-    }
 
 @pytest.fixture
-def valid_sorption_kawi_direct_input(
-    result_water,
-    valid_swc_adsorption_swc,
-):
-    aaw = valid_swc_adsorption_swc.compute()["aaw"]
-
-    return SorptionKawiDirectInput(
-        kaw=0.5,
-        hydro_properties=result_water["hydro_properties"],
-        aaw=aaw,
+def adsorption_kinetic():
+    """Adsorption parameters for kinetic solver."""
+    return Adsorption(
+        Kd=0.5,
+        rate_const=0.1,
+        frac_int=0.3,
+        sp_retardation=1.0,
+        awi_retardation=0.0,
     )
 
+
 @pytest.fixture
-def valid_simulation_runner(
-    valid_grid_generator,
-    valid_boundary_preprocessor,
-    result_water,
-    valid_sorption_kawi_direct_input,
-    sorption_solid_linear,
-):
-    """A valid SimulationRunner instance."""
-    # Generate depth and time arrays based on grid generator parameters
-    depth = np.linspace(0, valid_grid_generator.domain_length, int(valid_grid_generator.domain_length / valid_grid_generator.spatial_resolution) + 1)
-    time = np.linspace(0, valid_grid_generator.time_total, int(valid_grid_generator.time_total / valid_grid_generator.time_resolution) + 1)
+def initial(grid):
+    """Zero initial concentration profile."""
+    return np.zeros_like(grid.depth)
 
-    grid = SimulationGrid(depth=depth, time=time)
-    boundary_conditions = valid_boundary_preprocessor.compute()["boundary_conditions"]
-    awi_result = valid_sorption_kawi_direct_input.compute()
 
-    return SimulationRunner(
-        grid=grid,
-        bulk_density=1600.0,
-        boundary_conditions=boundary_conditions,
-        hydro_properties=result_water["hydro_properties"],
-        awi_retardation=awi_result["awi_retardation"],
-        sorption_solid=sorption_solid_linear,
-        kinetic_sorption=False,
-        volume_averaged=False,
+@pytest.fixture
+def dim_equilibrium(grid, hydro, bc_constant, adsorption_equilibrium):
+    """Dimensionless parameters for equilibrium solver."""
+    return compute_dimensionless_params(
+        grid,
+        hydro,
+        T_list=bc_constant.T_list,
+        adsorption=adsorption_equilibrium,
+        kinetic=False,
     )
 
+
 @pytest.fixture
-def make_simulation_runner(
-    valid_grid_generator,
-    valid_boundary_preprocessor,
-    result_water,
-    valid_sorption_kawi_direct_input,
-    sorption_solid_linear,
-):
-    def _make_simulation_runner(kinetic_sorption=False, volume_averaged=False):
-        depth = np.linspace(
-            0,
-            valid_grid_generator.domain_length,
-            int(valid_grid_generator.domain_length / valid_grid_generator.spatial_resolution) + 1,
-        )
-        time = np.linspace(
-            0,
-            valid_grid_generator.time_total,
-            int(valid_grid_generator.time_total / valid_grid_generator.time_resolution) + 1,
-        )
-
-        grid = SimulationGrid(depth=depth, time=time)
-        boundary_conditions = valid_boundary_preprocessor.compute()["boundary_conditions"]
-        awi_result = valid_sorption_kawi_direct_input.compute()
-
-        return SimulationRunner(
-            grid=grid,
-            bulk_density=1600.0,
-            boundary_conditions=boundary_conditions,
-            hydro_properties=result_water["hydro_properties"],
-            awi_retardation=awi_result["awi_retardation"],
-            sorption_solid=sorption_solid_linear,
-            kinetic_sorption=kinetic_sorption,
-            volume_averaged=volume_averaged,
-        )
-
-    return _make_simulation_runner
+def dim_kinetic(grid, hydro, bc_constant, adsorption_kinetic):
+    """Dimensionless parameters for kinetic solver."""
+    return compute_dimensionless_params(
+        grid,
+        hydro,
+        T_list=bc_constant.T_list,
+        adsorption=adsorption_kinetic,
+        kinetic=True,
+    )

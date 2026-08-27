@@ -1,0 +1,150 @@
+import pytest
+import numpy as np
+
+from pfas.component.awi import (
+    SWCsorption,
+    GuoTracer,
+    GSSAAWI,
+    D50AWI,
+    NonlinearD50AWI,
+)
+from pfas.analytical_soln import HydrologicalProperties
+
+
+@pytest.fixture
+def soil_swc() -> dict:
+    """Soil parameters required for SWCsorption (thermodynamic AWI)."""
+    return {
+        "porosity": 0.4,
+        "van_genuchten_alpha": 0.8,
+        "van_genuchten_n": 1.6,
+        "residual_water_content": 0.05,
+    }
+
+
+@pytest.fixture
+def soil_d50() -> dict:
+    """Soil parameters required for GSSA and d50-based AWI models."""
+    return {
+        "porosity": 0.4,
+        "d50": 0.02,
+    }
+
+
+@pytest.fixture
+def guo_params() -> dict:
+    """Parameters required for the Guo tracer AWI model."""
+    return {
+        "Guo": {
+            "guo_x0": 0.1,
+            "guo_x1": 0.2,
+            "guo_x2": 0.3,
+        }
+    }
+
+
+def test_swc_sorption_compute(hydro: HydrologicalProperties):
+    """Test thermodynamic AWI calculation using van Genuchten parameters."""
+    soil_swc = {
+        "porosity": 0.4,
+        "residual_water_content": 0.05,
+        "van_genuchten_alpha": 0.8,
+        "van_genuchten_n": 1.6,
+    }
+
+    swc = SWCsorption(
+        hydro_properties=hydro,
+        sigma0=0.072,
+        scaling_factor_awi=1.0,
+        soil=soil_swc,
+    )
+
+    out = swc.compute()
+    assert "aaw" in out
+    assert out["aaw"] >= 0.0
+
+
+def test_guo_tracer_compute(
+    hydro: HydrologicalProperties,
+    guo_params: dict,
+    soil_swc: dict,
+):
+    """Test empirical Guo tracer AWI correlation."""
+    tracer = GuoTracer(
+        hydro_properties=hydro,
+        AWI=guo_params,
+        soil=soil_swc,
+    )
+    out = tracer.compute()
+    assert "aaw" in out
+    assert out["aaw"] >= 0.0
+
+
+def test_guo_tracer_missing_keys(
+    hydro: HydrologicalProperties,
+    soil_swc: dict,
+):
+    """Test that missing Guo parameters raise a validation error."""
+    bad = {"Guo": {"guo_x0": 1.0}}
+    with pytest.raises(ValueError):
+        GuoTracer(
+            hydro_properties=hydro,
+            AWI=bad,
+            soil=soil_swc,
+        )
+
+
+def test_guo_tracer_missing_guo_entry(
+    hydro: HydrologicalProperties,
+    soil_swc: dict,
+):
+    """Test that missing 'Guo' entry raises a validation error."""
+    with pytest.raises(ValueError):
+        GuoTracer(
+            hydro_properties=hydro,
+            AWI={"NotGuo": {}},
+            soil=soil_swc,
+        )
+
+
+def test_gssa_awi_compute(
+    hydro: HydrologicalProperties,
+    soil_d50: dict,
+):
+    """Test GSSA-based AWI calculation using geometric surface area."""
+    gssa = GSSAAWI(
+        hydro_properties=hydro,
+        soil=soil_d50,
+    )
+    out = gssa.compute()
+    assert "aaw" in out
+    assert out["aaw"] >= 0.0
+
+
+def test_d50_awi_compute(
+    hydro: HydrologicalProperties,
+    soil_d50: dict,
+):
+    """Test linear d50 correlation for AWI."""
+    d50 = D50AWI(
+        hydro_properties=hydro,
+        soil=soil_d50,
+    )
+    out = d50.compute()
+    assert "aaw" in out
+    assert out["aaw"] >= 0.0
+
+
+def test_nonlinear_d50_awi_compute(
+    hydro: HydrologicalProperties,
+    soil_d50: dict,
+):
+    """Test nonlinear d50 correlation with saturation-dependent correction."""
+    nd50 = NonlinearD50AWI(
+        hydro_properties=hydro,
+        soil=soil_d50,
+    )
+    out = nd50.compute()
+    assert "aaw" in out
+    assert out["aaw"] >= 0.0
+
