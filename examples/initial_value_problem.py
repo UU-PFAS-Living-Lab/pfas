@@ -7,7 +7,7 @@ app = marimo.App(width="medium")
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Running simulations without TOML — with initial conditions
+    # Running simulations — with initial conditions
     In this example, we run a simulation without a TOML file, but with **initial conditions**: a PFAS concentration of 1 mg/L pre-loaded into the top 50% of the soil column.
     """)
     return
@@ -84,7 +84,7 @@ def _(
         GridGenerator,
         domain_length=60,
         spatial_resolution=0.5,
-        time_resolution=50,
+        time_resolution=20,
         time_total=10000,
     )
 
@@ -103,8 +103,8 @@ def _(
     # ── Step 3: Compute water flow properties ───────────────────────────────────
     model.compute(
         WaterPreprocessor,
-        average_infiltration_rate=1.5e-2,
-        hydraulic_conductivity=6e-1,
+        average_infiltration_rate=1.5,
+        hydraulic_conductivity=6,
         porosity=0.34,
         dispersivity=1.5,
         van_genuchten_n=1.31,
@@ -141,10 +141,11 @@ def _(
     )
 
     # ── Step 7 + 8: Retardation (Kaw supplied directly) and solve ──────────────
-    model.compute(Retardation, Kaw=0.5, bulk_density=bulk_dens)
+    model.compute(Retardation, Kaw=4, bulk_density=bulk_dens)
     model.compute(
         EquilibriumSolver,
         initial_contaminant_concentration=initial_concentration,
+        bc = "flux"
     )
 
     print("Simulation completed successfully!")
