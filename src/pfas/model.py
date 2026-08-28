@@ -5,8 +5,11 @@ of preprocessing and solving steps with a fluent builder pattern.
 """
 
 from collections import defaultdict
+
 from pydantic_core import PydanticUndefined
-ALL_COMPONENTS = []
+
+from pfas.component import ALL_COMPONENTS
+
 
 class Model:
     """Orchestrate sequential execution of preprocessors and solvers.
@@ -83,13 +86,19 @@ class Model:
         default_vals = {key: fields[key].default for key in fields
                         if fields[key].default != PydanticUndefined}
         self.default_values.update(default_vals)
+        kwargs_avail = set(kwargs).intersection(set(self.input_data) | set(self.generated_data))
+        if len(kwargs_avail) != 0:
+            raise ValueError(f"You cannot supply the same key twice: {kwargs_avail}"
+                             "is/are already available")
+
         all_data = self.default_values | kwargs | self.input_data | self.generated_data
         try:
             class_kwargs = {key: all_data[key] for key in model_class.model_fields}
         except KeyError:
             missing_keys = {key for key in model_class.model_fields if key not in all_data}
-            all_keys = set(all_data)
-            candidates = list(self._find_add_components(missing_keys, all_keys))
+            # all_keys = set(all_data)
+            candidates = []
+            # candidates = list(self._find_add_components(missing_keys, all_keys))
             if len(candidates) > 0:
                 raise ValueError("Multiple possible ways to compute the missing arguments,"
                                  f" add them manually: {candidates}")
@@ -120,14 +129,14 @@ class Model:
             return all_data[key]
         return super().__getattribute__(key)
 
-    def _find_add_components(self, missing_arguments, all_keys):
-        if len(missing_arguments) == 0:
-            yield []
-            return
+    # def _find_add_components(self, missing_arguments, all_keys):
+    #     if len(missing_arguments) == 0:
+    #         yield []
+    #         return
 
-        for comp in ALL_COMPONENTS:
-            if len(set(missing_arguments).union(comp.outputs)) > 0:
-                new_keys = all_keys | set(comp.outputs)
-                new_missing_arguments = set(missing_arguments) + comp.inputs - new_keys
-                for comp_list in self._find_add_components(new_missing_arguments, new_keys):
-                    yield comp_list + [comp]
+    #     for comp in ALL_COMPONENTS:
+    #         if len(set(missing_arguments).union(comp.outputs)) > 0:
+    #             new_keys = all_keys | set(comp.outputs)
+    #             new_missing_arguments = set(missing_arguments) + comp.inputs - new_keys
+    #             for comp_list in self._find_add_components(new_missing_arguments, new_keys):
+    #                 yield comp_list + [comp]
