@@ -17,7 +17,7 @@ def _(mo):
 def _():
     # Loading relevant modules
     from pfas.model import Model
-    from pfas.component import LinearSPsorption, SWCsorption, Retardation, EquilibriumSolver, WaterPreprocessor, BoundaryPreprocessor, GridGenerator, FreundlichSPsorption
+    from pfas.component import LinearSPsorption, SWCsorption, Retardation, KineticSolver, WaterPreprocessor, BoundaryPreprocessor, GridGenerator, FreundlichSPsorption, EquilibriumSolver
 
     from pfas.data_loader import load_dataset, available_datasets
     from matplotlib import pyplot as plt
@@ -103,8 +103,8 @@ def _(
     # ── Step 3: Compute water flow properties ───────────────────────────────────
     model.compute(
         WaterPreprocessor,
-        average_infiltration_rate=1.5e-4,
-        hydraulic_conductivity=6e-2,
+        average_infiltration_rate=1.5e-2,
+        hydraulic_conductivity=6e-1,
         porosity=0.34,
         dispersivity=1.5,
         van_genuchten_n=1.31,
@@ -114,12 +114,12 @@ def _(
     # ── Step 4: Setup boundary conditions ───────────────────────────────────────
     model.compute(
         BoundaryPreprocessor,
-        C_list=[0.0],
+        C_list=[0],
         T_list = [0])
 
     # ── Step 5: Compute solid-phase sorption (Kd) ───────────────────────────────
     sorption_solid = {
-        "kinetic_sorption": True,
+        "kinetic_sorption": False,
         "sorption_isotherm": "linear",
         "kinetic": {
             "frac_int": 0.3,
@@ -127,7 +127,7 @@ def _(
         },
         "linear": {
             "Kd_method": "direct_input",
-            "Kd": 0.5,
+            "Kd": 5,
         },
     }
     model.compute(LinearSPsorption, sorption_solid=sorption_solid)
@@ -148,7 +148,6 @@ def _(
     )
 
     print("Simulation completed successfully!")
-
     return cutoff, initial_concentration, model
 
 
@@ -164,7 +163,7 @@ def _(mo):
 
 @app.cell
 def _(cutoff, initial_concentration, model, plt):
-    t_len = model.C1.shape[1]
+    t_len = model.C_tot.shape[1]
     time_indices = [0, t_len // 4, t_len // 2, 3 * t_len // 4, -1]
 
     fig_init_time, axes_init_time = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
@@ -190,7 +189,7 @@ def _(cutoff, initial_concentration, model, plt):
     ax_time = axes_init_time[1]
     for t_idx in time_indices:
         ax_time.plot(
-            model.C1[:, t_idx],
+            model.C_tot[:, t_idx],
             model.grid.depth,
             label=f"t = {model.grid.time[t_idx]:.0f} s",
         )
