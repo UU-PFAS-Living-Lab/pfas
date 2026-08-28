@@ -1,14 +1,19 @@
 import marimo
 
-__generated_with = "0.19.4"
+__generated_with = "0.18.4"
 app = marimo.App(width="medium")
+
+
+@app.cell
+def _():
+    return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Running simulations without TOML
-    In this example, we will showcase how we can run a simulation without providing a TOML file.
+    # Basic simulation
+    In this example, we will showcase the basics of initializing our model instance.
     """)
     return
 
@@ -16,8 +21,7 @@ def _(mo):
 @app.cell
 def _():
     #loading relevant modules 
-    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator
-    from pfas.component import SWCsorption, LinearSPsorption, Retardation
+    from pfas.component import SWCsorption, LinearSPsorption, Retardation, WaterPreprocessor, BoundaryPreprocessor, GridGenerator
     from pfas.configuration import read_toml
     from pfas.model import Model
     from matplotlib import pyplot as plt

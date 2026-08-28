@@ -7,8 +7,8 @@ app = marimo.App(width="medium")
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Running simulations without TOML
-    In this example, we will showcase how we can run a simulation without providing a TOML file.
+    # Running simulations for different soils
+    In this example, we will showcase how we can run a simulation over 18 Dutch soil types for one PFAS and one set of parameter initialization.
     """)
     return
 
@@ -16,12 +16,7 @@ def _(mo):
 @app.cell
 def _():
     #loading relevant modules 
-    from pfas.preprocessing import (
-        WaterPreprocessor,
-        BoundaryPreprocessor,
-        GridGenerator,
-    )
-    from pfas.component import LinearSPsorption, Le2021_langmuir, Szyszkowski, SWCsorption, Retardation, EquilibriumSolver
+    from pfas.component import LinearSPsorption, Le2021_langmuir, Szyszkowski, SWCsorption, Retardation, EquilibriumSolver, WaterPreprocessor, BoundaryPreprocessor, GridGenerator
     from pfas.data_loader import load_dataset, available_datasets
     from matplotlib import pyplot as plt
     import marimo as mo
@@ -41,6 +36,8 @@ def _():
         WaterPreprocessor,
         load_dataset,
         mo,
+        np,
+        plt,
     )
 
 
@@ -121,16 +118,10 @@ def _(
     Szyszkowski,
     T,
     WaterPreprocessor,
-    final_results,
-    kaw_method,
-    kawi_results,
     model,
     pfas,
     pulse_duration,
-    ret_result,
     soil_db,
-    spsorption_result,
-    water_results,
 ):
     staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")
         ]
@@ -191,7 +182,7 @@ def _(
             ],
         )
 
-    
+
 
         # ---------------------------------------------------------------------
         # 3. Solid-phase adsorption
@@ -222,7 +213,7 @@ def _(
         scaling_factor_awi=4.15,
         van_genuchten_alpha = vg_alpha,
         )
-    
+
 
 
         # ---------------------------------------------------------------------
@@ -241,6 +232,8 @@ def _(
                     b=b,
                     chi=1,
                     T=T,
+                    Cw = 1e-12
+
                 )
         else:
 
@@ -259,7 +252,7 @@ def _(
         EquilibriumSolver,
     )
 
-    
+
         # ---------------------------------------------------------------------
         # 7. EquilibriumSolver
         #
@@ -272,22 +265,22 @@ def _(
         # ---------------------------------------------------------------------
         print(type(model))
 
-    
+
         all_soil_results[soil_name] = {
-            "Aaw": model.Aaw,
+            "Aaw": model.aaw,
             "kawi": model.Kaw,
-            "kaw_method": kaw_method,
-            "sim": final_results,
-            "water": water_results,
+            "sim": model.C1,
+            "water": model.hydro_properties,
             "soil": soil,
-            "retardation": ret_result["adsorption"],
-            "Kd": spsorption_result["Kd"],
+            "retardation": model.adsorption,
+            "Kd": model.Kd,
+            "grid": model.grid
         }
 
         print(
             f"{soil_name} completed | "
-            f"Kd = {spsorption_result['Kd']:.4g} | "
-            f"Kaw = {kawi_results['Kaw']:.4g}"
+            f"Kd = {model.Kd:.4g} | "
+            f"Kaw = {model.Kaw:.4g}"
         )
     return (all_soil_results,)
 
@@ -305,7 +298,7 @@ def _(all_soil_results):
     def print_retardation_values(all_soil_results):
         for soil_name, results in all_soil_results.items():
             soil = results["soil"]
-            hydro = results["water"]["hydro_properties"]
+            hydro = results["water"]
             theta = hydro.water_content
             theta_s = soil["theta_s"]
             theta_r = soil["theta_r"]
@@ -331,8 +324,8 @@ def _(all_soil_results):
 
 
 @app.cell
-def _(all_soil_results, grid_results, pfas, pfas_name):
-    def plot_breakthrough(all_soil_results, grid_results, pfas):
+def _(all_soil_results, model, pfas, pfas_name):
+    def plot_breakthrough(all_soil_results, pfas):
         import matplotlib.pyplot as plt
         import numpy as np
 
@@ -344,7 +337,7 @@ def _(all_soil_results, grid_results, pfas, pfas_name):
             "Staring-O18": "brown",
         }
 
-        t          = grid_results["grid"].time / (60 * 60 * 24 * 365)
+        t          = model.grid.time / (60 * 60 * 24 * 365)
         C_recharge = pfas['M']["value"] * 1e-15  # g/cm3, equivalent to 1 pmol/L
 
         fig, ax = plt.subplots(figsize=(5, 4))
@@ -352,7 +345,7 @@ def _(all_soil_results, grid_results, pfas, pfas_name):
         for soil in selected_soils:
             res = all_soil_results[soil]
             print(res)
-            C1  =  res["sim"]["C1"]
+            C1  =  res["sim"]
             ax.plot(t, C1[-1, :] / C_recharge, color=soil_colours[soil], label=soil)
 
         ax.set_ybound(0, 1)
@@ -367,7 +360,66 @@ def _(all_soil_results, grid_results, pfas, pfas_name):
         plt.tight_layout()
         plt.show()
 
-    plot_breakthrough(all_soil_results, grid_results, pfas) 
+    plot_breakthrough(all_soil_results, pfas) 
+    return
+
+
+@app.cell
+def _(all_soil_results, model, np, pfas, pfas_name, plt):
+    def plot_concentration_profile(all_soil_results,pfas):
+
+        selected_soils = [
+            "Staring-O05", 
+            "Staring-O12", 
+            "Staring-O15", 
+            "Staring-O18", 
+        ]
+
+        soil_colours = {
+            "Staring-O05": "red",
+            "Staring-O12": "green",
+            "Staring-O15": "blue",
+            "Staring-O18": "brown",
+        }
+
+        time       = model.grid.time / (60*60*24*365)
+        depth      = model.grid.depth
+        C_recharge = pfas['M']["value"] * 1e-15  # g/cm3, equivalent to 1 pmol/L
+        average_infiltration_rate  =9.51E-7
+
+        C_profile_time = 35 # years
+        idx_35     = np.argmin(np.abs(time - C_profile_time))
+        time_35    = time[idx_35]
+
+        BTC_depth  = 100 # cm
+        idx_100    = np.argmin(np.abs(depth - BTC_depth))
+        depth_100  = depth[idx_100]
+
+        fig, axes  = plt.subplots(1, 2, figsize=(8, 4))
+        for soil in selected_soils:
+            res    = all_soil_results[soil]
+            C1     = res["sim"]           # mg/cm
+
+            C_profile_35yr = C1[:, idx_35] / C_recharge
+
+            axes[0].plot(C_profile_35yr, depth, color=soil_colours[soil], label=soil)
+            axes[1].plot(time, C1[-1, :] / C_recharge, color=soil_colours[soil])
+
+        axes[0].set_ylabel("Depth (cm)")
+        axes[0].set_xlabel("Caq / Crecharge (-)")
+        axes[0].invert_yaxis()
+        axes[1].set_ylabel("Caq/Crecharge (-)")
+        axes[1].set_xlabel("Time (yrs)")
+        axes[0].set_title(f"Concentration profile for {pfas_name}, t = {C_profile_time:.0f} years")
+        axes[1].set_title(f"Breakthrough curve for {pfas_name}, d = {depth_100:.0f} centimeters")
+        axes[0].legend()
+        for ax in axes:
+            ax.grid(True)
+
+        plt.tight_layout()
+        plt.show()        
+
+    plot_concentration_profile(all_soil_results, pfas)
     return
 
 

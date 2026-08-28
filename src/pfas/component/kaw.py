@@ -76,14 +76,14 @@ class Le2021_langmuir(BaseModel):
     ----------
     structural_properties : dict
         Dictionary of PFAS molecular group counts.
+
+    Cw : float
     """
 
-    model_config = ConfigDict(
-        validate_assignment=True,
-        extra="forbid",
-    )
+
 
     structural_properties: dict
+    Cw: float
 
     _REQUIRED_STRUCTURAL_KEYS = {
         "n_CFx",
@@ -136,10 +136,10 @@ class Le2021_langmuir(BaseModel):
         return Kaw_langmuir_Le2021(
             self.Kaw_0,
             self.dG0,
-            Cw,
+            self.Cw
         )
 
-    def compute(self, Cw: float) -> dict:
+    def compute(self) -> dict:
         """
         Calculate the air-water partition coefficient.
 
@@ -153,7 +153,7 @@ class Le2021_langmuir(BaseModel):
         dict
             Dictionary containing 'Kaw'.
         """
-        kaw = self.Kaw(Cw)
+        kaw = self.Kaw(self.Cw)
 
         return {
             "Kaw": kaw
@@ -199,15 +199,11 @@ class Szyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
     b: float
     chi: int = 2
     T: Annotated[float, Gt(0)] = 298.0
+    Cw: float
 
-    def Kaw(self, Cw: float) -> float:
+    def Kaw(self) -> float:
         """
         Calculate Kaw from aqueous concentration and Szyszkowski fitting parameters
-
-        Parameters
-        ----------
-        Cw : float
-            Aqueous-phase concentration of the PFAS compound (mol/L).
 
         Returns
         -------
@@ -218,12 +214,12 @@ class Szyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
             sigma0=self.sigma0,
             a=self.a,
             b=self.b,
-            Cw=Cw,
+            Cw=self.Cw,
             chi=self.chi,
             T=self.T,
         )
 
-    def compute(self, Cw: float) -> dict:
+    def compute(self) -> dict:
         """
         Calculate the air-water partition coefficient at a given concentration.
 
@@ -238,7 +234,7 @@ class Szyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
         dict
             Dictionary with key 'Kaw'.
         """
-        kaw = self.Kaw(Cw)
+        kaw = self.Kaw()
         return {"Kaw": kaw}
 
     @property
