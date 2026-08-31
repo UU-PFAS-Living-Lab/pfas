@@ -24,6 +24,11 @@ def _():
     return mo, plt
 
 
+@app.cell
+def _():
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -83,13 +88,13 @@ app._unparsable_cell(
     model.add(SpRetardation(
     ))
 
- 
+
     model.add(SwcAWI(
         scaling_factor_awi = 1.0,
         van_genuchten_alpha = 0.019,
         saturated_water_content = 0.34,
         sigma0 = 71
-            
+
     ))
 
     model.add(Kaw_empirical(
@@ -98,7 +103,7 @@ app._unparsable_cell(
     ))          
 
     model.add(AWIRetardation(
-    
+
     ))
 
     model.add(KineticSolver(

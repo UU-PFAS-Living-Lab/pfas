@@ -93,7 +93,7 @@ def _(
     cutoff = n_nodes // 2  # top 50% of depth nodes
 
     initial_concentration = np.zeros(n_nodes)
-    initial_concentration[:cutoff] = 1.0  # top half set to 1 mg/L
+    initial_concentration[:cutoff] = 0.05  # top half set to 1 mg/L
 
     print(f"Grid has {n_nodes} depth nodes.")
     print(f"Initial concentration of 1 mg/L applied to top {cutoff} nodes "
@@ -122,12 +122,12 @@ def _(
         "kinetic_sorption": False,
         "sorption_isotherm": "linear",
         "kinetic": {
-            "frac_int": 0.3,
+            "frac_int": 0.8,
             "rate_const": 0.1,
         },
         "linear": {
             "Kd_method": "direct_input",
-            "Kd": 5,
+            "Kd": 0,
         },
     }
     model.compute(LinearSPsorption, sorption_solid=sorption_solid)
@@ -141,7 +141,7 @@ def _(
     )
 
     # ── Step 7 + 8: Retardation (Kaw supplied directly) and solve ──────────────
-    model.compute(Retardation, Kaw=4, bulk_density=bulk_dens)
+    model.compute(Retardation, Kaw=0, bulk_density=bulk_dens)
     model.compute(
         EquilibriumSolver,
         initial_contaminant_concentration=initial_concentration,
@@ -201,6 +201,201 @@ def _(cutoff, initial_concentration, model, plt):
 
     fig_init_time.suptitle("Initial Concentration in Top 50 % of Column", fontsize=13)
     plt.tight_layout()
+    plt.show()
+    return
+
+
+@app.cell
+def _(np, plt):
+
+    from scipy.special import erfc
+
+    # ============================================================
+    # Standalone IVP test
+    # ============================================================
+
+    # ------------------------------------------------------------
+    # 1. Physical domain
+    # ------------------------------------------------------------
+    L = 60.0                  # cm
+    dx = 0.5                  # cm
+
+    x = np.arange(0.0, L + dx, dx)
+
+    # Dimensionless spatial coordinate
+    Z = x / L
+
+    # Initial concentration: 5 mg/L in top 50% of domain
+    Ci = np.zeros_like(x, dtype=float)
+    Ci[x < L / 2] = 5.0
+
+    # Dimensionless coordinate associated with Ci
+    xi = x / L
+
+    print("Number of spatial nodes:", len(x))
+    print("Physical domain:", x[0], "to", x[-1], "cm")
+    print("Dimensionless domain:", Z[0], "to", Z[-1])
+    print("Initial concentration:", Ci.min(), "to", Ci.max(), "mg/L")
+    print("Initial contaminated depth:", x[Ci > 0].min(), "to", x[Ci > 0].max(), "cm")
+
+
+    # ------------------------------------------------------------
+    # 2. Transport parameters
+    # ------------------------------------------------------------
+    R = 1.0       # Start with R=1 to isolate the IVP
+    P = 40.0      # Peclet number
+
+    # Dimensionless times
+    T_values = [0.0, 0.01, 0.05, 0.1, 0.5, 1.0]
+
+
+    # ------------------------------------------------------------
+    # 3. Resident-boundary IVP Green's function
+    # ------------------------------------------------------------
+    def ivp_eq_resident(
+        T,
+        R,
+        Z,
+        P,
+        xi,
+    ):
+        """Initial-value Green's function, first-type boundary."""
+
+        if T <= 0.0:
+            raise ValueError("Green's function is only evaluated for T > 0.")
+
+        prefactor = np.sqrt(
+            R * P / (4.0 * np.pi * T)
+        )
+
+        scale = 4.0 * R * T / P
+
+        direct = np.exp(
+            -(R * (xi - Z) - T) ** 2 / scale
+        )
+
+        image = np.exp(P * Z) * np.exp(
+            -(R * (xi + Z) - T) ** 2 / scale
+        )
+
+        return prefactor * (direct - image)
+
+
+    # ------------------------------------------------------------
+    # 4. Calculate IVP solution
+    # ------------------------------------------------------------
+    C_ivp = np.zeros((len(Z), len(T_values)))
+
+    for ti, T in enumerate(T_values):
+
+        # The Green's function becomes a delta function at T=0.
+        # Therefore impose the initial condition directly.
+        if np.isclose(T, 0.0):
+            C_ivp[:, ti] = Ci
+            continue
+
+        for zi, z in enumerate(Z):
+
+            kernel = ivp_eq_resident(
+                T=T,
+                R=R,
+                Z=z,
+                P=P,
+                xi=xi,
+            )
+
+            C_ivp[zi, ti] = np.trapezoid(
+                kernel * Ci,
+                xi,
+            )
+
+
+    # ------------------------------------------------------------
+    # 5. Basic sanity checks
+    # ------------------------------------------------------------
+    print("\n===== SANITY CHECKS =====")
+
+    # Initial condition must be recovered exactly
+    initial_error = np.max(
+        np.abs(C_ivp[:, 0] - Ci)
+    )
+
+    print(
+        "Maximum error at T=0:",
+        initial_error,
+        "mg/L"
+    )
+
+    assert np.allclose(
+        C_ivp[:, 0],
+        Ci,
+        atol=1e-12,
+    ), "Initial condition is NOT reproduced at T=0!"
+
+
+    # Check for negative concentrations
+    print(
+        "Minimum concentration:",
+        C_ivp.min(),
+        "mg/L"
+    )
+
+    if C_ivp.min() < -1e-10:
+        print("WARNING: negative concentrations detected.")
+
+
+    # Check maximum concentration
+    print(
+        "Maximum concentration:",
+        C_ivp.max(),
+        "mg/L"
+    )
+
+
+    # ------------------------------------------------------------
+    # 6. Print concentration profiles
+    # ------------------------------------------------------------
+    print("\n===== PROFILE SUMMARY =====")
+
+    for ti, T in enumerate(T_values):
+
+        profile = C_ivp[:, ti]
+
+        max_idx = np.argmax(profile)
+
+        print(
+            f"T={T:6.3f} | "
+            f"max={profile[max_idx]:8.4f} mg/L | "
+            f"location={x[max_idx]:7.2f} cm"
+        )
+
+
+    # ------------------------------------------------------------
+    # 7. Plot the initial condition and IVP evolution
+    # ------------------------------------------------------------
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    for ti, T in enumerate(T_values):
+
+        ax.plot(
+            x,
+            C_ivp[:, ti],
+            label=f"T = {T:g}",
+        )
+
+    ax.axvline(
+        L / 2,
+        linestyle="--",
+        linewidth=1,
+        label="Initial concentration boundary",
+    )
+
+    ax.set_xlabel("Depth (cm)")
+    ax.set_ylabel("Aqueous concentration (mg/L)")
+    ax.set_title("Standalone IVP test")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
     plt.show()
     return
 

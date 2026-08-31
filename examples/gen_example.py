@@ -29,7 +29,6 @@ def _():
     from pfas.component import EquilibriumSolver
     return (
         BoundaryPreprocessor,
-        EquilibriumSolver,
         GridGenerator,
         LinearSPsorption,
         Model,
@@ -65,8 +64,8 @@ def _(mo):
 @app.cell
 def _(
     BoundaryPreprocessor,
-    EquilibriumSolver,
     GridGenerator,
+    KineticSolver,
     LinearSPsorption,
     Model,
     Retardation,
@@ -103,7 +102,7 @@ def _(
 
     # Step 4: Compute solid phase retardation
     sorption_solid = {
-        "kinetic_sorption": False,
+        "kinetic_sorption": True,
         "sorption_isotherm": "linear",
         "kinetic": {
             "frac_int": 0.3,
@@ -136,7 +135,7 @@ def _(
 
     # Step 7: Run simulation
     model.compute(
-        EquilibriumSolver,
+        KineticSolver,
     )
 
     print("Simulation completed successfully!")
