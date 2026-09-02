@@ -90,13 +90,6 @@ def test_szyszkowski_component_compute(szyszkowski_params: dict):
     assert component.outputs == ["Kaw"]
 
 
-def test_szyszkowski_component_missing_parameters():
-    """Missing required fitting parameters should raise a validation error."""
-    with pytest.raises(ValidationError):
-        Szyszkowski(a=0.5, b=1.2, Cw=1e-6)  # missing nothing actually required here;
-        # adjust below if `a`/`b` truly are the only required fields
-
-
 def test_szyszkowski_component_missing_required_field():
     """Omitting Cw (required, no default) should raise a validation error."""
     with pytest.raises(ValidationError):
