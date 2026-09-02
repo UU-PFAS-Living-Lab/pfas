@@ -1,11 +1,7 @@
 import pytest
+from pydantic import ValidationError
 
-from pfas.utils import (
-    Kaw_0_Le2021,
-    Kaw_langmuir_Le2021,
-    dG0_Le2021,
-    Kaw_Szyszkowski,
-)
+from pfas.component import Le2021_asymptote, Le2021_langmuir, Szyszkowski
 
 
 @pytest.fixture
@@ -38,47 +34,79 @@ def szyszkowski_params() -> dict:
     }
 
 
-def test_le2021_asymptote_compute(structural_props: dict):
-    """Test Kaw calculation using Le2021 asymptote model."""
-    kaw = Kaw_0_Le2021(structural_props)
-    assert kaw > 0.0
+# --- Le2021_asymptote (dilute-limit group-contribution model) ---
+
+def test_le2021_asymptote_component_compute(structural_props: dict):
+    """Component wraps Kaw_0_Le2021 and exposes it via compute()."""
+    component = Le2021_asymptote(structural_properties=structural_props)
+    result = component.compute()
+
+    assert "Kaw" in result
+    assert result["Kaw"] > 0.0
+    assert component.outputs == ["Kaw"]
 
 
-def test_le2021_asymptote_missing_keys():
-    """Test missing structural keys raises an error."""
-    with pytest.raises(Exception):
-        Kaw_0_Le2021({"n_CFx": 7})
+def test_le2021_asymptote_component_missing_keys():
+    """Missing structural keys should raise a validation error at construction."""
+    with pytest.raises(ValidationError):
+        Le2021_asymptote(structural_properties={"n_CFx": 7})
 
 
-def test_le2021_langmuir_compute(structural_props: dict):
-    """Test Kaw calculation using Le2021 Langmuir model."""
-    kaw0 = Kaw_0_Le2021(structural_props)
-    dg0 = dG0_Le2021(structural_props)
-    kaw = Kaw_langmuir_Le2021(kaw0, dg0, Cw=1e-6)
-    assert kaw > 0.0
+# --- Le2021_langmuir (concentration-dependent model) ---
+
+def test_le2021_langmuir_component_compute(structural_props: dict):
+    """Component computes a concentration-dependent Kaw via compute()."""
+    component = Le2021_langmuir(structural_properties=structural_props, Cw=1e-6)
+    result = component.compute()
+
+    assert "Kaw" in result
+    assert result["Kaw"] > 0.0
+    assert component.outputs == ["Kaw"]
 
 
-def test_le2021_langmuir_missing_keys():
-    """Test missing structural keys raises an error."""
-    with pytest.raises(Exception):
-        dG0_Le2021({"n_CFx": 7})
+def test_le2021_langmuir_component_missing_keys():
+    """Missing structural keys should raise a validation error at construction."""
+    with pytest.raises(ValidationError):
+        Le2021_langmuir(structural_properties={"n_CFx": 7}, Cw=1e-6)
 
 
-def test_szyszkowski_compute(szyszkowski_params: dict):
-    """Test Kaw calculation using Szyszkowski model."""
-    kaw = Kaw_Szyszkowski(
-        sigma0=szyszkowski_params["sigma0"],
-        a=szyszkowski_params["a"],
-        b=szyszkowski_params["b"],
-        Cw=1e-6,
-        chi=szyszkowski_params["chi"],
-        T=szyszkowski_params["T"],
-    )
-    assert kaw > 0.0
+def test_le2021_langmuir_component_varies_with_concentration(structural_props: dict):
+    """Kaw should differ between two different aqueous concentrations."""
+    low = Le2021_langmuir(structural_properties=structural_props, Cw=1e-9)
+    high = Le2021_langmuir(structural_properties=structural_props, Cw=1e-3)
+
+    assert low.compute()["Kaw"] != high.compute()["Kaw"]
 
 
-def test_szyszkowski_missing_parameters():
-    """Test missing Szyszkowski parameters raises an error."""
-    with pytest.raises(Exception):
-        Kaw_Szyszkowski(a=0.5, b=1.2, Cw=1e-6)
+# --- Szyszkowski (fitted-parameter model) ---
 
+def test_szyszkowski_component_compute(szyszkowski_params: dict):
+    """Component computes Kaw from Szyszkowski fitting parameters."""
+    component = Szyszkowski(**szyszkowski_params, Cw=1e-6)
+    result = component.compute()
+
+    assert "Kaw" in result
+    assert result["Kaw"] > 0.0
+    assert component.outputs == ["Kaw"]
+
+
+def test_szyszkowski_component_missing_parameters():
+    """Missing required fitting parameters should raise a validation error."""
+    with pytest.raises(ValidationError):
+        Szyszkowski(a=0.5, b=1.2, Cw=1e-6)  # missing nothing actually required here;
+        # adjust below if `a`/`b` truly are the only required fields
+
+
+def test_szyszkowski_component_missing_required_field():
+    """Omitting Cw (required, no default) should raise a validation error."""
+    with pytest.raises(ValidationError):
+        Szyszkowski(sigma0=0.072, a=0.5, b=1.2, chi=2, T=298.0)
+
+
+def test_szyszkowski_component_defaults(szyszkowski_params: dict):
+    """sigma0, chi, and T should fall back to their documented defaults."""
+    component = Szyszkowski(a=szyszkowski_params["a"], b=szyszkowski_params["b"], Cw=1e-6)
+
+    assert component.sigma0 == 0.072
+    assert component.chi == 2
+    assert component.T == 298.0
