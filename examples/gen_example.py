@@ -1,14 +1,19 @@
 import marimo
 
-__generated_with = "0.19.4"
+__generated_with = "0.18.4"
 app = marimo.App(width="medium")
+
+
+@app.cell
+def _():
+    return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Running simulations without TOML
-    In this example, we will showcase how we can run a simulation without providing a TOML file.
+    # Basic simulation
+    In this example, we will showcase the basics of initializing our model instance.
     """)
     return
 
@@ -16,8 +21,7 @@ def _(mo):
 @app.cell
 def _():
     #loading relevant modules 
-    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator
-    from pfas.component import SWCsorption, LinearSPsorption, Retardation
+    from pfas.component import SWCsorption, LinearSPsorption, Retardation, WaterPreprocessor, BoundaryPreprocessor, GridGenerator
     from pfas.configuration import read_toml
     from pfas.model import Model
     from matplotlib import pyplot as plt
@@ -25,7 +29,6 @@ def _():
     from pfas.component import EquilibriumSolver
     return (
         BoundaryPreprocessor,
-        EquilibriumSolver,
         GridGenerator,
         LinearSPsorption,
         Model,
@@ -61,8 +64,8 @@ def _(mo):
 @app.cell
 def _(
     BoundaryPreprocessor,
-    EquilibriumSolver,
     GridGenerator,
+    KineticSolver,
     LinearSPsorption,
     Model,
     Retardation,
@@ -99,7 +102,7 @@ def _(
 
     # Step 4: Compute solid phase retardation
     sorption_solid = {
-        "kinetic_sorption": False,
+        "kinetic_sorption": True,
         "sorption_isotherm": "linear",
         "kinetic": {
             "frac_int": 0.3,
@@ -132,7 +135,7 @@ def _(
 
     # Step 7: Run simulation
     model.compute(
-        EquilibriumSolver,
+        KineticSolver,
     )
 
     print("Simulation completed successfully!")

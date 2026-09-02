@@ -308,12 +308,32 @@ def _ivp_eq_flux(
     Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
     No. 137, USDA-ARS. Table 2.2, Gamma_2^E, Third-Type column, mu^E = 0.
     """
-    prefactor = np.sqrt(R * P / (4 * np.pi * T))
-    scale = 4 * R * T / P
+    if T <= 0.0:
+        return np.zeros_like(xi)
 
-    direct = np.exp(-(R * (xi - Z) - T) ** 2 / scale)
-    image = np.exp(P * Z) * np.exp(-(R * (xi + Z) - T) ** 2 / scale)
-    erfc_term = 0.5 * P * np.exp(P * Z) * erfc((R * (xi + Z) + T) / np.sqrt(scale))
+    scale = 4.0 * R * T / P
+
+    prefactor = 1.0 / (
+        2.0 * np.sqrt(np.pi * T / (P * R))
+    )
+
+    direct = np.exp(
+        -(R * Z - R * xi - T) ** 2 / scale
+    )
+
+    image = np.exp(-P * xi) * np.exp(
+        -(R * Z + R * xi - T) ** 2 / scale
+    )
+
+    erfc_term = (
+        0.5
+        * P
+        * np.exp(P * Z)
+        * erfc(
+            (R * Z + R * xi + T)
+            / (2.0 * np.sqrt(T * R / P))
+        )
+    )
 
     return prefactor * (direct + image) - erfc_term
 
@@ -360,11 +380,22 @@ def _ivp_eq_resident(
     Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
     No. 137, USDA-ARS. Table 2.2, Gamma_2^E, First-Type column, mu^E = 0.
     """
-    prefactor = np.sqrt(R * P / (4 * np.pi * T))
-    scale = 4 * R * T / P
+    if T <= 0.0:
+        return np.zeros_like(xi)
 
-    direct = np.exp(-(R * (xi - Z) - T) ** 2 / scale)
-    image = np.exp(P * Z) * np.exp(-(R * (xi + Z) - T) ** 2 / scale)
+    scale = 4.0 * R * T / P
+
+    prefactor = 1.0 / (
+        2.0 * np.sqrt(np.pi * T / (P * R))
+    )
+
+    direct = np.exp(
+        -(R * Z - R * xi - T) ** 2 / scale
+    )
+
+    image = np.exp(-P * xi) * np.exp(
+        -(R * Z + R * xi - T) ** 2 / scale
+    )
 
     return prefactor * (direct - image)
 

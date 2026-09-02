@@ -7,8 +7,10 @@ app = marimo.App(width="medium")
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Loop for all Staring soils
-    <!-- In this example we will showcase how to use the pfas package to create a basic forward modelling exercise of PFAS leaching in the vadose zone. -->
+    # Methods for computing Aaw for different PFAS and different soils
+    In this notebook we run our model, utilizing the different available Aaw approaches, for different PFAS and different soil types.
+    We keep one method for calculating the Kd and one method for calculating Kaw.
+    For completion, these differences are also shown at the bottom of this script.
     """)
     return
 
@@ -16,20 +18,9 @@ def _(mo):
 @app.cell
 def _():
     #loading relevant modules 
-    from pfas.preprocessing import (
-        WaterPreprocessor,
-        BoundaryPreprocessor,
-        GridGenerator,
-        SpRetardationPreprocessor,
-        SWCAdsorptionPreprocessor,
-        SimulationRunner,
-    )
+    from pfas.component import LinearSPsorption, Le2021_langmuir, Szyszkowski, Retardation, EquilibriumSolver, WaterPreprocessor, BoundaryPreprocessor, GridGenerator
     from pfas.data_loader import load_dataset, available_datasets
     from pfas.component.awi import SWCsorption, GuoTracer, D50AWI, NonlinearD50AWI, GSSAAWI
-    from pfas.component.kd import LinearSPsorption
-    from pfas.component.kaw import Le2021_langmuir, Szyszkowski
-    from pfas.component.retardation import Retardation 
-    from pfas.data_structure import analytical_soln
     from matplotlib import pyplot as plt
     from pathlib import Path
     import marimo as mo
@@ -37,27 +28,26 @@ def _():
     import pandas as pd
     import numpy as np
     import os
+    from pfas.model import Model
 
     print("Available datasets:", available_datasets())
     return (
         BoundaryPreprocessor,
         D50AWI,
+        EquilibriumSolver,
         GSSAAWI,
         GridGenerator,
         Le2021_langmuir,
         LinearSPsorption,
+        Model,
         NonlinearD50AWI,
-        Path,
         Retardation,
         SWCsorption,
         Szyszkowski,
         WaterPreprocessor,
-        analytical_soln,
-        available_datasets,
         load_dataset,
         mo,
         np,
-        os,
         pd,
         plt,
         ticker,
@@ -87,30 +77,23 @@ def _(load_dataset):
     # Solid-phase adsorption: linear
     frac_int = 1.0
     rate_const = 0.0
-    return pfas_db, pfas_names, sigma0, soil_db
+    return pfas_db, pfas_names, soil_db
 
 
 @app.cell
-def _(available_datasets):
-    print(available_datasets())
-    return
+def _():
 
-
-@app.cell
-def _(GridGenerator):
-    from pfas.utils import kd_fabregat_palau
     # Grid
-    grid_gen = GridGenerator(
-        domain_length=100,
-        spatial_resolution=0.5,
-        time_resolution=(1/12)*(60*60*24*365),
-        time_total=250*(60*60*24*365),
-    )
-    grid_results = grid_gen.compute()
-    grid = grid_results["grid"]
+    #model = Model()
+    # model.compute(GridGenerator,
+    #     domain_length=100,                      # cm
+    #     spatial_resolution=0.5,                 # cm
+    #     time_resolution=(1/12) * (60*60*24*365),  # seconds
+    #     time_total=250*(60*60*24*365),          # seconds   
+    #              )
 
     pulse_duration = 25 * (60 * 60 * 24 * 365)
-    return grid, grid_results, kd_fabregat_palau, pulse_duration
+    return (pulse_duration,)
 
 
 @app.cell(hide_code=True)
@@ -129,35 +112,37 @@ def _(mo):
 def _(
     BoundaryPreprocessor,
     D50AWI,
+    EquilibriumSolver,
     GSSAAWI,
+    GridGenerator,
     Le2021_langmuir,
     LinearSPsorption,
+    Model,
     NonlinearD50AWI,
     Retardation,
     SWCsorption,
     Szyszkowski,
     WaterPreprocessor,
-    analytical_soln,
-    grid,
-    grid_results,
-    kd_fabregat_palau,
-    np,
     pfas_db,
     pfas_names,
     pulse_duration,
-    sigma0,
     soil_db,
 ):
+    staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
+    all_pfas_results = {}
 
-    # Loop over all 18 Staring soil types
-    staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")] 
-    all_pfas_results = {}  # keyed by pfas_name → soil_name
     for pfas_name in pfas_names:
-        pfas  = pfas_db[pfas_name]
-
+        pfas = pfas_db[pfas_name]
         all_soil_results = {}
 
         for soil_name in staring_soils:
+            model = Model()   # <-- fresh instance, no stale input_data/generated_data
+            model.compute(GridGenerator,
+                domain_length=100,                      # cm
+                spatial_resolution=0.5,                 # cm
+                time_resolution=(1/12) * (60*60*24*365),  # seconds
+                time_total=250*(60*60*24*365),          # seconds   
+                 )
             soil         = soil_db[soil_name]
             bulk_dens    = soil["rho_b"]["value"]
             porosity     = soil["porosity"]
@@ -172,11 +157,11 @@ def _(
             f_clay       = soil["f_clay"]["value"] / 100
             f_silt       = soil["f_silt"]["value"] / 100
             f_silt_clay  = f_silt + f_clay
-            d50          = soil["d50"]["value"] / 10000  # µm → cm
+            d50          = soil["d50"]["value"] / 10000
 
-            # Water flow
-            water_prep = WaterPreprocessor(
-                average_infiltration_rate=9.51E-7,
+            # 1. Water flow
+            model.compute(WaterPreprocessor,
+                average_infiltration_rate=9.51e-7,
                 hydraulic_conductivity=K_sat,
                 porosity=porosity,
                 dispersivity=dispersivity,
@@ -184,151 +169,75 @@ def _(
                 van_genuchten_l=vg_l,
                 residual_water_content=theta_r,
             )
-            water_results = water_prep.compute()
-            theta = water_results["hydro_properties"].water_content
 
-            # Aaw — all four methods--
-        
-            # 1. Thermodynamic SWC-based AWI
-            func_thermo_aaw = SWCsorption(
-                hydro_properties=water_results["hydro_properties"],
-                sigma0=sigma0,
-                scaling_factor_awi=4.15,
-                soil={
-                "porosity": porosity,
-                "van_genuchten_alpha": vg_alpha,
-                "van_genuchten_n": vg_n,
-                "residual_water_content": theta_r,
-                },
-            )
-        
-            # 2. GSSA-based linear saturation model
-            func_GSSA_aaw = GSSAAWI(
-                hydro_properties=water_results["hydro_properties"],
-                soil={
-                    "porosity": porosity,
-                    "d50": d50,
-                },
-            )
-        
-            # 3. d50 correlation, linear saturation model
-            func_d50_aaw = D50AWI(
-                hydro_properties=water_results["hydro_properties"],
-                soil={
-                    "porosity": porosity,
-                    "d50": d50,
-                },
-            )
-        
-            # 4. d50 correlation, nonlinear saturation model
-            func_nonlinear_d50_aaw = NonlinearD50AWI(
-                hydro_properties=water_results["hydro_properties"],
-                soil={
-                    "porosity": porosity,
-                    "d50": d50,
-                },
+            # 2. Boundary conditions
+            model.compute(BoundaryPreprocessor,
+                C_list=[pfas["M"]["value"] * 1e-9, 0.0],
+                T_list=[0.0, pulse_duration],
             )
 
-            # Boundary conditions (same pulse for all soils)
-            boundary_results = BoundaryPreprocessor(
-                C_list=[pfas['M']["value"] * 1e-9, 0.0],
-                T_list=[0.0, pulse_duration]
-            ).compute()
-
-            # Solid-phase sorption
+            # 3. Solid-phase sorption
             sorption_solid = {
                 "kinetic_sorption": False,
                 "sorption_isotherm": "linear",
                 "kinetic": {"frac_int": 1.0, "rate_const": 0.0},
                 "linear": {
-                    "Kd_method": "direct_input",
-                    "Kd": kd_fabregat_palau(pfas["structural_properties"]["n_CFx"], f_oc, f_silt_clay)
+                    "Kd_method": "fabregat_palau",
+                    "n_CFx": pfas["structural_properties"]["n_CFx"], 
+                    "f_oc" :f_oc, 
+                    "f_silt_clay": f_silt_clay
                 },
             }
-            sorption = LinearSPsorption(sorption_solid=sorption_solid)
+            model.compute(LinearSPsorption, sorption_solid=sorption_solid)
 
-            spsorptionresult = sorption.compute()
-            # when available, otherwise use Le2021 Langmuir.
-            def select_Kaw_method(pfas: dict):
-                a = pfas["Szyszkowski_params"]["a"]["value"]
-                b = pfas["Szyszkowski_params"]["b"]["value"]
-    
-                if a is not None and b is not None:
-                    return Szyszkowski(
-                        sigma0=sigma0,
-                        a=a,
-                        b=b,
-                        chi=1,
-                        T=293.15,
-                    )
-                else:
-                    return Le2021_langmuir(
-                        structural_properties=pfas["structural_properties"]
-                    )
-    
-            kawi_sorp = select_Kaw_method(pfas)
-            kawi_results = kawi_sorp.compute(Cw=1e-12)
-    
-            # ------------------------------------------------------------
-            # Aaw — compute all four methods
-            # ------------------------------------------------------------
+            # 4. Kaw method
+            a = pfas["Szyszkowski_params"]["a"]["value"]
+            b = pfas["Szyszkowski_params"]["b"]["value"]
+
+            if a is not None and b is not None:
+                model.compute(Szyszkowski,
+                    sigma0=71, a=a, b=b, chi=1, T=293.15, Cw=1e-12,
+                )
+            else:
+                model.compute(
+                    Le2021_langmuir,
+                    structural_properties=pfas["structural_properties"],
+                    Cw=1e-12,
+                )
+
+            # 5. Aaw + Retardation + simulation
             aaw_methods = {
-                "thermo": func_thermo_aaw,
-                "func_GSSA": func_GSSA_aaw,
-                "func_d50": func_d50_aaw,
-                "func_nonlin_d50": func_nonlinear_d50_aaw,
+                "thermo": (SWCsorption, dict(sigma0=71, scaling_factor_awi=4.15, van_genuchten_alpha=vg_alpha)),
+                "func_GSSA": (GSSAAWI, dict(soil={"porosity": porosity, "d50": d50})),
+                "func_d50": (D50AWI, dict(soil={"porosity": porosity, "d50": d50})),
+                "func_nonlin_d50": (NonlinearD50AWI, dict(soil={"porosity": porosity, "d50": d50})),
             }
-    
+
             aaw_results = {}
-    
-            for aaw_label, aaw_method in aaw_methods.items():
-                aaw_results[aaw_label] = aaw_method.compute()["aaw"]
-    
-            # ------------------------------------------------------------
-            # Simulations for each Aaw method
-            # ------------------------------------------------------------
             sim_results = {}
             retardation_results = {}
-    
-            for aaw_label, aaw_value in aaw_results.items():
-    
-                ret = Retardation(
-                    Kd=spsorptionresult["Kd"],
-                    Kaw=kawi_results["Kaw"],
-                    aaw=aaw_value,
-                    kinetic=False,
-                    bulk_density=bulk_dens,
-                    hydro_properties=water_results["hydro_properties"],
-                )
-    
-                ret_result = ret.compute()
-    
-                retardation_results[aaw_label] = ret_result["adsorption"]
-    
-                sim_results[aaw_label] = analytical_soln(
-                    grid=grid_results["grid"],
-                    bulk_density=bulk_dens,
-                    boundary_conditions=boundary_results["boundary_conditions"],
-                    hydro_properties=water_results["hydro_properties"],
-                    adsorption=ret_result["adsorption"],
-                    kinetic=False,
-                    volume_averaged=True,
-                    initial_contaminant_concentration=np.zeros(len(grid.depth)),
-                )
-    
-            # ------------------------------------------------------------
-            # Store results for this soil
-            # ------------------------------------------------------------
+
+            for aaw_label, (aaw_model_cls, aaw_kwargs) in aaw_methods.items():
+                model.compute(aaw_model_cls, **aaw_kwargs)
+                aaw_results[aaw_label] = model.aaw
+
+                model.compute(Retardation, bulk_density=bulk_dens)
+                retardation_results[aaw_label] = model.adsorption
+
+                model.compute(EquilibriumSolver)
+                sim_results[aaw_label] = model.C1
+
             all_soil_results[soil_name] = {
                 "Aaw": aaw_results,
-                "kawi": kawi_results,
+                "kawi": model.Kaw,
                 "sim": sim_results,
-                "water": water_results,
+                "water": model.hydro_properties,
                 "soil": soil,
                 "retardation": retardation_results,
-                "Kd": spsorptionresult["Kd"],
+                "Kd": model.Kd,
+                "grid": model.grid,
             }
-    
+
             print(
                 f"  {soil_name}: "
                 f"Aaw thermo = {aaw_results['thermo']:.4f}, "
@@ -336,15 +245,127 @@ def _(
                 f"d50 = {aaw_results['func_d50']:.4f}, "
                 f"nonlinear d50 = {aaw_results['func_nonlin_d50']:.4f}"
             )
-    
-        # Store results for this PFAS
+
         all_pfas_results[pfas_name] = all_soil_results
-    
-        print(
-            f"Done — {pfas_name}: "
-            f"{len(all_soil_results)} soils processed."
-        )
-    return all_pfas_results, all_soil_results, pfas_name
+        print(f"Done — {pfas_name}: {len(all_soil_results)} soils processed.")
+
+    # staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
+    # all_pfas_results = {}
+
+    # for pfas_name in pfas_names:
+    #     pfas = pfas_db[pfas_name]
+    #     all_soil_results = {}
+
+    #     for soil_name in staring_soils:
+    #         soil         = soil_db[soil_name]
+    #         bulk_dens    = soil["rho_b"]["value"]
+    #         porosity     = soil["porosity"]
+    #         theta_r      = soil["theta_r"]
+    #         theta_s      = soil["theta_s"]
+    #         K_sat        = soil["K_sat"]["value"]
+    #         vg_alpha     = soil["van_genuchten"]["alpha"]["value"]
+    #         vg_n         = soil["van_genuchten"]["n"]
+    #         vg_l         = soil["van_genuchten"]["l"]
+    #         dispersivity = 4.5
+    #         f_oc         = soil["f_oc"]["value"] / 100
+    #         f_clay       = soil["f_clay"]["value"] / 100
+    #         f_silt       = soil["f_silt"]["value"] / 100
+    #         f_silt_clay  = f_silt + f_clay
+    #         d50          = soil["d50"]["value"] / 10000
+
+    #         # 1. Water flow
+    #         model.compute(WaterPreprocessor,
+    #             average_infiltration_rate=9.51e-7,
+    #             hydraulic_conductivity=K_sat,
+    #             porosity=porosity,
+    #             dispersivity=dispersivity,
+    #             van_genuchten_n=vg_n,
+    #             van_genuchten_l=vg_l,
+    #             residual_water_content=theta_r,
+    #         )
+
+    #         # 2. Boundary conditions
+    #         model.compute(BoundaryPreprocessor,
+    #             C_list=[pfas["M"]["value"] * 1e-9, 0.0],
+    #             T_list=[0.0, pulse_duration],
+    #         )
+
+    #         # 3. Solid-phase sorption
+    #         sorption_solid = {
+    #             "kinetic_sorption": False,
+    #             "sorption_isotherm": "linear",
+    #             "kinetic": {"frac_int": 1.0, "rate_const": 0.0},
+    #             "linear": {
+    #                 "Kd_method": "direct_input",
+    #                 "Kd": kd_fabregat_palau(pfas["structural_properties"]["n_CFx"], f_oc, f_silt_clay),
+    #             },
+    #         }
+    #         model.compute(LinearSPsorption, sorption_solid=sorption_solid)
+
+    #         # 4. Kaw method
+    #         a = pfas["Szyszkowski_params"]["a"]["value"]
+    #         b = pfas["Szyszkowski_params"]["b"]["value"]
+
+    #         if a is not None and b is not None:
+    #             model.compute(Szyszkowski,
+    #                 sigma0=71, a=a, b=b, chi=1, T=293.15, Cw=1e-12,
+    #             )
+    #         else:
+    #             model.compute(
+    #             Le2021_langmuir,
+    #             structural_properties=pfas["structural_properties"],
+    #             Cw=1e-12,
+    #         )
+    #         # 5. Aaw — run all four methods, capturing each result
+    #         #    immediately since model.compute mutates model.aaw in place.
+    #         aaw_results = {}
+
+    #         model.compute(SWCsorption, sigma0=71, scaling_factor_awi=4.15, van_genuchten_alpha=vg_alpha)
+    #         aaw_results["thermo"] = model.aaw
+
+    #         model.compute(GSSAAWI, soil={"porosity": porosity, "d50": d50})
+    #         aaw_results["func_GSSA"] = model.aaw
+
+    #         model.compute(D50AWI, soil={"porosity": porosity, "d50": d50})
+    #         aaw_results["func_d50"] = model.aaw
+
+    #         model.compute(NonlinearD50AWI, soil={"porosity": porosity, "d50": d50})
+    #         aaw_results["func_nonlin_d50"] = model.aaw
+
+    #         # 6. Retardation + simulation for each Aaw method
+    #         sim_results = {}
+    #         retardation_results = {}
+
+    #         for aaw_label, aaw_value in aaw_results.items():
+    #             model.aaw = aaw_value  # override before Retardation reads it
+    #             model.compute(Retardation, bulk_density=bulk_dens)
+    #             retardation_results[aaw_label] = model.adsorption
+
+    #             model.compute(EquilibriumSolver)
+    #             sim_results[aaw_label] = model.C1
+
+    #         all_soil_results[soil_name] = {
+    #             "Aaw": aaw_results,
+    #             "kawi": model.Kaw,
+    #             "sim": sim_results,
+    #             "water": model.hydro_properties,
+    #             "soil": soil,
+    #             "retardation": retardation_results,
+    #             "Kd": model.Kd,
+    #             "grid": model.grid,
+    #         }
+
+    #         print(
+    #             f"  {soil_name}: "
+    #             f"Aaw thermo = {aaw_results['thermo']:.4f}, "
+    #             f"GSSA = {aaw_results['func_GSSA']:.4f}, "
+    #             f"d50 = {aaw_results['func_d50']:.4f}, "
+    #             f"nonlinear d50 = {aaw_results['func_nonlin_d50']:.4f}"
+    #         )
+
+    #     all_pfas_results[pfas_name] = all_soil_results
+    #     print(f"Done — {pfas_name}: {len(all_soil_results)} soils processed.")
+    return all_pfas_results, all_soil_results, model, pfas_name
 
 
 @app.cell(hide_code=True)
@@ -352,71 +373,6 @@ def _(mo):
     mo.md(r"""
     ## Saving variables to separate dataframe
     """)
-    return
-
-
-@app.cell(disabled=True)
-def _(all_pfas_results, grid_results, kd_fabregat_palau, np, os, pd, pfas_db):
-    def save_results():
-
-        # ── Add Aaw differences ──────────────────────────────────────────────────
-        for pfas_name, all_soil_results in all_pfas_results.items():
-            for soil_name, results in all_soil_results.items():
-                aaw = results["Aaw"]
-                results["Aaw_diff"] = {
-                    "func1_vs_thermo": (aaw["func1"] - aaw["thermo"]) / aaw["thermo"],
-                    "func2_vs_thermo": (aaw["func2"] - aaw["thermo"]) / aaw["thermo"],
-                }
-
-        # ── Save results ─────────────────────────────────────────────────────────
-        out_dir = r"C:\Users\youri\Documents\ESW\Thesis_v2\04_Processing\4_dataframe_with_key_variables\results_v3_neutralPFASs"
-        os.makedirs(out_dir, exist_ok=True)
-
-        rows = []
-        btc_index = []
-
-        for pfas_name, all_soil_results in all_pfas_results.items():
-            for soil_name, res in all_soil_results.items():
-                soil  = res["soil"]
-                water = res["water"]
-                theta = water["hydro_properties"].water_content
-                n_CFx = pfas_db[pfas_name]["n_CFx"]
-
-                rows.append({
-                    "pfas_name":      pfas_name,
-                    "soil":           soil_name,
-                    "theta":          float(theta),
-                    "f_oc":           soil["f_oc"]["value"] / 100,
-                    "f_clay":         soil["f_clay"]["value"] / 100,
-                    "f_silt":         soil["f_silt"]["value"] / 100,
-                    "porosity":       soil["porosity"],
-                    "rho_b":          soil["rho_b"]["value"],
-                    "Kd":             kd_fabregat_palau(n_CFx,
-                                          soil["f_oc"]["value"] / 100,
-                                          (soil["f_silt"]["value"] + soil["f_clay"]["value"]) / 100),
-                    "Aaw_thermo":     res["Aaw"]["thermo"],
-                    "Aaw_func1":      res["Aaw"]["func1"],
-                    "Aaw_func2":      res["Aaw"]["func2"],
-                    "Aaw_diff_func1": res["Aaw_diff"]["func1_vs_thermo"],
-                    "Aaw_diff_func2": res["Aaw_diff"]["func2_vs_thermo"],
-                    "Effective_sat":  ((float(theta) - soil["theta_r"]) / (soil["theta_s"] - soil["theta_r"])),
-                    "Kaw":            res["kawi"]["thermo"]["Kaw"],
-                })
-
-                for method in ("thermo", "func1", "func2"):
-                    C_tot = res["sim"][method]["C_tot"]
-                    fname = os.path.join(out_dir, f"btc_{pfas_name}_{soil_name}_{method}.npy")
-                    np.save(fname, C_tot)
-                    btc_index.append({"pfas_name": pfas_name, "soil": soil_name, "method": method})
-
-        pd.DataFrame(rows).to_parquet(os.path.join(out_dir, "scalars.parquet"), index=False)
-        pd.DataFrame(btc_index).to_parquet(os.path.join(out_dir, "btc_index.parquet"), index=False)
-        np.save(os.path.join(out_dir, "time.npy"),  grid_results["grid"].time)
-        np.save(os.path.join(out_dir, "depth.npy"), grid_results["grid"].depth)
-
-        print(f"Saved {len(rows)} rows to {out_dir}")
-
-    save_results()
     return
 
 
@@ -494,7 +450,7 @@ def _(all_soil_results, np, plt):
     ax_aaw_diff.set_xticks(list(x_diff))    
     ax_aaw_diff.set_xticklabels(soil_names_plot_diff, rotation=45, ha="right", fontsize=8)
     ax_aaw_diff.set_ylabel("ΔAaw vs thermodynamic method (-)")
-    ax_aaw_diff.set_title(f"Air-water interfacial area difference — all Staring soils | theta = theta")
+    ax_aaw_diff.set_title(f"Air-water interfacial area difference — all Staring soils")
     ax_aaw_diff.set_yscale("symlog") #, linthresh=10)
     ax_aaw_diff.legend()
     ax_aaw_diff.grid(True, alpha=0.3, axis="y")
@@ -537,7 +493,7 @@ def _(all_soil_results, np, plt):
         ax.set_xticks(list(x_diff))    
         ax.set_xticklabels(soil_names_plot, rotation=45, ha="right", fontsize=8)
         ax.set_ylabel("log10(Aaw method/Aaw thermodynamic)")
-        ax.set_title(f"Air-water interfacial area log ratio — all Staring soils | theta = theta")
+        ax.set_title(f"Air-water interfacial area log ratio — all Staring soils")
         ax.legend()
         ax.grid(True, alpha=0.3, axis="y")
         fig.tight_layout()
@@ -569,15 +525,14 @@ def _(aaw_key, all_soil_results, sname):
 
 
 @app.cell
-def _(all_soil_results, grid_results, pfas_name, plt):
+def _(all_soil_results, model, pfas_name, plt):
     # ── Plot: breakthrough curves at depth ≈ 50 cm, all soils ────────────────
     seconds_per_year_bt = 60 * 60 * 24 * 365
     depth_target_cm = 50
-    depth_idx_bt = min(
-        range(len(grid_results["grid"].depth)),
-        key=lambda i: abs(grid_results["grid"].depth[i] - depth_target_cm)
+    depth_idx_bt = min(range(len(model.grid.depth)),
+        key=lambda i: abs(model.grid.depth[i] - depth_target_cm)
     )
-    actual_depth_bt = grid_results["grid"].depth[depth_idx_bt]
+    actual_depth_bt = model.grid.depth[depth_idx_bt]
 
     fig_bt, axes_bt = plt.subplots(1, 4, figsize=(18, 5), sharey=True)
     method_labels_bt = {"thermo": "Thermodynamic", "func_GSSA": "GSSA-based", "func_d50": "d50-based", "func_nonlin_d50": "d50, nonlinear saturation"}
@@ -586,9 +541,9 @@ def _(all_soil_results, grid_results, pfas_name, plt):
     for ax_idx, (aaw_key, aaw_label_bt) in enumerate(method_labels_bt.items()):
         ax_bt = axes_bt[ax_idx]
         for s_idx, sname in enumerate(all_soil_results.keys()):
-            C = all_soil_results[sname]["sim"][aaw_key]["C_tot"][depth_idx_bt, :]
+            C = all_soil_results[sname]["sim"][aaw_key][depth_idx_bt, :]
             ax_bt.plot(
-                grid_results["grid"].time / seconds_per_year_bt, C,
+                model.grid.time / seconds_per_year_bt, C,
                 color=cmap_bt(s_idx), label=sname, linewidth=1.2
             )
         ax_bt.set_title(f"Aaw: {aaw_label_bt}")
@@ -609,171 +564,58 @@ def _(all_soil_results, grid_results, pfas_name, plt):
 
 
 @app.cell
+def _(mo):
+    mo.md(r"""
+    #Other parameters
+    In this code block we look at the differences in computed Kaw values, Kd values and effective saturation with the chosen methods.
+    """)
+    return
+
+
+@app.cell
 def _(all_pfas_results, pd, pfas_names, plt, ticker):
-    # Uses local Marimo variables already present in the notebook:
-    # all_pfas_results, pfas_names
-
-    kaw_local_rows = []
-
-    for kaw_local_pfas_name in pfas_names:
-        kaw_local_soil_results = all_pfas_results[kaw_local_pfas_name]
-
-        # Kaw is independent of soil here, so take the first available soil entry.
-        kaw_local_first_soil_name = next(iter(kaw_local_soil_results))
-        kaw_local_kaw = kaw_local_soil_results[kaw_local_first_soil_name]["kawi"]["thermo"]["Kaw"]
-
-        kaw_local_rows.append({
-            "pfas_name": kaw_local_pfas_name,
-            "Kaw": kaw_local_kaw,
-        })
-
-    kaw_local_df = pd.DataFrame(kaw_local_rows)
-
-    kaw_local_pfas_order = [
-        "TFA",
-        "PFBA",
-        "HFPO-DA",
-        "PFPeA",
-        "PFBS",
-        "PFHxA",
-        "PFHpA",
-        "PFHxS",
-        "PFOA",
-        "PFNA",
-        "PFOS",
-        "PFDA",
+    PFAS_ORDER = [
+        "TFA", "PFBA", "HFPO-DA", "PFPeA", "PFBS", "PFHxA",
+        "PFHpA", "PFHxS", "PFOA", "PFNA", "PFOS", "PFDA",
     ]
 
-    kaw_local_df_ordered = (
-        kaw_local_df
-        .set_index("pfas_name")
-        .reindex(kaw_local_pfas_order)
-        .reset_index()
+    def get_kaw(soil_results: dict) -> float:
+        """Extract Kaw for a PFAS, verifying it is identical across all soils."""
+        kaw_values = {sname: res["kawi"] for sname, res in soil_results.items()}
+        unique_vals = set(kaw_values.values())
+        if len(unique_vals) > 1:
+            raise ValueError(f"Kaw is not soil-independent: {kaw_values}")
+        return next(iter(unique_vals))
+
+    kaw_df = pd.DataFrame(
+        {"pfas_name": name, "Kaw": get_kaw(all_pfas_results[name])}
+        for name in pfas_names
     )
 
-    kaw_local_missing = kaw_local_df_ordered[kaw_local_df_ordered["Kaw"].isna()]["pfas_name"].tolist()
-    if kaw_local_missing:
-        raise ValueError(f"Missing PFAS in all_pfas_results: {kaw_local_missing}")
+    kaw_df = kaw_df.set_index("pfas_name").reindex(PFAS_ORDER).reset_index()
 
-    kaw_local_fig, kaw_local_ax = plt.subplots(figsize=(6.5, 4.2))
+    missing = kaw_df.loc[kaw_df["Kaw"].isna(), "pfas_name"].tolist()
+    if missing:
+        raise ValueError(f"Missing PFAS in all_pfas_results: {missing}")
 
-    kaw_local_ax.scatter(
-        kaw_local_df_ordered["pfas_name"],
-        kaw_local_df_ordered["Kaw"],
-        s=55,
-        color="red",
-    )
+    fig, ax = plt.subplots(figsize=(6.5, 4.2))
+    ax.scatter(kaw_df["pfas_name"], kaw_df["Kaw"], s=55, color="red")
 
-    kaw_local_ax.set_yscale("log")
-
-    # Set only the major ticks you want to show
-    kaw_local_ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext())
-
-    kaw_local_ax.set_title(
+    ax.set_yscale("log")
+    ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext())
+    ax.set_title(
         r"Partitioning coefficient air-water interface "
         r"$(C = 1.0\ \frac{\mathrm{pmol}}{\mathrm{l}})$",
         fontsize=13,
     )
+    ax.set_xlabel("PFAS", fontsize=12)
+    ax.set_ylabel(r"$K_{\mathrm{aw}}\ [\mathrm{cm}^3/\mathrm{cm}^2]$", fontsize=12)
+    ax.grid(True, which="major", axis="both", alpha=0.55)
+    ax.tick_params(axis="x", rotation=35, labelsize=10)
+    ax.tick_params(axis="y", labelsize=10)
 
-    kaw_local_ax.set_xlabel("PFAS", fontsize=12)
-    kaw_local_ax.set_ylabel(r"$K_{\mathrm{aw}}\ [\mathrm{cm}^3/\mathrm{cm}^2]$", fontsize=12)
-
-    kaw_local_ax.grid(True, which="major", axis="both", alpha=0.55)
-
-    kaw_local_ax.tick_params(axis="x", rotation=35, labelsize=10)
-    kaw_local_ax.tick_params(axis="y", labelsize=10)
-
-    kaw_local_fig.tight_layout()
-    kaw_local_fig
-    return kaw_local_df_ordered, kaw_local_pfas_order
-
-
-@app.cell
-def _(Path, np, pd, plt):
-    def plot_kaw_comparison():
-        csv_path = Path(__file__).parent / "Kaw_v3.csv"
-
-        kaw_df = pd.read_csv(
-            csv_path,
-            na_values=["n.a.", "n.a", "NA", "N/A", ""]
-        )
-
-        pfas_col = "PFAS"
-        method_cols = [col for col in kaw_df.columns if col != pfas_col]
-
-        for col in method_cols:
-            kaw_df[col] = pd.to_numeric(kaw_df[col], errors="coerce")
-
-        kaw_x = np.arange(len(kaw_df))
-
-        # markers = {
-        #     "Brusseau & Van Glubt (2019) QSPR-model": "D",
-        #     "Le et al. (2021) Anion acid form": "o",
-        #     "Le et al. (2021) Neutral acid form": "s",
-        #     "Guo et al. (2022) Experimental data": "X",
-        #     "Brusseau & Guo (2022) Experimental data": "^",
-        # }
-
-        # colours = {
-        #     "Brusseau & Van Glubt (2019) QSPR-model": "tab:red",
-        #     "Le et al. (2021) Anion acid form": "tab:purple",
-        #     "Le et al. (2021) Neutral acid form": "tab:orange",
-        #     "Guo et al. (2022) Experimental data": "tab:blue",
-        #     "Brusseau & Guo (2022) Experimental data": "tab:green",
-        # }
-
-
-        markers = {
-            "QSPR-model": "D",
-            "GC-model, anion acid": "o",
-            "GC-model, neutral acid": "s",
-            "Experimental data, Guo": "X",
-            "Experimental data, B&G": "^",
-        }
-
-        colours = {
-            "QSPR-model": "tab:red",
-            "GC-model, anion acid": "tab:purple",
-            "GC-model, neutral acid": "tab:orange",
-            "Experimental data, Guo": "tab:blue",
-            "Experimental data, B&G": "tab:green",
-        }
-
-        fig, ax = plt.subplots(figsize=(10, 5))
-
-        for col in method_cols:
-            ax.scatter(
-                kaw_x,
-                kaw_df[col],
-                label=col,
-                s=110,
-                marker=markers.get(col, "o"),
-                facecolors="none",
-                edgecolors=colours.get(col, "black"),
-                linewidths=1.8
-            )
-
-        ax.set_yscale("log")
-        ax.set_ylim(5e-8, 3)
-        ax.set_xticks(kaw_x)
-        ax.set_xticklabels(kaw_df[pfas_col], rotation=45, ha="right")
-
-        ax.set_xlabel("PFAS")
-        ax.set_ylabel(r"$K_{aw}$ [cm$^3$/cm$^2$]")
-        # ax.set_title(
-        #     r"Air-water interfacial adsorption coefficients for selected PFAS"
-        #     # r"($C = 1.0\ \frac{\mathrm{pmol}}{\mathrm{l}}$)"
-        # )
-
-        ax.grid(True, which="major", alpha=0.5)
-        ax.legend()
-
-        print(method_cols)
-
-        plt.tight_layout()
-        return fig
-
-    plot_kaw_comparison()
+    fig.tight_layout()
+    fig
     return
 
 
@@ -848,63 +690,23 @@ def _(kaw_local_df_ordered, kaw_local_pfas_order, pfas_db):
 
 
 @app.cell
-def _(
-    all_pfas_results,
-    kd_fabregat_palau,
-    pd,
-    pfas_db,
-    pfas_names,
-    plt,
-    soil_db,
-    ticker,
-):
-    # Uses local Marimo variables already present in the notebook:
-    # all_pfas_results, pfas_names, pfas_db, soil_db, kd_fabregat_palau
+def _(all_pfas_results, plt, soil_db, ticker):
+    #Kd
+    soil_order = [s for s in soil_db.keys() if s.startswith("Staring-O")]
 
-    kd_box_rows = []
+    kd_by_soil = {
+        soil_name: [
+            soil_results[soil_name]["Kd"]
+            for soil_results in all_pfas_results.values()
+            if soil_name in soil_results
+        ]
+        for soil_name in soil_order
+    }
 
-    for kd_box_pfas_name in pfas_names:
-        kd_box_pfas = pfas_db[kd_box_pfas_name]
-        kd_box_n_CFx = kd_box_pfas["n_CFx"]
-
-        kd_box_soil_results = all_pfas_results[kd_box_pfas_name]
-
-        for kd_box_soil_name, kd_box_soil_entry in kd_box_soil_results.items():
-            kd_box_soil = kd_box_soil_entry["soil"]
-
-            kd_box_f_oc = kd_box_soil["f_oc"]["value"] / 100
-            kd_box_f_clay = kd_box_soil["f_clay"]["value"] / 100
-            kd_box_f_silt = kd_box_soil["f_silt"]["value"] / 100
-            kd_box_f_silt_clay = kd_box_f_silt + kd_box_f_clay
-
-            kd_box_Kd = kd_fabregat_palau(
-                kd_box_n_CFx,
-                kd_box_f_oc,
-                kd_box_f_silt_clay
-            )
-
-            kd_box_rows.append({
-                "pfas_name": kd_box_pfas_name,
-                "soil_name": kd_box_soil_name,
-                "Kd": kd_box_Kd,
-            })
-
-    kd_box_df = pd.DataFrame(kd_box_rows)
-
-    kd_box_soil_order = [s for s in soil_db.keys() if s.startswith("Staring-O")]
-
-    kd_box_data = [
-        kd_box_df.loc[kd_box_df["soil_name"] == kd_box_soil_name, "Kd"].dropna().values
-        for kd_box_soil_name in kd_box_soil_order
-    ]
-
-    kd_box_labels = kd_box_soil_order
-
-    kd_box_fig, kd_box_ax = plt.subplots(figsize=(10, 5))
-
-    kd_box_ax.boxplot(
-        kd_box_data,
-        tick_labels=kd_box_labels,
+    fig_kd, ax_kd = plt.subplots(figsize=(10, 5))
+    ax_kd.boxplot(
+        [kd_by_soil[s] for s in soil_order],
+        tick_labels=soil_order,
         patch_artist=True,
         widths=0.55,
         showfliers=True,
@@ -920,102 +722,61 @@ def _(
         },
     )
 
-    kd_box_ax.set_yscale("log")
-    kd_box_ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext())
+    ax_kd.set_yscale("log")
+    ax_kd.yaxis.set_major_formatter(ticker.LogFormatterMathtext())
+    ax_kd.set_xlabel("Soil", fontsize=12)
+    ax_kd.set_ylabel(r"$K_{\mathrm{d}}\ [\mathrm{cm}^3/\mathrm{g}]$", fontsize=12)
+    ax_kd.grid(True, which="major", axis="both", alpha=0.45)
+    ax_kd.tick_params(axis="x", labelrotation=45, labelsize=10)
+    ax_kd.tick_params(axis="y", labelsize=10)
+    for label in ax_kd.get_xticklabels():
+        label.set_ha("right")
 
-    # kd_box_ax.set_title(
-    #     r"Distribution of solid-water partitioning coefficients across PFAS",
-    #     fontsize=13,
-    # )
-
-    kd_box_ax.set_xlabel("Soil", fontsize=12)
-    kd_box_ax.set_ylabel(r"$K_{\mathrm{d}}\ [\mathrm{cm}^3/\mathrm{g}]$", fontsize=12)
-
-    kd_box_ax.grid(True, which="major", axis="both", alpha=0.45)
-
-    kd_box_ax.tick_params(axis="x", labelrotation=45, labelsize=10)
-    kd_box_ax.tick_params(axis="y", labelsize=10)
-
-    for kd_box_label in kd_box_ax.get_xticklabels():
-        kd_box_label.set_ha("right")
-
-    kd_box_fig.tight_layout()
-    kd_box_fig
+    fig_kd.tight_layout()
+    fig_kd
     return
 
 
 @app.cell
-def _(all_pfas_results, pd, pfas_names, plt, soil_db):
-    # Uses local Marimo variables already present in the notebook:
-    # all_pfas_results, pfas_names, soil_db
+def _(all_pfas_results, pfas_names, plt, soil_db):
+    soil_order_se = [s for s in soil_db.keys() if s.startswith("Staring-O")]
 
-    se_rows = []
+    def get_effective_saturation(soil_entry: dict) -> float:
+        """Compute Se = (theta - theta_r) / (theta_s - theta_r) for one soil."""
+        soil = soil_entry["soil"]
+        theta = soil_entry["water"].water_content
+        theta_r = soil["theta_r"]
+        theta_s = soil["theta_s"]
+        return (theta - theta_r) / (theta_s - theta_r)
 
-    se_first_pfas_name = pfas_names[0]
-    se_soil_results = all_pfas_results[se_first_pfas_name]
+    # Effective saturation doesn't depend on PFAS, so any single PFAS's
+    # results give the full set of soils.
+    soil_results_se = all_pfas_results[pfas_names[0]]
 
-    for se_soil_name, se_soil_entry in se_soil_results.items():
-        se_soil = se_soil_entry["soil"]
+    se_by_soil = {
+        soil_name: get_effective_saturation(soil_results_se[soil_name])
+        for soil_name in soil_order_se
+        if soil_name in soil_results_se
+    }
 
-        se_theta = se_soil_entry["water"]["hydro_properties"].water_content
-        se_theta_r = se_soil["theta_r"]
-        se_theta_s = se_soil["theta_s"]
+    missing_se = [s for s in soil_order_se if s not in se_by_soil]
+    if missing_se:
+        raise ValueError(f"Missing soils in all_pfas_results: {missing_se}")
 
-        se_effective_saturation = (se_theta - se_theta_r) / (se_theta_s - se_theta_r)
+    fig_se, ax_se = plt.subplots(figsize=(10, 5))
+    x_se = range(len(soil_order_se))
+    ax_se.scatter(x_se, [se_by_soil[s] for s in soil_order_se], s=55)
 
-        se_rows.append({
-            "soil_name": se_soil_name,
-            "effective_saturation": se_effective_saturation,
-        })
+    ax_se.set_xticks(x_se)
+    ax_se.set_xticklabels(soil_order_se, rotation=45, ha="right")
+    ax_se.set_xlabel("Soil", fontsize=12)
+    ax_se.set_ylabel(r"Effective saturation $S_{\mathrm{e}}\ (-)$", fontsize=12)
+    ax_se.set_ylim(0, 1.05)
+    ax_se.grid(True, which="major", axis="both", alpha=0.45)
+    ax_se.tick_params(axis="y", labelsize=10)
 
-    se_df = pd.DataFrame(se_rows)
-
-    se_soil_order = [s for s in soil_db.keys() if s.startswith("Staring-O")]
-
-    se_df_ordered = (
-        se_df
-        .set_index("soil_name")
-        .reindex(se_soil_order)
-        .reset_index()
-    )
-
-    se_missing = se_df_ordered[se_df_ordered["effective_saturation"].isna()]["soil_name"].tolist()
-    if se_missing:
-        raise ValueError(f"Missing soils in all_pfas_results: {se_missing}")
-
-    se_fig, se_ax = plt.subplots(figsize=(10, 5))
-
-    se_x = range(len(se_df_ordered))
-
-    se_ax.scatter(
-        se_x,
-        se_df_ordered["effective_saturation"],
-        s=55,
-    )
-
-    se_ax.set_xticks(se_x)
-    se_ax.set_xticklabels(
-        se_df_ordered["soil_name"],
-        rotation=45,
-        ha="right"
-    )
-
-    # se_ax.set_title(
-    #     r"Effective saturation of the Staring soils",
-    #     fontsize=13,
-    # )
-
-    se_ax.set_xlabel("Soil", fontsize=12)
-    se_ax.set_ylabel(r"Effective saturation $S_{\mathrm{e}}\ (-)$", fontsize=12)
-
-    se_ax.set_ylim(0, 1.05)
-
-    se_ax.grid(True, which="major", axis="both", alpha=0.45)
-
-    se_ax.tick_params(axis="y", labelsize=10)
-
-    se_fig.tight_layout()
-    se_fig
+    fig_se.tight_layout()
+    fig_se
     return
 
 
