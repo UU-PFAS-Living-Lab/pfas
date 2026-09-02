@@ -27,7 +27,7 @@ from pfas.solver_utils import (
 from typing import Annotated
 from pfas.data_structure import Adsorption, HydrologicalProperties
 from annotated_types import Gt
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 class EquilibriumSolver(
     BaseModel, validate_assignment=True, extra="forbid", arbitrary_types_allowed=True
@@ -85,6 +85,30 @@ class EquilibriumSolver(
                 f"Available options: {list(_BVP_FUNCTIONS.keys())}"
             )
         return value
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_initial_concentration(cls, values):
+        initial_contaminant_concentration = values.get(
+            "initial_contaminant_concentration"
+        )
+        grid = values.get("grid")
+        hydro_properties = values.get("hydro_properties")
+
+        if initial_contaminant_concentration is not None and grid is not None:
+            if len(initial_contaminant_concentration) != len(grid.depth):
+                raise ValueError(
+                    "initial_contaminant_concentration must have the same "
+                    "length as grid.depth"
+                )
+
+        if hydro_properties is not None:
+            if hydro_properties.water_content < 0:
+                raise ValueError(
+                    "hydro_properties.water_content must not be negative"
+                )
+
+        return values
 
     def compute(self) -> dict[str, NDArray[np.float64]]:
         """Compute aqueous and total concentrations.
@@ -243,7 +267,31 @@ class KineticSolver(
     bulk_density: Annotated[float, Gt(0)]
     initial_contaminant_concentration: NDArray[np.float64] | None = None
     volume_averaged: bool = True
+    
+    @model_validator(mode="before")
+    @classmethod
+    def validate_initial_concentration(cls, values):
+        initial_contaminant_concentration = values.get(
+            "initial_contaminant_concentration"
+        )
+        grid = values.get("grid")
+        hydro_properties = values.get("hydro_properties")
 
+        if initial_contaminant_concentration is not None and grid is not None:
+            if len(initial_contaminant_concentration) != len(grid.depth):
+                raise ValueError(
+                    "initial_contaminant_concentration must have the same "
+                    "length as grid.depth"
+                )
+
+        if hydro_properties is not None:
+            if hydro_properties.water_content < 0:
+                raise ValueError(
+                    "hydro_properties.water_content must not be negative"
+                )
+
+        return values
+    
     def compute(self) -> dict[str, NDArray[np.float64]]:
         """Compute aqueous, sorbed, and total concentrations.
 

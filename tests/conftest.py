@@ -6,7 +6,7 @@ from pfas.data_structure import (
     BoundaryConditions,
     Adsorption,
 )
-from pfas.solver_utils import compute_dimensionless_params
+from pfas.solver_utils import DimensionlessParams
 
 
 @pytest.fixture
@@ -60,28 +60,27 @@ def adsorption_kinetic():
 @pytest.fixture
 def initial(grid):
     """Zero initial concentration profile."""
-    return np.zeros_like(grid.depth)
+    return np.arange(0, 1.01, 0.25)
 
 
 @pytest.fixture
 def dim_equilibrium(grid, hydro, bc_constant, adsorption_equilibrium):
     """Dimensionless parameters for equilibrium solver."""
-    return compute_dimensionless_params(
-        grid,
-        hydro,
-        T_list=bc_constant.T_list,
-        adsorption=adsorption_equilibrium,
-        kinetic=False,
+    return DimensionlessParams(
+        Z=np.array([0.  , 0.25, 0.5 , 0.75, 1.  ]),
+        T=np.array([0.    , 0.0002, 0.0004, 0.0006, 0.0008, 0.001 ]),
+        T_list=[np.float64(0.0)],
+        P=np.float64(100.00000000000001),
+        omega=None
     )
-
 
 @pytest.fixture
 def dim_kinetic(grid, hydro, bc_constant, adsorption_kinetic):
     """Dimensionless parameters for kinetic solver."""
-    return compute_dimensionless_params(
-        grid,
-        hydro,
-        T_list=bc_constant.T_list,
-        adsorption=adsorption_kinetic,
-        kinetic=True,
+    return DimensionlessParams(
+            Z=np.array([0.  , 0.25, 0.5 , 0.75, 1.  ]),
+            T=np.array([0.    , 0.0002, 0.0004, 0.0006, 0.0008, 0.001 ]),
+            T_list=[np.float64(0.0)],
+            P=np.float64(100.00000000000001),
+            omega=np.float64(699.9999999999999)
     )
