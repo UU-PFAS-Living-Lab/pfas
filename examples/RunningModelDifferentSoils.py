@@ -8,7 +8,8 @@ app = marimo.App(width="medium")
 def _(mo):
     mo.md(r"""
     # Running simulations for different soils
-    In this example, we will showcase how we can run a simulation over 18 Dutch soil types for one PFAS and one set of parameter initialization.
+    In this example, we will showcase how we can run a simulation over 18 Dutch soil types for one PFAS and one set of hydrological parameter initialization.
+    This notebook illustrates the differences in sorption between different soils.
     """)
     return
 
@@ -45,15 +46,15 @@ def _():
 def _(mo):
     mo.md(r"""
     ## Defining shared parameters betweenthe model classes
-    Some classes require the same parameters. When providing a TOML file, this is handled correctly, but when providing the parameters seperately to the different classes, we need to take care of this ourselves.
 
-    In the next line of code, we will define bulk density. Furthermore, in our calling of the different classes, we will reuse some of the parameters that we have defined (`i.e. "residual_water_content": water_prep.residual_water_content` )
+    re of this ourselves.
+    In this example we will use PFOA as an example. We print some sorption information that is available for this compound ($K_{oc}$ and $K_{sc}$). This represents its sorption affinity to organic matter and silt and clay, respectively.
     """)
     return
 
 
 @app.cell
-def _(GridGenerator, Model, load_dataset):
+def _(load_dataset):
     # ── Load datasets from the pfas library ───────────────────────────────────
     pfas_db = load_dataset("PFASs")
     soil_db = load_dataset("soils")
@@ -72,27 +73,8 @@ def _(GridGenerator, Model, load_dataset):
     print(f"PFAS : {pfas_name}  |  n_CFx = {n_CFx}")
     print(f"       K_oc = {K_oc} L/kg  |  K_sc = {K_sc} L/kg")
 
-    model = Model()
-    model.compute(
-        GridGenerator,
-        domain_length=60,
-        spatial_resolution=1.0,
-        time_resolution=100,
-        time_total=10000
-    )
-    # Step 1: initialize model and generate grid
-    model = Model()
-    model.compute(GridGenerator,
-        domain_length=100,                      # cm
-        spatial_resolution=0.5,                 # cm
-        time_resolution=(1/12) * (60*60*24*365),  # seconds
-        time_total=250*(60*60*24*365),          # seconds
-    )
-    #grid_results = grid_gen.compute()
-    #grid = grid_results["grid"]
 
-    pulse_duration = 25 * (60 * 60 * 24 * 365)  # seconds
-    return K_oc, K_sc, T, model, pfas, pfas_name, pulse_duration, soil_db
+    return K_oc, K_sc, T, pfas, pfas_name, soil_db
 
 
 @app.cell(hide_code=True)
@@ -101,6 +83,12 @@ def _(mo):
     ## Calling different classes and running the model
 
     Now, we will call all the classes and generate our model. If we are missing parameters, the code will tell us.
+
+    In this example we will mimick a situation in which PFAS is released for 25 years at a relatively low concentration. We run our model for 250 years in total. Sorption is assumed to be instantaneous and the solid-phase sorption coefficient ($K_d$) is calculated based on the following relationship:
+
+    \[ K_d = K_{oc} \cdot f_{oc} + K_{sc} \cdot f_{silt\_clay} \]
+
+    Because we only run the model for one type of PFAS  $K_{aw}$ is the same for all runs.
     """)
     return
 
@@ -109,22 +97,21 @@ def _(mo):
 def _(
     BoundaryPreprocessor,
     EquilibriumSolver,
+    GridGenerator,
     K_oc,
     K_sc,
     Le2021_langmuir,
     LinearSPsorption,
+    Model,
     Retardation,
     SWCsorption,
     Szyszkowski,
     T,
     WaterPreprocessor,
-    model,
     pfas,
-    pulse_duration,
     soil_db,
 ):
-    staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")
-        ]
+    staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
 
     # If the order needs to be explicitly O01 → O18, use:
     # staring_soils = [f"Staring-O{i:02d}" for i in range(1, 19)]
@@ -135,11 +122,11 @@ def _(
     # Store results for every soil
     all_soil_results = {}
 
-    # -------------------------------------------------------------------------
-    # Loop over soils
-    # -------------------------------------------------------------------------
 
+    pulse_duration = 25 * (60 * 60 * 24 * 365)  # seconds
     for soil_name in staring_soils:
+        model = Model()  
+
         soil        = soil_db[soil_name]
         bulk_dens   = soil["rho_b"]["value"]                   # g/cm3
         porosity    = soil["porosity"]                         # -
@@ -154,22 +141,27 @@ def _(
         f_clay      = soil["f_clay"]["value"] / 100            # - (fraction)
         f_silt      = soil["f_silt"]["value"] / 100            # - (fraction)
         f_silt_clay = f_silt + f_clay                          # - (fraction)
-        d50         = soil["d50"]["value"] / 10000    
+        d50         = soil["d50"]["value"] / 10000             # converted to cm
 
         # ---------------------------------------------------------------------
         # 1. Water / hydraulic properties
         # ---------------------------------------------------------------------
         model.compute(
-        WaterPreprocessor,
-        average_infiltration_rate=9.51e-7,
-        hydraulic_conductivity=K_sat,
-        porosity=porosity,
-        dispersivity=dispersivity,
-        van_genuchten_n=vg_n,
-        van_genuchten_l = vg_l,
-        residual_water_content=theta_r
+            WaterPreprocessor,
+            average_infiltration_rate=9.51e-7,
+            hydraulic_conductivity=K_sat,
+            porosity=porosity,
+            dispersivity=dispersivity,
+            van_genuchten_n=vg_n,
+            van_genuchten_l=vg_l,
+            residual_water_content=theta_r,
         )
-
+        model.compute(GridGenerator,
+        domain_length=100,                      # cm
+        spatial_resolution=0.5,                 # cm
+        time_resolution=(1/12) * (60*60*24*365),  # seconds
+        time_total=250*(60*60*24*365),          # seconds
+            )
 
         model.compute(BoundaryPreprocessor,
             C_list=[
@@ -181,8 +173,6 @@ def _(
                 pulse_duration,
             ],
         )
-
-
 
         # ---------------------------------------------------------------------
         # 3. Solid-phase adsorption
@@ -204,17 +194,15 @@ def _(
         }
 
         model.compute(LinearSPsorption,
-        sorption_solid=sorption_solid,
+            sorption_solid=sorption_solid,
         )
 
         model.compute(
-        SWCsorption,
-        sigma0=71,
-        scaling_factor_awi=4.15,
-        van_genuchten_alpha = vg_alpha,
+            SWCsorption,
+            sigma0=71,
+            scaling_factor_awi=4.15,
+            van_genuchten_alpha=vg_alpha,
         )
-
-
 
         # ---------------------------------------------------------------------
         # 5. Select Kaw method
@@ -227,44 +215,33 @@ def _(
 
         if a is not None and b is not None:
             model.compute(
-                    Szyszkowski,
-                    a=a,
-                    b=b,
-                    chi=1,
-                    T=T,
-                    Cw = 1e-12
-
-                )
-        else:
-
-            model.compute(Le2021_langmuir,
-                pfas["structural_properties"], 
-                Cw = 1e-12
+                Szyszkowski,
+                a=a,
+                b=b,
+                chi=1,
+                T=T,
+                Cw=1e-12,
             )
-
+        else:
+            model.compute(
+                Le2021_langmuir,
+                structural_properties=pfas["structural_properties"],  
+                Cw=1e-12,
+            )
 
         model.compute(
             Retardation,
-            bulk_density = bulk_dens
+            bulk_density=bulk_dens,
         )
 
         model.compute(
-        EquilibriumSolver,
-    )
-
-
-        # ---------------------------------------------------------------------
-        # 7. EquilibriumSolver
-        #
-        # IMPORTANT:
-        # Every soil is now simulated using EquilibriumSolver.
-        # ---------------------------------------------------------------------
+            EquilibriumSolver,
+        )
 
         # ---------------------------------------------------------------------
         # Store all results for this soil
         # ---------------------------------------------------------------------
         print(type(model))
-
 
         all_soil_results[soil_name] = {
             "Aaw": model.aaw,
@@ -274,7 +251,7 @@ def _(
             "soil": soil,
             "retardation": model.adsorption,
             "Kd": model.Kd,
-            "grid": model.grid
+            "grid": model.grid,
         }
 
         print(
@@ -282,13 +259,17 @@ def _(
             f"Kd = {model.Kd:.4g} | "
             f"Kaw = {model.Kaw:.4g}"
         )
-    return (all_soil_results,)
+    return all_soil_results, model
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ## Plotting results
+
+    We print here our results for all soils. As we can observe, effective pore velocity and saturation levels differ over the soils, even though we used the same hydrological data. This is logical due to the varying soil properties. Because of this, the total air-water interfacial area ($A_{aw}$) is also different across soils.
+
+    When we plot our breakthrough curves, we observe significant differences between the selected soils.
     """)
     return
 
@@ -412,11 +393,18 @@ def _(all_soil_results, model, np, pfas, pfas_name, plt):
         axes[1].set_xlabel("Time (yrs)")
         axes[0].set_title(f"Concentration profile for {pfas_name}, t = {C_profile_time:.0f} years")
         axes[1].set_title(f"Breakthrough curve for {pfas_name}, d = {depth_100:.0f} centimeters")
-        axes[0].legend()
         for ax in axes:
             ax.grid(True)
+            ax.title.set_size(10)
+        fig.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=4,
+        fontsize=8,
+        frameon=False,
+    )
 
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
         plt.show()        
 
     plot_concentration_profile(all_soil_results, pfas)

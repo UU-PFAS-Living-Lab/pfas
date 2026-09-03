@@ -61,6 +61,7 @@ def _(mo):
     library using `load_dataset("PFASs")` and `load_dataset("soils")`.
     No values are hardcoded — the cell below loads the full databases and extracts
     the entries for **PFOA** and **Accusand**.
+    We manually increase the level of OM to 10% in order to see the effects on solid phase sorption.
     """)
     return
 
@@ -140,9 +141,7 @@ def _(mo):
     | **Freundlich** | `FreundlichSPsorption` | `"freundlich"` |
     | **Fabregat-Palau** | `LinearSPsorption` | `"linear"` / `Kd_method: "fabregat_palau"` |
 
-    The Freundlich Kd is evaluated at a representative concentration
-    `C_rep = 0.5 mg/L` with exponent *n* = 0.8 (literature value for PFAS,
-    n < 1 → favourable/concave isotherm).
+    In this code section we prefer the input for the model.
     """)
     return
 
@@ -284,7 +283,6 @@ def _(
     model_freund   = branch_models["Freundlich"]
     model_fabregat = branch_models["Fabregat-Palau"]
     print("\nAll three simulations completed successfully!")
-
     return model_fabregat, model_freund, model_linear
 
 

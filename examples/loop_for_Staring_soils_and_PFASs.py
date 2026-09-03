@@ -128,6 +128,7 @@ def _(
     pulse_duration,
     soil_db,
 ):
+
     staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
     all_pfas_results = {}
 
@@ -136,13 +137,14 @@ def _(
         all_soil_results = {}
 
         for soil_name in staring_soils:
-            model = Model()   # <-- fresh instance, no stale input_data/generated_data
+            model = Model()  
             model.compute(GridGenerator,
-                domain_length=100,                      # cm
-                spatial_resolution=0.5,                 # cm
+                domain_length=100,                        # cm
+                spatial_resolution=0.5,                   # cm
                 time_resolution=(1/12) * (60*60*24*365),  # seconds
-                time_total=250*(60*60*24*365),          # seconds   
-                 )
+                time_total=250*(60*60*24*365),            # seconds
+            )
+
             soil         = soil_db[soil_name]
             bulk_dens    = soil["rho_b"]["value"]
             porosity     = soil["porosity"]
@@ -183,9 +185,9 @@ def _(
                 "kinetic": {"frac_int": 1.0, "rate_const": 0.0},
                 "linear": {
                     "Kd_method": "fabregat_palau",
-                    "n_CFx": pfas["structural_properties"]["n_CFx"], 
-                    "f_oc" :f_oc, 
-                    "f_silt_clay": f_silt_clay
+                    "n_CFx": pfas["structural_properties"]["n_CFx"],
+                    "f_oc": f_oc,
+                    "f_silt_clay": f_silt_clay,
                 },
             }
             model.compute(LinearSPsorption, sorption_solid=sorption_solid)
@@ -193,21 +195,21 @@ def _(
             # 4. Kaw method
             a = pfas["Szyszkowski_params"]["a"]["value"]
             b = pfas["Szyszkowski_params"]["b"]["value"]
-
+        
             if a is not None and b is not None:
                 model.compute(Szyszkowski,
                     sigma0=71, a=a, b=b, chi=1, T=293.15, Cw=1e-12,
                 )
             else:
-                model.compute(
-                    Le2021_langmuir,
+                model.compute(Le2021_langmuir,
                     structural_properties=pfas["structural_properties"],
                     Cw=1e-12,
                 )
+                model.input_data["sigma0"] = 71 
 
             # 5. Aaw + Retardation + simulation
             aaw_methods = {
-                "thermo": (SWCsorption, dict(sigma0=71, scaling_factor_awi=4.15, van_genuchten_alpha=vg_alpha)),
+                "thermo": (SWCsorption, dict(scaling_factor_awi=4.15, van_genuchten_alpha=vg_alpha)),
                 "func_GSSA": (GSSAAWI, dict(soil={"porosity": porosity, "d50": d50})),
                 "func_d50": (D50AWI, dict(soil={"porosity": porosity, "d50": d50})),
                 "func_nonlin_d50": (NonlinearD50AWI, dict(soil={"porosity": porosity, "d50": d50})),
@@ -218,14 +220,19 @@ def _(
             retardation_results = {}
 
             for aaw_label, (aaw_model_cls, aaw_kwargs) in aaw_methods.items():
-                model.compute(aaw_model_cls, **aaw_kwargs)
-                aaw_results[aaw_label] = model.aaw
+                aaw_model = Model()
+                aaw_model.input_data = dict(model.input_data)
+                aaw_model.generated_data = dict(model.generated_data)
+                aaw_model.default_values = dict(model.default_values)
 
-                model.compute(Retardation, bulk_density=bulk_dens)
-                retardation_results[aaw_label] = model.adsorption
+                aaw_model.compute(aaw_model_cls, **aaw_kwargs)
+                aaw_results[aaw_label] = aaw_model.aaw
 
-                model.compute(EquilibriumSolver)
-                sim_results[aaw_label] = model.C1
+                aaw_model.compute(Retardation, bulk_density=bulk_dens)
+                retardation_results[aaw_label] = aaw_model.adsorption
+
+                aaw_model.compute(EquilibriumSolver)
+                sim_results[aaw_label] = aaw_model.C1
 
             all_soil_results[soil_name] = {
                 "Aaw": aaw_results,
@@ -248,9 +255,6 @@ def _(
 
         all_pfas_results[pfas_name] = all_soil_results
         print(f"Done — {pfas_name}: {len(all_soil_results)} soils processed.")
-
-
-    #     print(f"Done — {pfas_name}: {len(all_soil_results)} soils processed.")
     return all_pfas_results, all_soil_results, model, pfas_name
 
 
@@ -502,76 +506,6 @@ def _(all_pfas_results, pd, pfas_names, plt, ticker):
 
     fig.tight_layout()
     fig
-    return
-
-
-@app.cell(disabled=True, hide_code=True)
-def _(kaw_local_df_ordered, kaw_local_pfas_order, pfas_db):
-    from pfas.utils import Kaw_0_Le2021, dG0_Le2021, Kaw_langmuir_Le2021
-    import numpy as debug_np
-    import pandas as debug_pd
-
-    for _, debug_existing_row in kaw_local_df_ordered.iterrows():
-        print(
-            f"{debug_existing_row['pfas_name']:8s}  "
-            f"Kaw = {debug_existing_row['Kaw']:.3e}  "
-            f"log10 = {debug_np.log10(debug_existing_row['Kaw']):.3f}"
-        )
-
-
-    debug_kaw_rows = []
-
-    for debug_pfas_name in kaw_local_pfas_order:
-        debug_pfas_i = pfas_db[debug_pfas_name]
-
-        debug_kaw0 = Kaw_0_Le2021(
-            debug_pfas_i["n_CFx"],
-            debug_pfas_i["n_CHx"],
-            debug_pfas_i["n_COO"],
-            debug_pfas_i["n_COOH"],
-            debug_pfas_i["n_SO3"],
-            debug_pfas_i["n_R4N"],
-            debug_pfas_i["n_OH"],
-            debug_pfas_i["n_OSO3"],
-            debug_pfas_i["n__O_"],
-            debug_pfas_i["n__S_"],
-            debug_pfas_i["n_N_CH3_2_CH2_COO"],
-        )
-
-        debug_dg0 = dG0_Le2021(
-            debug_pfas_i["n_CFx"],
-            debug_pfas_i["n_CHx"],
-            debug_pfas_i["n_COO"],
-            debug_pfas_i["n_COOH"],
-            debug_pfas_i["n_SO3"],
-            debug_pfas_i["n_R4N"],
-            debug_pfas_i["n_OH"],
-            debug_pfas_i["n_OSO3"],
-            debug_pfas_i["n__O_"],
-            debug_pfas_i["n__S_"],
-            debug_pfas_i["n_N_CH3_2_CH2_COO"],
-        )
-
-        debug_kaw = Kaw_langmuir_Le2021(
-            debug_kaw0,
-            debug_dg0,
-            Cw=1e-12,
-        )
-
-        debug_kaw_rows.append({
-            "pfas_name": debug_pfas_name,
-            "n_CFx": debug_pfas_i["n_CFx"],
-            "n_COO": debug_pfas_i["n_COO"],
-            "n_SO3": debug_pfas_i["n_SO3"],
-            "n__O_": debug_pfas_i["n__O_"],
-            "Kaw0": debug_kaw0,
-            "dG0": debug_dg0,
-            "Kaw_at_1_pmol_L": debug_kaw,
-            "log10_Kaw": debug_np.log10(debug_kaw),
-        })
-
-    debug_kaw_df = debug_pd.DataFrame(debug_kaw_rows)
-    debug_kaw_df
     return
 
 
