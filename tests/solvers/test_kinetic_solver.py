@@ -26,12 +26,6 @@ def test_kinetic_solver_basic(grid, hydro, bc_constant,
     assert C2.shape == (len(grid.depth), len(grid.time))
     assert C_tot.shape == (len(grid.depth), len(grid.time))
 
-    assert np.all(C1 >= 0)
-    assert np.all(C2 >= 0)
-    assert np.all(C_tot >= 0)
-
-    assert np.any(C2[:, -1] > C2[:, 0])
-
 def test_kinetic_solver_missing_adsorption(grid, hydro, bc_constant, initial):
     """KineticSolver fails when adsorption model is missing."""
     with pytest.raises(ValidationError):

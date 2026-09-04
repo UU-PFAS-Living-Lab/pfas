@@ -3,8 +3,10 @@
 from typing import Annotated
 
 from pfas.utils import Kaw_0_Le2021, Kaw_langmuir_Le2021, dG0_Le2021, Kaw_Szyszkowski
-from pydantic import BaseModel,  model_validator
+from pydantic import BaseModel, model_validator
 from annotated_types import Gt
+
+
 class Le2021_asymptote(BaseModel, validate_assignment=True, extra='forbid'):
     """
     Compute adsorption parameters for air-water interface.
@@ -26,45 +28,42 @@ class Le2021_asymptote(BaseModel, validate_assignment=True, extra='forbid'):
         List containing 'awi_retardation'.
     """
 
-structural_properties: dict
+    structural_properties: dict
 
-_REQUIRED_STRUCTURAL_KEYS = {
-    "n_CFx", "n_CHx", "n_COO", "n_COOH", "n_SO3", "n_R4N",
-    "n_OH", "n_OSO3", "n__O_", "n__S_", "n_N_CH3_2_CH2_COO",
-}
+    _REQUIRED_STRUCTURAL_KEYS = {
+        "n_CFx", "n_CHx", "n_COO", "n_COOH", "n_SO3", "n_R4N",
+        "n_OH", "n_OSO3", "n__O_", "n__S_", "n_N_CH3_2_CH2_COO",
+    }
 
-@model_validator(mode="after")
-def validate_structural_properties(self):
-    missing = self._REQUIRED_STRUCTURAL_KEYS.difference(self.structural_properties.keys())
-    if missing:
-        raise ValueError(
-            f"structural_properties is missing required keys: {', '.join(sorted(missing))}"
-        )
-    return self
+    @model_validator(mode="after")
+    def validate_structural_properties(self):
+        missing = self._REQUIRED_STRUCTURAL_KEYS.difference(self.structural_properties.keys())
+        if missing:
+            raise ValueError(
+                f"structural_properties is missing required keys: {', '.join(sorted(missing))}"
+            )
+        return self
 
-@property
-def kaw(self) -> float:
-    """Air-water partition coefficient (m) from group contributions."""
-    return Kaw_0_Le2021(self.structural_properties)
+    @property
+    def kaw(self) -> float:
+        """Air-water partition coefficient (m) from group contributions."""
+        return Kaw_0_Le2021(self.structural_properties)
 
-def compute(self) -> dict:
-    """
-    Calculate the air-water partition coefficient.
+    def compute(self) -> dict:
+        """
+        Calculate the air-water partition coefficient.
 
-    Returns
-    -------
-    dict
-        Dictionary with key 'Kaw'.
-    """
-    return {"Kaw": self.kaw}
+        Returns
+        -------
+        dict
+            Dictionary with key 'Kaw'.
+        """
+        return {"Kaw": self.kaw}
 
-@property
-def outputs(self) -> list[str]:
-    """List of output keys from compute() method."""
-    return ["Kaw"]
-
-
-from pydantic import BaseModel, ConfigDict, model_validator
+    @property
+    def outputs(self) -> list[str]:
+        """List of output keys from compute() method."""
+        return ["Kaw"]
 
 
 class Le2021_langmuir(BaseModel):
@@ -79,8 +78,6 @@ class Le2021_langmuir(BaseModel):
 
     Cw : float
     """
-
-
 
     structural_properties: dict
     Cw: float
@@ -163,6 +160,7 @@ class Le2021_langmuir(BaseModel):
     def outputs(self) -> list[str]:
         """List of output keys."""
         return ["Kaw"]
+
 
 class Szyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
     """
