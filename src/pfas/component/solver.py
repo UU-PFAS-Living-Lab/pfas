@@ -9,12 +9,16 @@ Main functions
 - :func:`equilibrium_solver` — ADE with instantaneous sorption equilibrium
 - :func:`kinetic_solver` — ADE with first-order kinetic sorption
 """
-
-from typing import cast
+# ruff: noqa: N806
 import warnings
+from typing import Annotated, cast
+
 import numpy as np
+from annotated_types import Gt
 from numpy.typing import NDArray
-from pfas.solver_utils import compute_dimensionless_params
+from pydantic import BaseModel, field_validator, model_validator
+
+from pfas.data_structure import Adsorption, HydrologicalProperties
 from pfas.solver_utils import (
     _BVP_FUNCTIONS,
     _H0,
@@ -23,11 +27,9 @@ from pfas.solver_utils import (
     _Hs,
     _ivp_eq_flux,
     _ivp_neq,
+    compute_dimensionless_params,
 )
-from typing import Annotated
-from pfas.data_structure import Adsorption, HydrologicalProperties
-from annotated_types import Gt
-from pydantic import BaseModel, field_validator, model_validator
+
 
 class EquilibriumSolver(
     BaseModel, validate_assignment=True, extra="forbid", arbitrary_types_allowed=True
@@ -267,7 +269,7 @@ class KineticSolver(
     bulk_density: Annotated[float, Gt(0)]
     initial_contaminant_concentration: NDArray[np.float64] | None = None
     volume_averaged: bool = True
-    
+
     @model_validator(mode="before")
     @classmethod
     def validate_initial_concentration(cls, values):
@@ -291,7 +293,7 @@ class KineticSolver(
                 )
 
         return values
-    
+
     def compute(self) -> dict[str, NDArray[np.float64]]:
         """Compute aqueous, sorbed, and total concentrations.
 
@@ -325,8 +327,8 @@ class KineticSolver(
         # equilibrium solver.
         if beta_s == 1:
             warnings.warn(
-                "beta_s == 1 (no kinetic sites). You have effectively selected the equilibrium sorption model." \
-                "Using the EquilibriumSolver will be more efficient. " 
+                "beta_s == 1. You have effectively selected the equilibrium sorption model." \
+                "Using the EquilibriumSolver will be more efficient. "
             )
 
         dim = compute_dimensionless_params(
@@ -385,8 +387,8 @@ class KineticSolver(
                         C2_ivp[i, j] = 0.0
                     else:
                         C1_ivp[i, j] = (
-                            np.exp(-omega * Tj * (1 - f) * R_s / (1 - beta_s) / (beta * R) / (1 + R_s))
-                            * G_ZT
+                            np.exp(-omega * Tj * (1 - f) * R_s / (1 - beta_s)
+                                    / (beta * R) / (1 + R_s))* G_ZT
                         )
                         C2_ivp[i, j] = (
                             (1 - f) * Kd * Ci[i]
@@ -424,4 +426,3 @@ class KineticSolver(
         """List of output keys from compute() method."""
         return ["C1", "C2", "C_tot"]
 
-    

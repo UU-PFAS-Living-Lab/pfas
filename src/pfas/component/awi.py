@@ -7,11 +7,11 @@ from pydantic import BaseModel, model_validator
 
 from pfas.data_structure import HydrologicalProperties
 from pfas.utils import (
+    aaw_func_d50,
+    aaw_func_GSSA,
+    aaw_func_nonlinear_d50,
     aaw_func_thermo,
     aaw_func_tracer,
-    aaw_func_GSSA,
-    aaw_func_d50,
-    aaw_func_nonlinear_d50,
 )
 
 
@@ -60,10 +60,7 @@ class SWCsorption(BaseModel, validate_assignment=True, extra="forbid"):
 
 
 class GuoTracer(BaseModel, validate_assignment=True, extra="forbid"):
-    """
-    Calculate air-water interface area using the Guo et al. (2022)
-    tracer relationship.
-    """
+    """Calculate air-water interface area using the Guo et al. (2022) tracer relationship."""
 
     hydro_properties: HydrologicalProperties
     AWI: dict
@@ -111,8 +108,7 @@ class GuoTracer(BaseModel, validate_assignment=True, extra="forbid"):
 
 class GSSAAWI(BaseModel, validate_assignment=True, extra="forbid"):
     """
-    Calculate air-water interfacial area using the GSSA-based
-    linear model.
+    Calculate air-water interfacial area using the GSSA-based linear model.
 
     The geometric smooth-surface specific solid surface area (GSSA)
     is calculated from porosity and median grain diameter and is
@@ -130,6 +126,7 @@ class GSSAAWI(BaseModel, validate_assignment=True, extra="forbid"):
     Notes
     -----
     The median grain diameter ``d50`` must be provided in cm.
+
     """
 
     hydro_properties: HydrologicalProperties
@@ -174,6 +171,7 @@ class D50AWI(BaseModel, validate_assignment=True, extra="forbid"):
     Notes
     -----
     The median grain diameter ``d50`` must be provided in cm.
+
     """
 
     hydro_properties: HydrologicalProperties
@@ -201,8 +199,7 @@ class D50AWI(BaseModel, validate_assignment=True, extra="forbid"):
 
 class NonlinearD50AWI(BaseModel, validate_assignment=True, extra="forbid"):
     """
-    Calculate air-water interfacial area using the nonlinear
-    d50 correlation.
+    Calculate air-water interfacial area using the nonlinear d50 correlation.
 
     Estimates air-water interfacial area from the median grain
     diameter with an additional nonlinear saturation-dependent

@@ -10,9 +10,6 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from pfas.solver_utils import compute_dimensionless_params
-from pfas.solvers import equilibrium_solver, kinetic_solver
-
 
 @dataclass
 class SimulationGrid:
