@@ -66,7 +66,7 @@ def _(mo):
     runs — only the sorption *mode* (equilibrium vs. kinetic) and the solver
     class differ. The pulse is defined the same way for both: a
     concentration `C0` switched on at `T_list[0]` and back off at
-    `T_list[1]` (CXTFIT-style step superposition).
+    `T_list[1]`.
     """)
     return
 
@@ -83,7 +83,6 @@ def _():
     # ------------------------------------------------------------
     C0 = 1.0 # mg L-1
     T_PULSE_END = 100 #s
-
     return C0, Kaw, Kd, T_PULSE_END, bulk_dens
 
 
@@ -91,10 +90,6 @@ def _():
 def _(mo):
     mo.md(r"""
     ## Equilibrium solver
-
-    Instantaneous sorption: `kinetic_sorption=False` in `sorption_solid`,
-    and `Retardation` is called *without* `kinetic=True` / `kin_params`.
-    `EquilibriumSolver` also takes a `bc` argument (boundary-condition type).
     """)
     return
 

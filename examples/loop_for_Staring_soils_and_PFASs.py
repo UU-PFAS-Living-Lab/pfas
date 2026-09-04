@@ -83,15 +83,6 @@ def _(load_dataset):
 @app.cell
 def _():
 
-    # Grid
-    #model = Model()
-    # model.compute(GridGenerator,
-    #     domain_length=100,                      # cm
-    #     spatial_resolution=0.5,                 # cm
-    #     time_resolution=(1/12) * (60*60*24*365),  # seconds
-    #     time_total=250*(60*60*24*365),          # seconds   
-    #              )
-
     pulse_duration = 25 * (60 * 60 * 24 * 365)
     return (pulse_duration,)
 
@@ -195,7 +186,7 @@ def _(
             # 4. Kaw method
             a = pfas["Szyszkowski_params"]["a"]["value"]
             b = pfas["Szyszkowski_params"]["b"]["value"]
-        
+
             if a is not None and b is not None:
                 model.compute(Szyszkowski,
                     sigma0=71, a=a, b=b, chi=1, T=293.15, Cw=1e-12,
@@ -261,16 +252,8 @@ def _(
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Saving variables to separate dataframe
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ##Plotting Aaw for all soils
-    <!-- We access our data through model.generated_data, which prints all the output. Accessing it in this manneer also allows for easier plotting. -->
+    ##Plotting $A_{aw}$ for all soils
+    In this part of this file we explore the differences between the different $A_{aw}$ approximations. First, we observe the absolute differences. After, we compare all methods to the thermodynamic method *aaw_thermo*.
     """)
     return
 
@@ -407,14 +390,6 @@ def _(mo):
 
 
 @app.cell
-def _(aaw_key, all_soil_results, sname):
-    print("sname:", sname)
-    print("aaw_key:", aaw_key)
-    print("available sim keys:", all_soil_results[sname]["sim"].keys())
-    return
-
-
-@app.cell
 def _(all_soil_results, model, pfas_name, plt):
     # ── Plot: breakthrough curves at depth ≈ 50 cm, all soils ────────────────
     seconds_per_year_bt = 60 * 60 * 24 * 365
@@ -450,7 +425,7 @@ def _(all_soil_results, model, pfas_name, plt):
     )
     plt.tight_layout()
     fig_bt
-    return aaw_key, sname
+    return
 
 
 @app.cell
@@ -458,6 +433,8 @@ def _(mo):
     mo.md(r"""
     #Other parameters
     In this code block we look at the differences in computed Kaw values, Kd values and effective saturation with the chosen methods.
+
+    We start with comparing the $K_{aw}$ values, before comparing $K_d$ values across soils  and providing the effective saturation for these soils.
     """)
     return
 
@@ -597,6 +574,117 @@ def _(all_pfas_results, pfas_names, plt, soil_db):
 
     fig_se.tight_layout()
     fig_se
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    #Total Retardation
+    In this last block of code we delineate the total contribution of the AWI method to the computed retardation factor R(-).
+    """)
+    return
+
+
+@app.cell
+def _(all_pfas_results, np, plt):
+    def plot_retardation(all_pfas_results, pfas_name):
+
+        results = all_pfas_results[pfas_name]
+
+        soils = list(results.keys())
+
+        methods = [
+            ("thermo", "Thermodynamic"),
+            ("func_GSSA", "GSSA"),
+            ("func_d50", "d50"),
+            ("func_nonlin_d50", "Nonlinear d50"),
+        ]
+
+        # Solid-phase retardation is the same for all methods
+        sp_R = np.array([
+            results[soil]["retardation"]["thermo"].sp_retardation
+            for soil in soils
+        ])
+
+        fig, ax = plt.subplots(figsize=(11, 6))
+
+        x = np.arange(len(soils))
+        width = 0.18
+
+        for i, (method, label) in enumerate(methods):
+
+            awi_R = np.array([
+                results[soil]["retardation"][method].awi_retardation
+                for soil in soils
+            ])
+
+            R_total = 1 + sp_R + awi_R
+
+            offset = (i - 1.5) * width
+
+            # SP contribution
+            ax.bar(
+                x + offset,
+                sp_R,
+                width,
+                alpha=0.35,
+            )
+
+            # AWI contribution
+            ax.bar(
+                x + offset,
+                awi_R,
+                width,
+                bottom=sp_R,
+                label=label,
+            )
+
+             # Total R
+            # for j, R in enumerate(R_total):
+            #     ax.text(
+            #         x[j] + offset,
+            #         R + max(R_total) * 0.01,
+            #         f"{R:.0f}",
+            #         ha="center",
+            #         va="bottom",
+            #         fontsize=7,
+            #     )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(soils, rotation=45, ha="right")
+
+        ax.set_xlabel("Soil")
+        ax.set_ylabel("Retardation factor, R (-)")
+        ax.set_title(
+            f"Total PFAS Retardation and Contributions — {pfas_name}"
+        )
+
+        ax.grid(axis="y", alpha=0.3)
+
+        from matplotlib.patches import Patch
+
+        handles, labels = ax.get_legend_handles_labels()
+
+        handles = [
+            Patch(alpha=0.35, label="Solid-phase retardation"),
+            *handles,
+        ]
+
+        ax.legend(
+            handles=handles,
+            title="Retardation type",
+            bbox_to_anchor=(1.02, 1),
+            loc="upper left",
+            frameon=False,
+        )
+
+        fig.tight_layout()
+
+        return fig
+
+
+    plot_retardation(all_pfas_results, "PFOA")
     return
 
 
