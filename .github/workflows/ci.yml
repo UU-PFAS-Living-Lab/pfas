@@ -68,11 +68,14 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install -e ".[examples]"
     - name: Check notebook output
-      run: python examples/factory.py
+      run: |
+        set -e
+        for f in examples/*.py; do
+          echo "::group::Running $f"
+          python "$f"
+          echo "::endgroup::"
+        done
 
   coverage:
     name: Test coverage of unit tests

@@ -111,7 +111,6 @@ Several example scripts are provided in the `examples/` directory, demonstrating
 - `data_structure.py` - Data structure handling
 - `initial_value_problem.py` - Setting up initial value problems
 - `Kd_sorption.py` - Linear sorption (Kd) modeling
-- `factory.py` - Factory patterns for model creation
 - `gen_example.py` - Configuration generation
 
 To run these examples, you need Marimo.
