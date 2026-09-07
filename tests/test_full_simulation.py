@@ -1,5 +1,5 @@
 def test_full_simulation():
-    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator
+    from pfas.component import WaterPreprocessor, BoundaryPreprocessor, GridGenerator
     from pfas.component import SWCsorption, LinearSPsorption, Retardation, EquilibriumSolver
     from pfas.model import Model
 

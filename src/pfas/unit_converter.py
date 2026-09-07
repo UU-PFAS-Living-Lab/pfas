@@ -1,5 +1,5 @@
 """Class to convert units."""
-
+#ruff: noqa: PLR0912
 import re
 
 
@@ -361,7 +361,6 @@ class UnitConverter:
         cm**2/s   → m**2/s
         mm**3/min → m**3/s
         """
-
         # Parse units such as:
         # cm/s
         # cm**2/s
@@ -448,10 +447,7 @@ class UnitConverter:
     # ruff: noqa: PLR0911
     @classmethod
     def to_si(cls, value, unit, molar_mass=None):
-        """
-        Convert a value to its SI equivalent.
-        """
-
+        """Convert a value to its SI equivalent."""
         unit = unit.strip().lower()
 
         # --------------------------------------------------------------

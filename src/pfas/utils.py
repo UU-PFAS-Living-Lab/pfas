@@ -95,7 +95,7 @@ def aaw_func_tracer(sw, x2, x1, x0):
     aaw = x2*sw**2 + x1*sw + x0
     return aaw
 
-def aaw_func_GSSA(d50, poro, th=None, ths=None, sw=None):
+def aaw_func_GSSA(d50, poro, th=None, ths=None, sw=None): # noqa: N802
     """Compute air-water interfacial area using the GSSA-based linear model.
 
     Estimates the air-water interfacial area per unit bulk volume as a
@@ -133,7 +133,7 @@ def aaw_func_GSSA(d50, poro, th=None, ths=None, sw=None):
 
 
 def aaw_func_d50(d50, th=None, ths=None, sw=None):
-    """ Compute air-water interfacial area using the d50 correlation.
+    """Compute air-water interfacial area using the d50 correlation.
 
     Estimates the air-water interfacial area per unit bulk volume as a
     linear function of water saturation, with the maximum interfacial
@@ -154,7 +154,7 @@ def aaw_func_d50(d50, th=None, ths=None, sw=None):
     Notes
     -----
     N/A
-    
+
     """
     if sw is None:
         sw = th / ths
@@ -165,8 +165,7 @@ def aaw_func_d50(d50, th=None, ths=None, sw=None):
 
 
 def aaw_func_nonlinear_d50(d50, th=None, ths=None, sw=None):
-    """Compute air-water interfacial area using a nonlinear grain-diameter
-    approximation based on saturation.
+    """Compute air-water interfacial area from grain diameter and water saturation.
 
     Parameters
     ----------
@@ -183,7 +182,7 @@ def aaw_func_nonlinear_d50(d50, th=None, ths=None, sw=None):
     Notes
     -----
     N/A
-    
+
     """
     if sw is None:
         sw = th / ths
@@ -302,8 +301,8 @@ def kd_freundlich(C_rep, K_freund, n_freund):  # noqa: N802
     Kd = K_freund * C_rep ** (n_freund - 1)
     return Kd
 
-#Kaw formule van Le et al. (2021): 
-def Kaw_0_Le2021(structural_properties):
+#Kaw formule van Le et al. (2021):
+def Kaw_0_Le2021(structural_properties): # noqa: N802
     """Calculate low concentration air-water partitioning coefficient using Le et al. (2021) model.
 
     Parameters
@@ -335,7 +334,7 @@ def Kaw_0_Le2021(structural_properties):
     _O_             = -0.41
     _S_             = -0.21
     N_CH3_2_CH2_COO = -1.07
-    
+
     log10_Kaw_0 = (
         Intercept
         + CFx * n_CFx
@@ -353,9 +352,9 @@ def Kaw_0_Le2021(structural_properties):
     Kaw_0 = 10 ** log10_Kaw_0
     return Kaw_0
 
-#dG0 formule van Le et al. (2021): 
-def dG0_Le2021(structural_properties):
-    """Calculates the Gibbs free energy change of adsorption using Le et al. (2021) model.
+#dG0 formule van Le et al. (2021):
+def dG0_Le2021(structural_properties): # noqa: N802
+    """Calculate the Gibbs free energy change of adsorption using Le et al. (2021) model.
 
     Parameters
     ----------
@@ -386,7 +385,7 @@ def dG0_Le2021(structural_properties):
     _O_             =  1.91
     _S_             =  1.79
     N_CH3_2_CH2_COO =  3.42
-    
+
     dG0 = (
         Intercept
         + CFx * n_CFx
@@ -404,9 +403,9 @@ def dG0_Le2021(structural_properties):
     return dG0
 
 
-#dG0 formule van Le et al. (2021): 
-def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw):
-    """Calculates the Gibbs free energy change of adsorption using Le et al. (2021) model.
+#dG0 formule van Le et al. (2021):
+def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw): #noqa: N802
+    """Calculate the Gibbs free energy change of adsorption using Le et al. (2021) model.
 
     Computes the Gibbs free energy change of adsorption for PFAS compounds
     based on the number of perfluorinated carbons and the specific headgroup.
@@ -418,8 +417,8 @@ def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw):
     Keq
         equilibrium adsorption constant
     Cw
-        concentration 
-    
+        concentration
+
     Returns
     -------
     dG0 : float
@@ -430,18 +429,17 @@ def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw):
     Le et al. (2021). A group-contribution model for predicting the physicochemical
     behavior of PFAS components for understanding environmental fate.
     """
-
     omega = 55.3      # water molar concentration (mol/L) at 298K
     R     = 0.008314  # gas constant (kJ/mol/K)
     T     = 298       # temperature (K)
-    
+
     Keq = (1/omega) * np.exp(-dG0/(R*T))
-    
+
     Kaw = (Kaw_0)/(1 + Keq*Cw)
 
     return Kaw
 
-def Kaw_Szyszkowski(sigma0, a, b, Cw, chi=2, T=298):
+def Kaw_Szyszkowski(sigma0, a, b, Cw, chi=2, T=298): # noqa: N802, PLR0913
     """Calculate air-water partitioning coefficient using the Szyszkowski equation.
 
     Parameters
@@ -466,12 +464,11 @@ def Kaw_Szyszkowski(sigma0, a, b, Cw, chi=2, T=298):
     Kaw : float
         Air-water interfacial adsorption coefficient (cm3/cm2), equivalent to cm.
     """
-
     R = 8.314e7  # dyn cm / mol / K
 
     # Convert mol/L to mol/cm3
     a_mol_cm3 = a / 1000
-    Cw_mol_cm3 = Cw / 1000  
+    Cw_mol_cm3 = Cw / 1000
 
     Kaw = (sigma0 * b) / (
         chi * R * T * (a_mol_cm3 + Cw_mol_cm3)
