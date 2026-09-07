@@ -147,7 +147,7 @@ class Le2021_langmuir(BaseModel): # noqa: N801
         dict
             Dictionary containing 'Kaw'.
         """
-        kaw = self.Kaw(self.Cw)
+        kaw = self.Kaw()
 
         return {
             "Kaw": kaw
