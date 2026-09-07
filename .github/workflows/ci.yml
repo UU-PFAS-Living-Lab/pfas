@@ -70,6 +70,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Check notebook output
       run: |
+        python -m pip install ".[examples]"
         set -e
         for f in examples/*.py; do
           echo "::group::Running $f"
