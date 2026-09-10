@@ -32,24 +32,18 @@ SimulationRunner
 
 """
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import numpy as np
 from annotated_types import Ge, Gt, Interval
-from pydantic import BaseModel, Field, model_validator
-from scipy.optimize import brentq, fsolve
+from pydantic import BaseModel, Field, field_validator, model_validator
+from scipy.optimize import brentq
 
 from pfas.data_structure import (
     BoundaryConditions,
     HydrologicalProperties,
     SimulationGrid,
 )
-from pfas.utils import aaw_func_thermo, aaw_func_tracer, kd_fabregat_palau, kd_freundlich
-
-
-from typing import Annotated
-from pydantic import BaseModel, field_validator
-from annotated_types import Gt, Interval
 
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):

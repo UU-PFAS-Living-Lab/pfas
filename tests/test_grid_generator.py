@@ -1,5 +1,5 @@
 import numpy as np
-from pfas.preprocessing import GridGenerator
+from pfas.component import GridGenerator
 from pfas.data_structure import SimulationGrid
 
 

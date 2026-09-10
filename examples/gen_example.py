@@ -4,16 +4,16 @@ __generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
-@app.cell
-def _():
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # Basic simulation
     In this example, we will showcase the basics of initializing our model instance.
+
+    We consider a 60cm long domain, in which we simulate a 10 mg/L pulse of a fictional PFAS for 2000s from the beginning of the considered model time. We run our model for a total of 10000s. There is no contamination present at the start.
+
+    We keep everything else relatively simple, with direct input of sorption parameters $K_d$ and $K_aw$. We compute air-water interfacial area based on the soil-water characteristic.
+    We consider equilibrium sorption as well.
     """)
     return
 
@@ -22,13 +22,13 @@ def _(mo):
 def _():
     #loading relevant modules 
     from pfas.component import SWCsorption, LinearSPsorption, Retardation, WaterPreprocessor, BoundaryPreprocessor, GridGenerator
-    from pfas.configuration import read_toml
     from pfas.model import Model
     from matplotlib import pyplot as plt
     import marimo as mo
     from pfas.component import EquilibriumSolver
     return (
         BoundaryPreprocessor,
+        EquilibriumSolver,
         GridGenerator,
         LinearSPsorption,
         Model,
@@ -38,17 +38,6 @@ def _():
         mo,
         plt,
     )
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Defining shared parameters between the model classes
-    Some classes require the same parameters. When providing a TOML file, this is handled correctly, but when providing the parameters seperately to the different classes, we need to take care of this ourselves.
-
-    In the next line of code, we will define bulk density. Furthermore, in our calling of the different classes, we will reuse some of the parameters that we have defined (`i.e. "residual_water_content": water_prep.residual_water_content` )
-    """)
-    return
 
 
 @app.cell(hide_code=True)
@@ -64,8 +53,8 @@ def _(mo):
 @app.cell
 def _(
     BoundaryPreprocessor,
+    EquilibriumSolver,
     GridGenerator,
-    KineticSolver,
     LinearSPsorption,
     Model,
     Retardation,
@@ -85,10 +74,10 @@ def _(
     # Step 2: Compute water flow properties
     model.compute(
         WaterPreprocessor,
-        average_infiltration_rate=1.5,
-        hydraulic_conductivity=6,
+        average_infiltration_rate=1.5, #cm/s
+        hydraulic_conductivity=6, #cm/s
         porosity=0.34,
-        dispersivity=1.5,
+        dispersivity=1.5, #cm
         van_genuchten_n=1.31,
         residual_water_content=0.04
     )
@@ -104,13 +93,9 @@ def _(
     sorption_solid = {
         "kinetic_sorption": True,
         "sorption_isotherm": "linear",
-        "kinetic": {
-            "frac_int": 0.3,
-            "rate_const": 0.01
-        },
         "linear": {
             "Kd_method": "direct_input",
-            "Kd": 5.0
+            "Kd": 5.0 #cm3/g
         },
     }
     model.compute(
@@ -130,12 +115,12 @@ def _(
     model.compute(
         Retardation,
         Kaw=0.5,
-        bulk_density=1.6,
+        bulk_density=1.6 #g/cm3,
     )
 
     # Step 7: Run simulation
     model.compute(
-        KineticSolver,
+        EquilibriumSolver,
     )
 
     print("Simulation completed successfully!")
@@ -146,6 +131,8 @@ def _(
 def _(mo):
     mo.md(r"""
     ## Plotting results
+
+    Here we plot C1 (the aqueous concentration) as a function of depth and of time.
     """)
     return
 
@@ -153,20 +140,50 @@ def _(mo):
 @app.cell
 def _(model, plt):
     simulation_grid = model.grid
-    # Select specific time indices to plot
-    t_len = model.C_tot.shape[1]
-    time_indices = [0, t_len//4, t_len//2, 3*t_len//4, -1]  # First, and some intermediate, and last time step
+    # 1. Concentration depth profiles
+
+    t_len = model.C1.shape[1]
+
+    time_indices = [
+        0,
+        10,
+        20,
+        22,
+        30,
+    ]
 
     plt.figure(figsize=(8, 6))
 
     for t_idx in time_indices:
-        plt.plot(model.C_tot[:, t_idx], simulation_grid.depth, label=f"t = {simulation_grid.time[t_idx]:.0f} s")
+        plt.plot(
+            model.C1[:, t_idx],
+            simulation_grid.depth,
+            label=f"t = {simulation_grid.time[t_idx]:.0f} s",
+        )
 
     plt.xlabel("Total PFAS Concentration (mg/L)")
     plt.ylabel("Depth (cm)")
     plt.title("PFAS Concentration Depth Profile at Different Times")
     plt.legend()
-    plt.gca().invert_yaxis()  # Invert y-axis so depth increases downward
+    plt.gca().invert_yaxis()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+    # 2. Breakthrough curve at bottom of model
+    bottom_concentration = model.C1[-1, :]
+
+    plt.figure(figsize=(8, 5))
+
+    plt.plot(
+        simulation_grid.time,
+        bottom_concentration,
+        linewidth=2,
+    )
+
+    plt.xlabel("Time (s)")
+    plt.ylabel("PFAS Concentration at Bottom (mg/L)")
+    plt.title("PFAS Breakthrough Curve at Bottom of Model")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()

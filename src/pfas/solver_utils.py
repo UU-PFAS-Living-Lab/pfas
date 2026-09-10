@@ -462,6 +462,8 @@ def _ivp_neq(  # noqa: PLR0913, PLR0917
     domain, nonequilibrium IVP). Equivalent to Toride et al. (1993), Water
     Resour. Res. 29(7), eq. for nonequilibrium IVP Green's function.
     """
+    if T <= 0.0:
+        return np.zeros_like(xi)
     return (
         (
             np.exp(-P * beta * R * (Z - xi - T / (beta * R)) ** 2 / (4 * T))
@@ -525,6 +527,8 @@ def _H0(  # noqa: PLR0913, PLR0917, N802
     Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
     No. 137, USDA-ARS. Table 3.4, kernel H₀ for aqueous phase IVP convolution.
     """
+    if T <= 0.0:
+        return np.zeros_like(tau)
     iv_arg = (
         2 * omega / (1 - beta_s) / (1 + R_s)
         * np.sqrt(R_s * (1 - f) * (T - tau) * tau)

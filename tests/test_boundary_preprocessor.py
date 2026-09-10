@@ -1,5 +1,5 @@
 import pytest
-from pfas.preprocessing import BoundaryPreprocessor
+from pfas.component import BoundaryPreprocessor
 from pfas.data_structure import BoundaryConditions
 
 

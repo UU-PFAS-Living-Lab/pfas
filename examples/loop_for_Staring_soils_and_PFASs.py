@@ -83,15 +83,6 @@ def _(load_dataset):
 @app.cell
 def _():
 
-    # Grid
-    #model = Model()
-    # model.compute(GridGenerator,
-    #     domain_length=100,                      # cm
-    #     spatial_resolution=0.5,                 # cm
-    #     time_resolution=(1/12) * (60*60*24*365),  # seconds
-    #     time_total=250*(60*60*24*365),          # seconds   
-    #              )
-
     pulse_duration = 25 * (60 * 60 * 24 * 365)
     return (pulse_duration,)
 
@@ -128,6 +119,7 @@ def _(
     pulse_duration,
     soil_db,
 ):
+
     staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
     all_pfas_results = {}
 
@@ -136,13 +128,14 @@ def _(
         all_soil_results = {}
 
         for soil_name in staring_soils:
-            model = Model()   # <-- fresh instance, no stale input_data/generated_data
+            model = Model()  
             model.compute(GridGenerator,
-                domain_length=100,                      # cm
-                spatial_resolution=0.5,                 # cm
+                domain_length=100,                        # cm
+                spatial_resolution=0.5,                   # cm
                 time_resolution=(1/12) * (60*60*24*365),  # seconds
-                time_total=250*(60*60*24*365),          # seconds   
-                 )
+                time_total=250*(60*60*24*365),            # seconds
+            )
+
             soil         = soil_db[soil_name]
             bulk_dens    = soil["rho_b"]["value"]
             porosity     = soil["porosity"]
@@ -183,9 +176,9 @@ def _(
                 "kinetic": {"frac_int": 1.0, "rate_const": 0.0},
                 "linear": {
                     "Kd_method": "fabregat_palau",
-                    "n_CFx": pfas["structural_properties"]["n_CFx"], 
-                    "f_oc" :f_oc, 
-                    "f_silt_clay": f_silt_clay
+                    "n_CFx": pfas["structural_properties"]["n_CFx"],
+                    "f_oc": f_oc,
+                    "f_silt_clay": f_silt_clay,
                 },
             }
             model.compute(LinearSPsorption, sorption_solid=sorption_solid)
@@ -199,15 +192,15 @@ def _(
                     sigma0=71, a=a, b=b, chi=1, T=293.15, Cw=1e-12,
                 )
             else:
-                model.compute(
-                    Le2021_langmuir,
+                model.compute(Le2021_langmuir,
                     structural_properties=pfas["structural_properties"],
                     Cw=1e-12,
                 )
+                model.input_data["sigma0"] = 71 
 
             # 5. Aaw + Retardation + simulation
             aaw_methods = {
-                "thermo": (SWCsorption, dict(sigma0=71, scaling_factor_awi=4.15, van_genuchten_alpha=vg_alpha)),
+                "thermo": (SWCsorption, dict(scaling_factor_awi=4.15, van_genuchten_alpha=vg_alpha)),
                 "func_GSSA": (GSSAAWI, dict(soil={"porosity": porosity, "d50": d50})),
                 "func_d50": (D50AWI, dict(soil={"porosity": porosity, "d50": d50})),
                 "func_nonlin_d50": (NonlinearD50AWI, dict(soil={"porosity": porosity, "d50": d50})),
@@ -218,14 +211,19 @@ def _(
             retardation_results = {}
 
             for aaw_label, (aaw_model_cls, aaw_kwargs) in aaw_methods.items():
-                model.compute(aaw_model_cls, **aaw_kwargs)
-                aaw_results[aaw_label] = model.aaw
+                aaw_model = Model()
+                aaw_model.input_data = dict(model.input_data)
+                aaw_model.generated_data = dict(model.generated_data)
+                aaw_model.default_values = dict(model.default_values)
 
-                model.compute(Retardation, bulk_density=bulk_dens)
-                retardation_results[aaw_label] = model.adsorption
+                aaw_model.compute(aaw_model_cls, **aaw_kwargs)
+                aaw_results[aaw_label] = aaw_model.aaw
 
-                model.compute(EquilibriumSolver)
-                sim_results[aaw_label] = model.C1
+                aaw_model.compute(Retardation, bulk_density=bulk_dens)
+                retardation_results[aaw_label] = aaw_model.adsorption
+
+                aaw_model.compute(EquilibriumSolver)
+                sim_results[aaw_label] = aaw_model.C1
 
             all_soil_results[soil_name] = {
                 "Aaw": aaw_results,
@@ -248,139 +246,14 @@ def _(
 
         all_pfas_results[pfas_name] = all_soil_results
         print(f"Done — {pfas_name}: {len(all_soil_results)} soils processed.")
-
-    # staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
-    # all_pfas_results = {}
-
-    # for pfas_name in pfas_names:
-    #     pfas = pfas_db[pfas_name]
-    #     all_soil_results = {}
-
-    #     for soil_name in staring_soils:
-    #         soil         = soil_db[soil_name]
-    #         bulk_dens    = soil["rho_b"]["value"]
-    #         porosity     = soil["porosity"]
-    #         theta_r      = soil["theta_r"]
-    #         theta_s      = soil["theta_s"]
-    #         K_sat        = soil["K_sat"]["value"]
-    #         vg_alpha     = soil["van_genuchten"]["alpha"]["value"]
-    #         vg_n         = soil["van_genuchten"]["n"]
-    #         vg_l         = soil["van_genuchten"]["l"]
-    #         dispersivity = 4.5
-    #         f_oc         = soil["f_oc"]["value"] / 100
-    #         f_clay       = soil["f_clay"]["value"] / 100
-    #         f_silt       = soil["f_silt"]["value"] / 100
-    #         f_silt_clay  = f_silt + f_clay
-    #         d50          = soil["d50"]["value"] / 10000
-
-    #         # 1. Water flow
-    #         model.compute(WaterPreprocessor,
-    #             average_infiltration_rate=9.51e-7,
-    #             hydraulic_conductivity=K_sat,
-    #             porosity=porosity,
-    #             dispersivity=dispersivity,
-    #             van_genuchten_n=vg_n,
-    #             van_genuchten_l=vg_l,
-    #             residual_water_content=theta_r,
-    #         )
-
-    #         # 2. Boundary conditions
-    #         model.compute(BoundaryPreprocessor,
-    #             C_list=[pfas["M"]["value"] * 1e-9, 0.0],
-    #             T_list=[0.0, pulse_duration],
-    #         )
-
-    #         # 3. Solid-phase sorption
-    #         sorption_solid = {
-    #             "kinetic_sorption": False,
-    #             "sorption_isotherm": "linear",
-    #             "kinetic": {"frac_int": 1.0, "rate_const": 0.0},
-    #             "linear": {
-    #                 "Kd_method": "direct_input",
-    #                 "Kd": kd_fabregat_palau(pfas["structural_properties"]["n_CFx"], f_oc, f_silt_clay),
-    #             },
-    #         }
-    #         model.compute(LinearSPsorption, sorption_solid=sorption_solid)
-
-    #         # 4. Kaw method
-    #         a = pfas["Szyszkowski_params"]["a"]["value"]
-    #         b = pfas["Szyszkowski_params"]["b"]["value"]
-
-    #         if a is not None and b is not None:
-    #             model.compute(Szyszkowski,
-    #                 sigma0=71, a=a, b=b, chi=1, T=293.15, Cw=1e-12,
-    #             )
-    #         else:
-    #             model.compute(
-    #             Le2021_langmuir,
-    #             structural_properties=pfas["structural_properties"],
-    #             Cw=1e-12,
-    #         )
-    #         # 5. Aaw — run all four methods, capturing each result
-    #         #    immediately since model.compute mutates model.aaw in place.
-    #         aaw_results = {}
-
-    #         model.compute(SWCsorption, sigma0=71, scaling_factor_awi=4.15, van_genuchten_alpha=vg_alpha)
-    #         aaw_results["thermo"] = model.aaw
-
-    #         model.compute(GSSAAWI, soil={"porosity": porosity, "d50": d50})
-    #         aaw_results["func_GSSA"] = model.aaw
-
-    #         model.compute(D50AWI, soil={"porosity": porosity, "d50": d50})
-    #         aaw_results["func_d50"] = model.aaw
-
-    #         model.compute(NonlinearD50AWI, soil={"porosity": porosity, "d50": d50})
-    #         aaw_results["func_nonlin_d50"] = model.aaw
-
-    #         # 6. Retardation + simulation for each Aaw method
-    #         sim_results = {}
-    #         retardation_results = {}
-
-    #         for aaw_label, aaw_value in aaw_results.items():
-    #             model.aaw = aaw_value  # override before Retardation reads it
-    #             model.compute(Retardation, bulk_density=bulk_dens)
-    #             retardation_results[aaw_label] = model.adsorption
-
-    #             model.compute(EquilibriumSolver)
-    #             sim_results[aaw_label] = model.C1
-
-    #         all_soil_results[soil_name] = {
-    #             "Aaw": aaw_results,
-    #             "kawi": model.Kaw,
-    #             "sim": sim_results,
-    #             "water": model.hydro_properties,
-    #             "soil": soil,
-    #             "retardation": retardation_results,
-    #             "Kd": model.Kd,
-    #             "grid": model.grid,
-    #         }
-
-    #         print(
-    #             f"  {soil_name}: "
-    #             f"Aaw thermo = {aaw_results['thermo']:.4f}, "
-    #             f"GSSA = {aaw_results['func_GSSA']:.4f}, "
-    #             f"d50 = {aaw_results['func_d50']:.4f}, "
-    #             f"nonlinear d50 = {aaw_results['func_nonlin_d50']:.4f}"
-    #         )
-
-    #     all_pfas_results[pfas_name] = all_soil_results
-    #     print(f"Done — {pfas_name}: {len(all_soil_results)} soils processed.")
     return all_pfas_results, all_soil_results, model, pfas_name
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Saving variables to separate dataframe
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ##Plotting Aaw for all soils
-    <!-- We access our data through model.generated_data, which prints all the output. Accessing it in this manneer also allows for easier plotting. -->
+    ##Plotting $A_{aw}$ for all soils
+    In this part of this file we explore the differences between the different $A_{aw}$ approximations. First, we observe the absolute differences. After, we compare all methods to the thermodynamic method *aaw_thermo*.
     """)
     return
 
@@ -517,14 +390,6 @@ def _(mo):
 
 
 @app.cell
-def _(aaw_key, all_soil_results, sname):
-    print("sname:", sname)
-    print("aaw_key:", aaw_key)
-    print("available sim keys:", all_soil_results[sname]["sim"].keys())
-    return
-
-
-@app.cell
 def _(all_soil_results, model, pfas_name, plt):
     # ── Plot: breakthrough curves at depth ≈ 50 cm, all soils ────────────────
     seconds_per_year_bt = 60 * 60 * 24 * 365
@@ -560,7 +425,7 @@ def _(all_soil_results, model, pfas_name, plt):
     )
     plt.tight_layout()
     fig_bt
-    return aaw_key, sname
+    return
 
 
 @app.cell
@@ -568,6 +433,8 @@ def _(mo):
     mo.md(r"""
     #Other parameters
     In this code block we look at the differences in computed Kaw values, Kd values and effective saturation with the chosen methods.
+
+    We start with comparing the $K_{aw}$ values, before comparing $K_d$ values across soils  and providing the effective saturation for these soils.
     """)
     return
 
@@ -616,76 +483,6 @@ def _(all_pfas_results, pd, pfas_names, plt, ticker):
 
     fig.tight_layout()
     fig
-    return
-
-
-@app.cell(disabled=True, hide_code=True)
-def _(kaw_local_df_ordered, kaw_local_pfas_order, pfas_db):
-    from pfas.utils import Kaw_0_Le2021, dG0_Le2021, Kaw_langmuir_Le2021
-    import numpy as debug_np
-    import pandas as debug_pd
-
-    for _, debug_existing_row in kaw_local_df_ordered.iterrows():
-        print(
-            f"{debug_existing_row['pfas_name']:8s}  "
-            f"Kaw = {debug_existing_row['Kaw']:.3e}  "
-            f"log10 = {debug_np.log10(debug_existing_row['Kaw']):.3f}"
-        )
-
-
-    debug_kaw_rows = []
-
-    for debug_pfas_name in kaw_local_pfas_order:
-        debug_pfas_i = pfas_db[debug_pfas_name]
-
-        debug_kaw0 = Kaw_0_Le2021(
-            debug_pfas_i["n_CFx"],
-            debug_pfas_i["n_CHx"],
-            debug_pfas_i["n_COO"],
-            debug_pfas_i["n_COOH"],
-            debug_pfas_i["n_SO3"],
-            debug_pfas_i["n_R4N"],
-            debug_pfas_i["n_OH"],
-            debug_pfas_i["n_OSO3"],
-            debug_pfas_i["n__O_"],
-            debug_pfas_i["n__S_"],
-            debug_pfas_i["n_N_CH3_2_CH2_COO"],
-        )
-
-        debug_dg0 = dG0_Le2021(
-            debug_pfas_i["n_CFx"],
-            debug_pfas_i["n_CHx"],
-            debug_pfas_i["n_COO"],
-            debug_pfas_i["n_COOH"],
-            debug_pfas_i["n_SO3"],
-            debug_pfas_i["n_R4N"],
-            debug_pfas_i["n_OH"],
-            debug_pfas_i["n_OSO3"],
-            debug_pfas_i["n__O_"],
-            debug_pfas_i["n__S_"],
-            debug_pfas_i["n_N_CH3_2_CH2_COO"],
-        )
-
-        debug_kaw = Kaw_langmuir_Le2021(
-            debug_kaw0,
-            debug_dg0,
-            Cw=1e-12,
-        )
-
-        debug_kaw_rows.append({
-            "pfas_name": debug_pfas_name,
-            "n_CFx": debug_pfas_i["n_CFx"],
-            "n_COO": debug_pfas_i["n_COO"],
-            "n_SO3": debug_pfas_i["n_SO3"],
-            "n__O_": debug_pfas_i["n__O_"],
-            "Kaw0": debug_kaw0,
-            "dG0": debug_dg0,
-            "Kaw_at_1_pmol_L": debug_kaw,
-            "log10_Kaw": debug_np.log10(debug_kaw),
-        })
-
-    debug_kaw_df = debug_pd.DataFrame(debug_kaw_rows)
-    debug_kaw_df
     return
 
 
@@ -777,6 +574,117 @@ def _(all_pfas_results, pfas_names, plt, soil_db):
 
     fig_se.tight_layout()
     fig_se
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    #Total Retardation
+    In this last block of code we delineate the total contribution of the AWI method to the computed retardation factor R(-).
+    """)
+    return
+
+
+@app.cell
+def _(all_pfas_results, np, plt):
+    def plot_retardation(all_pfas_results, pfas_name):
+
+        results = all_pfas_results[pfas_name]
+
+        soils = list(results.keys())
+
+        methods = [
+            ("thermo", "Thermodynamic"),
+            ("func_GSSA", "GSSA"),
+            ("func_d50", "d50"),
+            ("func_nonlin_d50", "Nonlinear d50"),
+        ]
+
+        # Solid-phase retardation is the same for all methods
+        sp_R = np.array([
+            results[soil]["retardation"]["thermo"].sp_retardation
+            for soil in soils
+        ])
+
+        fig, ax = plt.subplots(figsize=(11, 6))
+
+        x = np.arange(len(soils))
+        width = 0.18
+
+        for i, (method, label) in enumerate(methods):
+
+            awi_R = np.array([
+                results[soil]["retardation"][method].awi_retardation
+                for soil in soils
+            ])
+
+            R_total = 1 + sp_R + awi_R
+
+            offset = (i - 1.5) * width
+
+            # SP contribution
+            ax.bar(
+                x + offset,
+                sp_R,
+                width,
+                alpha=0.35,
+            )
+
+            # AWI contribution
+            ax.bar(
+                x + offset,
+                awi_R,
+                width,
+                bottom=sp_R,
+                label=label,
+            )
+
+             # Total R
+            # for j, R in enumerate(R_total):
+            #     ax.text(
+            #         x[j] + offset,
+            #         R + max(R_total) * 0.01,
+            #         f"{R:.0f}",
+            #         ha="center",
+            #         va="bottom",
+            #         fontsize=7,
+            #     )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(soils, rotation=45, ha="right")
+
+        ax.set_xlabel("Soil")
+        ax.set_ylabel("Retardation factor, R (-)")
+        ax.set_title(
+            f"Total PFAS Retardation and Contributions — {pfas_name}"
+        )
+
+        ax.grid(axis="y", alpha=0.3)
+
+        from matplotlib.patches import Patch
+
+        handles, labels = ax.get_legend_handles_labels()
+
+        handles = [
+            Patch(alpha=0.35, label="Solid-phase retardation"),
+            *handles,
+        ]
+
+        ax.legend(
+            handles=handles,
+            title="Retardation type",
+            bbox_to_anchor=(1.02, 1),
+            loc="upper left",
+            frameon=False,
+        )
+
+        fig.tight_layout()
+
+        return fig
+
+
+    plot_retardation(all_pfas_results, "PFOA")
     return
 
 
