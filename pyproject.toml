@@ -41,7 +41,7 @@ docs = [
     "sphinx-autodoc-typehints", "sphinx_inline_tabs", "sphinx_copybutton",
 ]
 examples = [
-    "marimo"
+    "marimo", "pandas", "matplotlib", "scipy", "numpy",
 ]
 dev = ["pfas[test,docs,examples]"]
 
