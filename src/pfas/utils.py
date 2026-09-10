@@ -439,7 +439,7 @@ def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw): #noqa: N802
 
     return Kaw
 
-def Kaw_Szyszkowski(sigma0, a, b, Cw, chi=2, T=298): # noqa: N802, PLR0913
+def Kaw_Szyszkowski(sigma0, a, b, Cw, chi=2, T=298): # noqa: N802, PLR0913, PLR0917
     """Calculate air-water partitioning coefficient using the Szyszkowski equation.
 
     Parameters
