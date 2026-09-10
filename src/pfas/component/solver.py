@@ -18,7 +18,7 @@ from annotated_types import Gt
 from numpy.typing import NDArray
 from pydantic import BaseModel, field_validator, model_validator
 
-from pfas.data_structure import Adsorption, HydrologicalProperties
+from pfas.data_structure import Adsorption, BoundaryConditions, HydrologicalProperties, SimulationGrid, Adsorption
 from pfas.solver_utils import (
     _BVP_FUNCTIONS,
     _H0,
@@ -71,10 +71,10 @@ class EquilibriumSolver(
     via step superposition.
     """
 
-    grid: object
+    grid: SimulationGrid
     hydro_properties: HydrologicalProperties
     adsorption: Adsorption
-    boundary_conditions: object
+    boundary_conditions: BoundaryConditions
     initial_contaminant_concentration: NDArray[np.float64] | None = None
     bc: str = "resident"
 
@@ -262,10 +262,10 @@ class KineticSolver(
     Lindstrom, F.T. and Stone, W.J. (1974). Soil Sci. Soc. Am. Proc.
     """
 
-    grid: object
+    grid: SimulationGrid
     hydro_properties: HydrologicalProperties
     adsorption: Adsorption
-    boundary_conditions: object
+    boundary_conditions: BoundaryConditions
     bulk_density: Annotated[float, Gt(0)]
     initial_contaminant_concentration: NDArray[np.float64] | None = None
     volume_averaged: bool = True
