@@ -18,7 +18,12 @@ from annotated_types import Gt
 from numpy.typing import NDArray
 from pydantic import BaseModel, field_validator, model_validator
 
-from pfas.data_structure import Adsorption, BoundaryConditions, HydrologicalProperties, SimulationGrid, Adsorption
+from pfas.data_structure import (
+    Adsorption,
+    BoundaryConditions,
+    HydrologicalProperties,
+    SimulationGrid,
+)
 from pfas.solver_utils import (
     _BVP_FUNCTIONS,
     _H0,
