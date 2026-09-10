@@ -267,7 +267,7 @@ def _(mo):
     mo.md(r"""
     ## Plotting results
 
-    We print here our results for all soils. As we can observe, effective pore velocity and saturation levels differ over the soils, even though we used the same hydrological data. This is logical due to the varying soil properties. Because of this, the total air-water interfacial area ($A_{aw}$) is also different across soils.
+    We print here our results for all soils. As we can observe, effective pore velocity and saturation levels differ over the soils, even though we used the same hydrological data. This is simply due to the varying soil properties. Because of this, the total air-water interfacial area ($A_{aw}$) is also different across soils.
 
     When we plot our breakthrough curves, we observe significant differences between the selected soils.
     """)
