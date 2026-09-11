@@ -23,81 +23,105 @@ Or, if you're developing locally:
 Basic Usage
 -----------
 
-This example demonstrates a basic forward modeling exercise of PFAS leaching in the vadose zone using linear sorption.
+This example follows ``examples/gen_example.py``. It models a 60 cm domain
+with a 10 mg/L PFAS pulse for 2,000 seconds and runs the simulation until
+10,000 seconds. The example uses linear solid-phase sorption, soil-water
+characteristic based air-water interfacial adsorption, and an equilibrium
+solver.
 
-**Step 1: Load configuration**
-
-.. code-block:: python
-
-    from pfas.configuration import read_toml
-    
-    config = read_toml("examples/data/config.toml")
-
-**Step 2: Initialize the model and add preprocessors**
+**Step 1: Import the model and components**
 
 .. code-block:: python
 
-    from pfas.preprocessing import (
-        WaterPreprocessor,
+    from matplotlib import pyplot as plt
+
+    from pfas.component import (
         BoundaryPreprocessor,
+        EquilibriumSolver,
         GridGenerator,
-        SpRetardationPreprocessor,
-        SWCAdsorptionPreprocessor,
-        SorptionKawiDirectInput,
-        SimulationRunner
+        LinearSPsorption,
+        Retardation,
+        SWCsorption,
+        WaterPreprocessor,
     )
     from pfas.model import Model
-    
-    # Create model instance
-    model = Model(config)
-    
-    # Add preprocessing steps
-    model.add(WaterPreprocessor, porosity=0.4)
-    model.add(BoundaryPreprocessor)
-    model.add(GridGenerator)
-    model.add(SpRetardationPreprocessor)
-    model.add(SWCAdsorptionPreprocessor)
-    model.add(SorptionKawiDirectInput)
-    model.add(SimulationRunner)
 
-**Step 3: Access generated data**
+**Step 2: Build and run the model**
 
 .. code-block:: python
 
-    # Access all model output
-    data = model.generated_data
-    C_tot = data["C_tot"]  # Total PFAS concentration
-    grid = data["grid"]    # Grid information
+    model = Model()
+
+    # Generate the spatial and temporal grid.
+    model.compute(
+        GridGenerator,
+        domain_length=60,
+        spatial_resolution=1.0,
+        time_resolution=100,
+        time_total=10000,
+    )
+
+    # Compute water flow properties.
+    model.compute(
+        WaterPreprocessor,
+        average_infiltration_rate=1.5,
+        hydraulic_conductivity=6,
+        porosity=0.34,
+        dispersivity=1.5,
+        van_genuchten_n=1.31,
+        residual_water_content=0.04,
+    )
+
+    # Set the 10 mg/L pulse at the upper boundary.
+    model.compute(
+        BoundaryPreprocessor,
+        C_list=[10.0, 0],
+        T_list=[0, 2000],
+    )
+
+    # Configure linear solid-phase sorption.
+    sorption_solid = {
+        "kinetic_sorption": True,
+        "sorption_isotherm": "linear",
+        "linear": {
+            "Kd_method": "direct_input",
+            "Kd": 5.0,
+        },
+    }
+    model.compute(LinearSPsorption, sorption_solid=sorption_solid)
+
+    # Compute air-water interfacial adsorption and retardation.
+    model.compute(
+        SWCsorption,
+        sigma0=71,
+        scaling_factor_awi=1.0,
+        van_genuchten_alpha=0.019,
+    )
+    model.compute(Retardation, Kaw=0.5, bulk_density=1.6)
+
+    # Run the equilibrium transport simulation.
+    model.compute(EquilibriumSolver)
+
+    simulation_grid = model.grid
+    concentration = model.C1
 
 Visualize Results
 -----------------
-
-**Breakthrough curve at the bottom of the domain:**
-
-.. code-block:: python
-
-    import matplotlib.pyplot as plt
-    
-    plt.plot(grid.time, C_tot[0, :], label=f"Depth = {grid.depth} cm", color="blue")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Total PFAS Concentration (mg/L)")
-    plt.title("PFAS Concentration Over Time")
-    plt.legend()
-    plt.show()
 
 **Concentration depth profiles at different times:**
 
 .. code-block:: python
 
-    import matplotlib.pyplot as plt
-    
-    t_len = C_tot.shape[1]
-    time_indices = [0, t_len//4, t_len//2, 3*t_len//4, -1]
-    
+    time_indices = [0, 10, 20, 22, 30]
+
     plt.figure(figsize=(8, 6))
-    for t_idx in time_indices:
-        plt.plot(C_tot[:, t_idx], grid.depth, label=f"t = {grid.time[t_idx]:.0f} s")
-    
+    for time_index in time_indices:
+        plt.plot(
+            concentration[:, time_index],
+            simulation_grid.depth,
+            label=f"t = {simulation_grid.time[time_index]:.0f} s",
+        )
+
     plt.xlabel("Total PFAS Concentration (mg/L)")
     plt.ylabel("Depth (cm)")
     plt.title("PFAS Concentration Depth Profile at Different Times")
@@ -107,20 +131,25 @@ Visualize Results
     plt.tight_layout()
     plt.show()
 
-Configuration File
-------------------
+**Breakthrough curve at the bottom of the domain:**
 
-Create a ``config.toml`` file with your model parameters:
+.. code-block:: python
 
-.. code-block:: toml
+    bottom_concentration = concentration[-1, :]
 
-    # See examples/data/config.toml for a complete example
+    plt.figure(figsize=(8, 5))
+    plt.plot(simulation_grid.time, bottom_concentration, linewidth=2)
+    plt.xlabel("Time (s)")
+    plt.ylabel("PFAS Concentration at Bottom (mg/L)")
+    plt.title("PFAS Breakthrough Curve at Bottom of Model")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
 
 Next Steps
 ----------
 
-- Check the :doc:`user_guide` for detailed documentation
-- Explore ``examples/`` directory for more complex scenarios
-- See :doc:`api_reference` for all available functions and classes
+- Explore the ``examples/`` directory for more complex scenarios.
+- See the :doc:`api` reference for all available modules, functions, and classes.
 
 For issues or questions, please visit the GitHub repository `<https://github.com/UU-PFAS-Living-Lab/pfas>`_

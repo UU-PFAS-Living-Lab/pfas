@@ -25,7 +25,7 @@ author = ""
 
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
+release = '0.2.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -61,7 +61,6 @@ html_logo = "images/logo_pfas.png"
 html_theme_options = {
     "logo_only": True,
     "navigation_depth": -1,
-    "display_version": True,
     "style_external_links": True,
 }
 
