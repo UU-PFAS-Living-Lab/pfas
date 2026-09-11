@@ -89,7 +89,7 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
 
     @field_validator("van_genuchten_l", mode="before")
     @classmethod
-    def default_l_when_null(cls, v: float | str | None) -> float:
+    def default_l_when_null(cls, v: float):
         """Treat None/'null' as 'not provided' and fall back to 0.5."""
         if v is None or (isinstance(v, str) and v.strip().lower() == "null"):
             return 0.5
