@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from pfas.preprocessing import WaterPreprocessor
+from pfas.component import WaterPreprocessor
 from pfas.data_structure import HydrologicalProperties
 
 

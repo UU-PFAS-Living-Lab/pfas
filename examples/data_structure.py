@@ -17,7 +17,6 @@ def _(mo):
 def _():
     #loading relevant modules 
 
-    from pfas.configuration import read_toml
     from pfas.model import Model
     from matplotlib import pyplot as plt
     import marimo as mo
