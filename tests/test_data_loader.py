@@ -1,7 +1,4 @@
 import pytest
-from importlib import resources
-
-import pytest
 
 from pfas.data_loader import (
     available_datasets,
