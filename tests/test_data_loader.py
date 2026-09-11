@@ -12,9 +12,8 @@ from pfas.data_loader import (
 
 def test_load_json_file_loads_pfass_data_file():
     """load_json_file loads the packaged PFASs.json file from its path."""
-    resource = resources.files("pfas.data").joinpath("PFASs.json")
-    with resources.as_file(resource) as file_path:
-        data = load_json_file(file_path)
+    
+    data = load_json_file("src/pfas/data/PFASs.json")
 
     assert data["PFOA"]["name"] == "PFOA"
     assert data["PFOA"]["M"]["value"] == 414.07
