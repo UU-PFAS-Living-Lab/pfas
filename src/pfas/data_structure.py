@@ -1,8 +1,7 @@
 # noqa: N806
-"""Analytical solution module for PFAS transport modeling.
+"""Data structure used in the PFAS package.
 
-This module provides data structures and solvers for simulating contaminant
-transport through porous media, including equilibrium and kinetic sorption.
+The model uses these classes to store and pass around simulation data.
 """
 
 from dataclasses import dataclass
