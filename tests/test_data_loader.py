@@ -37,13 +37,12 @@ def test_available_datasets_includes_pfass():
 
 
 #Negative tests 
-def test_load_json_file_raises_value_error_for_missing_file(tmp_path):
-    """load_json_file raises ValueError when the file does not exist."""
+def test_load_json_file_raises_file_not_found_error_for_missing_file(tmp_path):
+    """load_json_file raises FileNotFoundError when the file does not exist."""
     missing_path = tmp_path / "missing.json"
 
-    with pytest.raises(ValueError, match="File not found"):
+    with pytest.raises(FileNotFoundError):
         load_json_file(missing_path)
-
 
 def test_load_dataset_raises_value_error_for_invalid_dataset_name():
     """load_dataset raises ValueError for an unknown packaged dataset name."""
