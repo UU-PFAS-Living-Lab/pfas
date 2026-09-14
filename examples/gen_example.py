@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.23.16"
 app = marimo.App(width="medium")
 
 
@@ -26,6 +26,9 @@ def _():
     from matplotlib import pyplot as plt
     import marimo as mo
     from pfas.component import EquilibriumSolver
+    from pint import UnitRegistry
+
+    ureg = UnitRegistry()
     return (
         BoundaryPreprocessor,
         EquilibriumSolver,
@@ -37,6 +40,7 @@ def _():
         WaterPreprocessor,
         mo,
         plt,
+        ureg,
     )
 
 
@@ -60,24 +64,25 @@ def _(
     Retardation,
     SWCsorption,
     WaterPreprocessor,
+    ureg,
 ):
     # Step 1: Generate the grid
     model = Model()
     model.compute(
         GridGenerator,
-        domain_length=60,
-        spatial_resolution=1.0,
-        time_resolution=100,
-        time_total=10000
+        domain_length=60 * ureg.centimeter,
+        spatial_resolution=1.0 * ureg.centimeter,
+        time_resolution=100 * ureg.seconds,
+        time_total=10000 * ureg.seconds
     )
 
     # Step 2: Compute water flow properties
     model.compute(
         WaterPreprocessor,
-        average_infiltration_rate=1.5, #cm/s
-        hydraulic_conductivity=6, #cm/s
+        average_infiltration_rate = ureg("1.5 cm/s"),
+        hydraulic_conductivity=ureg("6 cm/s"),
         porosity=0.34,
-        dispersivity=1.5, #cm
+        dispersivity=1.5 * ureg.centimeter, #cm
         van_genuchten_n=1.31,
         residual_water_content=0.04
     )
@@ -85,8 +90,8 @@ def _(
 
     # Step 3: Setup boundary conditions
     model.compute(BoundaryPreprocessor,
-        C_list=[10.0, 0],
-        T_list=[0, 2000]
+        C_list=[ureg("10.0 mg/cm^3"), ureg("0 mg/cm^3")],
+        T_list=[0*ureg.seconds, 2000*ureg.seconds]
     )
 
     # Step 4: Compute solid phase retardation
@@ -95,7 +100,7 @@ def _(
         "sorption_isotherm": "linear",
         "linear": {
             "Kd_method": "direct_input",
-            "Kd": 5.0 #cm3/g
+            "Kd": ureg("5.0 cm^3/g") #cm3/g
         },
     }
     model.compute(
@@ -115,7 +120,7 @@ def _(
     model.compute(
         Retardation,
         Kaw=0.5,
-        bulk_density=1.6 #g/cm3,
+        bulk_density=ureg("1.6 g/cm^3") #g/cm3,
     )
 
     # Step 7: Run simulation
