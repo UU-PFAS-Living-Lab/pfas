@@ -28,9 +28,11 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from scipy.optimize import brentq
 
 from pfas.data_structure import BoundaryConditions, HydrologicalProperties, SimulationGrid
+from pint import Quantity
 
 
-class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
+class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid',
+                        arbitrary_types_allowed=True):
     """
     Compute hydraulic properties from infiltration rate and soil parameters.
 
@@ -78,13 +80,13 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
     True
     """
 
-    average_infiltration_rate: Annotated[float, Gt(0)]
-    hydraulic_conductivity: Annotated[float, Gt(0)]
-    porosity: Annotated[float, Interval(ge=0, le=1)]
-    dispersivity: Annotated[float, Gt(0)]
-    van_genuchten_n: Annotated[float, Gt(0)]
-    van_genuchten_l: float = 0.5
-    residual_water_content: Annotated[float, Interval(ge=0, le=1)]
+    average_infiltration_rate: Annotated[float|Quantity, Gt(0)]
+    hydraulic_conductivity: Annotated[float|Quantity, Gt(0)]
+    porosity: Annotated[float|Quantity, Interval(ge=0, le=1)]
+    dispersivity: Annotated[float|Quantity, Gt(0)]
+    van_genuchten_n: Annotated[float|Quantity, Gt(0)]
+    van_genuchten_l: float|Quantity = 0.5
+    residual_water_content: Annotated[float|Quantity, Interval(ge=0, le=1)]
 
     @field_validator("van_genuchten_l", mode="before")
     @classmethod
@@ -125,7 +127,8 @@ class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         """List of output keys from compute() method."""
         return ["hydro_properties"]
 
-class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
+class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid',
+                           arbitrary_types_allowed=True):
     """Calculate boundary conditions for contaminant input.
 
     Converts solute concentrations and switching times into the C_list and
@@ -152,8 +155,8 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         List containing 'boundary_conditions'.
     """
 
-    C_list: list[Annotated[float, Ge(0), Field(description="[M L⁻³]")]]
-    T_list: list[Annotated[float, Ge(0), Field(description="[T]")]]
+    C_list: list[Annotated[float|Quantity, Ge(0), Field(description="[M/L]")]]
+    T_list: list[Annotated[float|Quantity, Ge(0), Field(description="[T]")]]
 
     @model_validator(mode="after")
     def validate_c_and_t_list(self) -> "BoundaryPreprocessor":
@@ -193,7 +196,8 @@ class BoundaryPreprocessor(BaseModel, validate_assignment=True, extra='forbid'):
         return ["boundary_conditions"]
 
 
-class GridGenerator(BaseModel, validate_assignment=True, extra='forbid'):
+class GridGenerator(BaseModel, validate_assignment=True, extra='forbid',
+                    arbitrary_types_allowed=True):
     """
     Generate spatial and temporal discretization grids.
 
@@ -216,10 +220,10 @@ class GridGenerator(BaseModel, validate_assignment=True, extra='forbid'):
         List containing 'grid'.
     """
 
-    domain_length: Annotated[float, Gt(0)]
-    spatial_resolution: Annotated[float, Gt(0)]
-    time_resolution: Annotated[float, Gt(0)]
-    time_total: Annotated[float, Gt(0)]
+    domain_length: Annotated[float|Quantity, Gt(0)]
+    spatial_resolution: Annotated[float|Quantity, Gt(0)]
+    time_resolution: Annotated[float|Quantity, Gt(0)]
+    time_total: Annotated[float|Quantity, Gt(0)]
 
     def compute(self):
         """

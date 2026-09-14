@@ -3,12 +3,14 @@
 from typing import Annotated, Optional
 
 from annotated_types import Gt
+from pint import Quantity
 from pydantic import BaseModel, model_validator
 
 from pfas.data_structure import Adsorption, HydrologicalProperties
 
 
-class Retardation(BaseModel, validate_assignment=True, extra='forbid'):
+class Retardation(BaseModel, validate_assignment=True, extra='forbid',
+                  arbitrary_types_allowed=True):
     """
     Calculate retardation factors from solid-phase and air-water interface sorption data.
 
@@ -31,13 +33,13 @@ class Retardation(BaseModel, validate_assignment=True, extra='forbid'):
         Hydraulic properties from WaterPreprocessor.
     """
 
-    Kd: float  # noqa: N815
-    Kaw: float
-    aaw: float
+    Kd: float | Quantity  # noqa: N815
+    Kaw: float | Quantity
+    aaw: float | Quantity
     kinetic: bool = False
     kin_params: Optional[dict] = None
     hydro_properties: HydrologicalProperties
-    bulk_density: Annotated[float, Gt(0)]
+    bulk_density: Annotated[float|Quantity, Gt(0)]
 
     @model_validator(mode="after")
     def validate_kinetic_inputs(self) -> "Retardation":
