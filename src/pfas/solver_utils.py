@@ -1,6 +1,8 @@
 """Mathematical primitives and preprocessing utilities for ADE analytical solvers.
 
-This module contains:
+This module contains analytical solutions based on van Genuchten and Alves [1]_,
+the CXTFIT formulation [2]_, and its corresponding non-equilibrium transport formulation [3]_,
+with the Bessel-series approximation following Lindstrom and Stone [4]_:
 - Dimensionless parameter computation and the :class:`DimensionlessParams` container
 - BVP helper functions for equilibrium sorption (one per boundary condition type)
 - IVP helper functions for equilibrium and kinetic sorption
@@ -13,15 +15,19 @@ register it in ``_BVP_FUNCTIONS``.
 
 References
 ----------
-van Genuchten & Alves (1982): Analytical solutions of the one-dimensional
-convective-dispersive solute transport equation.
-Toride, Leij & van Genuchten (1995): The CXTFIT Code, Version 2.0,
-USDA Research Report No. 137.
-van Genuchten, M. Th. (1981): Non-Equilibrium Transport Parameters from
-Miscible Displacement Experiments. Research Report No. 119, USDA-ARS.
-Lindstrom, F.T. and Stone, W.J. (1974): On the start up or initial phase
-of linear mass transport of chemicals in a water saturated sorbing porous
-medium. Soil Science Society of America Proceedings.
+.. [1] van Genuchten, M. Th. & Alves, W. J. (1982). Analytical solutions of
+    the one-dimensional convective-dispersive solute transport equation.
+
+.. [2] Toride, N., Leij, F. J. & van Genuchten, M. Th. (1995). The CXTFIT
+    Code, Version 2.0. USDA Research Report No. 137.
+
+.. [3] van Genuchten, M. Th. (1981). Non-Equilibrium Transport Parameters
+    from Miscible Displacement Experiments. Research Report No. 119,
+    USDA-ARS.
+
+.. [4] Lindstrom, F. T. & Stone, W. J. (1974). On the start up or initial
+    phase of linear mass transport of chemicals in a water saturated sorbing
+    porous medium. Soil Science Society of America Proceedings.
 """
 # ruff: noqa: N803, N806
 
@@ -168,7 +174,7 @@ def _bvp_flux_bc(
     depth Z. This is the kernel G1^E(Z,T) with Omega=0 used in pulse
     superposition in the equilibrium solver.
 
-    The solution is (Toride et al. 1995, Table 2.3, Third-Type, Omega=0):
+    The solution is (Toride et al. [1]_, Table 2.3, Third-Type, Omega=0):
 
         C(Z,T) = 0.5 * erfc(arg * (RZ - T))
                  + sqrt(P / pi R) * exp(-arg^2 * (RZ - T)^2)
@@ -194,8 +200,9 @@ def _bvp_flux_bc(
 
     References
     ----------
-    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 2.3, G1^E(Z,T;0), Third-Type column.
+     .. [1] Toride, N., Leij, F. J. & van Genuchten, M. Th. (1995). The
+         CXTFIT Code, Version 2.0. USDA Research Report No. 137. Table 2.3,
+         G1^E(Z,T;0), Third-Type column.
     """
     arg = np.sqrt(0.25 * P / R / T)
 
@@ -216,7 +223,7 @@ def _bvp_resident_bc(
     Analytical solution to the 1D ADE with a constant step input at the inlet
     using a resident (first-type) boundary condition, evaluated over
     dimensionless depth Z. This is the kernel A1(Z,T) for the first-type BC
-    used in pulse superposition in the equilibrium solver.
+    used in pulse superposition in the equilibrium solver [1]_.
 
     The solution is:
 
@@ -243,8 +250,9 @@ def _bvp_resident_bc(
 
     References
     ----------
-    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 2.3, (first-type inlet BC, no decay).
+     .. [1] Toride, N., Leij, F. J. & van Genuchten, M. Th. (1995). The
+         CXTFIT Code, Version 2.0. USDA Research Report No. 137. Table 2.3,
+         first-type inlet boundary condition, no decay.
     """
     arg = np.sqrt(0.25 * P / R / T)
 
@@ -274,7 +282,7 @@ def _ivp_eq_flux(
 ) -> NDArray[np.float64]:
     """IVP Green's function kernel for flux (third-type) boundary condition.
 
-    Computes Gamma_2^E(Z, xi, T) from Table 2.2 of Toride et al. (1995),
+    Computes Gamma_2^E(Z, xi, T) from Table 2.2 of Toride et al. [1]_,
     Third-Type column, with mu^E = 0. The image term has a positive sign and
     an additional erfc correction to enforce zero dispersive flux at Z=0.
 
@@ -305,8 +313,9 @@ def _ivp_eq_flux(
 
     References
     ----------
-    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 2.2, Gamma_2^E, Third-Type column, mu^E = 0.
+     .. [1] Toride, N., Leij, F. J. & van Genuchten, M. Th. (1995). The
+         CXTFIT Code, Version 2.0. USDA Research Report No. 137. Table 2.2,
+         Gamma_2^E, Third-Type column, mu^E = 0.
     """
     if T <= 0.0:
         return np.zeros_like(xi)
@@ -347,7 +356,7 @@ def _ivp_eq_resident(
 ) -> NDArray[np.float64]:
     """IVP Green's function kernel for resident (first-type) boundary condition.
 
-    Computes Gamma_2^E(Z, xi, T) from Table 2.2 of Toride et al. (1995),
+    Computes Gamma_2^E(Z, xi, T) from Table 2.2 of Toride et al. [1]_,
     First-Type column, with mu^E = 0. The image term has a negative sign,
     enforcing zero concentration perturbation at Z=0. No erfc correction.
 
@@ -377,8 +386,9 @@ def _ivp_eq_resident(
 
     References
     ----------
-    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 2.2, Gamma_2^E, First-Type column, mu^E = 0.
+     .. [1] Toride, N., Leij, F. J. & van Genuchten, M. Th. (1995). The
+         CXTFIT Code, Version 2.0. USDA Research Report No. 137. Table 2.2,
+         Gamma_2^E, First-Type column, mu^E = 0.
     """
     if T <= 0.0:
         return np.zeros_like(xi)
@@ -421,7 +431,7 @@ def _ivp_neq(  # noqa: PLR0913, PLR0917
 
     Computes the Green's function kernel G_neq(Z, T, xi) for the superposition
     integral over a non-zero initial concentration profile Ci(xi) under kinetic
-    sorption conditions:
+    sorption conditions described by Toride et al. [1]_:
 
         C^I_1(Z, T) = integral_0^1 G_neq(Z, T, xi) * Ci(xi) dxi
 
@@ -457,10 +467,12 @@ def _ivp_neq(  # noqa: PLR0913, PLR0917
 
     References
     ----------
-    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 3.2, Case A2 (third-type inlet BC, semi-infinite
-    domain, nonequilibrium IVP). Equivalent to Toride et al. (1993), Water
-    Resour. Res. 29(7), eq. for nonequilibrium IVP Green's function.
+     .. [1] Toride, N., Leij, F. J. & van Genuchten, M. Th. (1995). The
+         CXTFIT Code, Version 2.0. USDA Research Report No. 137. Table 3.2,
+         Case A2 (third-type inlet boundary condition, semi-infinite domain,
+         nonequilibrium IVP). Equivalent to Toride et al. (1993), Water
+         Resources Research, 29(7), equation for the nonequilibrium IVP
+         Green's function.
     """
     if T <= 0.0:
         return np.zeros_like(xi)
@@ -489,7 +501,7 @@ def _H0(  # noqa: PLR0913, PLR0917, N802
 
     Computes the kernel H₀(τ; T) appearing in the convolution integral for
     the aqueous phase concentration C₁ under kinetic sorption conditions
-    (CXTFIT Table 3.4). Used to evaluate the time-history contribution to C₁
+    (CXTFIT Table 3.4) [1]_. Used to evaluate the time-history contribution to C₁
     from non-zero initial conditions:
 
         C1_ivp += (ω / ((1-β_s)·(1+R_s))) · ∫₀ᵀ H₀(τ; T) · G(Z, τ) dτ
@@ -524,8 +536,9 @@ def _H0(  # noqa: PLR0913, PLR0917, N802
 
     References
     ----------
-    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 3.4, kernel H₀ for aqueous phase IVP convolution.
+     .. [1] Toride, N., Leij, F. J. & van Genuchten, M. Th. (1995). The
+         CXTFIT Code, Version 2.0. USDA Research Report No. 137. Table 3.4,
+         kernel H₀ for aqueous phase IVP convolution.
     """
     if T <= 0.0:
         return np.zeros_like(tau)
@@ -562,7 +575,7 @@ def _Hs(  # noqa: PLR0913, PLR0917, N802
 
     Computes the kernel Hₛ(τ; T) appearing in the convolution integral for
     the sorbed phase concentration C₂ under kinetic sorption conditions
-    (CXTFIT Table 3.4). Used to evaluate the time-history contribution to C₂
+    (CXTFIT Table 3.4) [1]_. Used to evaluate the time-history contribution to C₂
     from non-zero initial conditions:
 
         C2_ivp += (ω / ((1-β_s)·(1+R_s))) · (1-f)·Kd · ∫₀ᵀ Hₛ(τ; T) · G(Z, τ) dτ
@@ -597,8 +610,9 @@ def _Hs(  # noqa: PLR0913, PLR0917, N802
 
     References
     ----------
-    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Table 3.4, kernel Hₛ for sorbed phase IVP convolution.
+     .. [1] Toride, N., Leij, F. J. & van Genuchten, M. Th. (1995). The
+         CXTFIT Code, Version 2.0. USDA Research Report No. 137. Table 3.4,
+         kernel Hₛ for sorbed phase IVP convolution.
     """
     iv_arg = (
         2 * omega / (1 - beta_s) / (1 + R_s)
@@ -636,7 +650,7 @@ def _FT(  # noqa: N802, PLR0913, PLR0917
 
     Computes the advection-dispersion kernel appearing in the integrands of
     A₁ and A₂ (CXTFIT eqs. 3.21–3.22) at dimensionless depth Z.
-    Corresponds to FT(τ) in van Genuchten (1981).
+    Corresponds to FT(τ) in van Genuchten (1981) [1]_.
 
     Two forms are available depending on the concentration averaging mode:
 
@@ -672,8 +686,9 @@ def _FT(  # noqa: N802, PLR0913, PLR0917
 
     References
     ----------
-    van Genuchten (1981), eq. for FT (Research Report No. 119, USDA-ARS).
-    CXTFIT eq. 3.21, kernel Γ₁ᴺ(Z, τ).
+     .. [1] van Genuchten, M. Th. (1981). Non-Equilibrium Transport Parameters
+         from Miscible Displacement Experiments. Research Report No. 119,
+         USDA-ARS. CXTFIT equation 3.21, kernel Γ₁ᴺ(Z, τ).
     """
     R_beta = beta * R
     term0 = np.sqrt(P / (np.pi * R_beta * tau))
@@ -695,8 +710,8 @@ def _goldstein_J(  # noqa: N806, N802
 ) -> tuple[float | NDArray[np.float64], float | NDArray[np.float64]]:
     """Evaluate Goldstein's J-function J(a,b) and J(b,a) via Bessel series.
 
-    Approximates Goldstein's J-function (Goldstein, 1953) using modified
-    Bessel functions Iⱼ following Lindstrom and Stone (1974), with an
+    Approximates Goldstein's J-function (Goldstein, 1953) [1]_ using modified
+    Bessel functions Iⱼ following Lindstrom and Stone (1974) [2]_, with an
     erfc-based asymptotic expansion for large arguments (a+b > 10).
     Returns both J(a,b) and J(b,a) as needed for A₁ and A₂ respectively
     (CXTFIT eqs. 3.21–3.22, Table 3.4).
@@ -728,8 +743,10 @@ def _goldstein_J(  # noqa: N806, N802
 
     References
     ----------
-    Goldstein, S. (1953). Proc. R. Soc. London A, 219, 151–171.
-    Lindstrom, F.T. and Stone, W.J. (1974). Soil Sci. Soc. Am. Proc.
+    .. [1] Goldstein, S. (1953). Proc. R. Soc. London A, 219, 151–171.
+
+    .. [2] Lindstrom, F. T. & Stone, W. J. (1974). Soil Sci. Soc. Am. Proc.
+
     CXTFIT Table 3.4.
     """
     if a + b > 10:
@@ -851,9 +868,11 @@ def _bvp_neq(  # noqa: PLR0913, PLR0917, N806, N803
     """Compute A₁ and A₂: nonequilibrium BVP solutions (CXTFIT eqs. 3.21–3.22).
 
     Evaluates the equilibrium-phase (A₁, k=1) and nonequilibrium-phase (A₂, k=2)
-    BVP solutions for the nonequilibrium ADE with first-order kinetic sorption,
+    BVP solutions for the nonequilibrium ADE with first-order kinetic sorption
+    [1]_,
     via adaptive quadrature (``scipy.integrate.quad``) over the product of the
-    transport kernel :func:`_FT` and Goldstein's J-function :func:`_goldstein_J`.
+    transport kernel :func:`_FT` and Goldstein's J-function :func:`_goldstein_J`,
+    using the Bessel-series approximation of Lindstrom and Stone [3]_.
 
     The integrals are (CXTFIT eqs. 3.21–3.22):
 
@@ -862,7 +881,7 @@ def _bvp_neq(  # noqa: PLR0913, PLR0917, N806, N803
         A₂(Z,T) = (ω / (ω+μ₂)) · ∫₀ᵀ FT(τ) · [1 - J(b, a)] dτ
 
     where a and b are defined in CXTFIT Table 3.4 and FT is the transport
-    kernel from van Genuchten (1981), evaluated at depth Z.
+    kernel from van Genuchten (1981) [2]_, evaluated at depth Z.
 
     Parameters
     ----------
@@ -899,12 +918,15 @@ def _bvp_neq(  # noqa: PLR0913, PLR0917, N806, N803
 
     References
     ----------
-    Toride, Leij & van Genuchten (1995). CXTFIT Version 2.0. Research Report
-    No. 137, USDA-ARS. Eqs. (3.20)–(3.22), Table 3.1, Table 3.4.
+     .. [1] Toride, N., Leij, F. J. & van Genuchten, M. Th. (1995). The
+         CXTFIT Code, Version 2.0. USDA Research Report No. 137. Eqs. (3.20)–
+         (3.22), Tables 3.1 and 3.4.
 
-    van Genuchten, M. Th. (1981). Research Report No. 119, USDA-ARS.
+     .. [2] van Genuchten, M. Th. (1981). Non-Equilibrium Transport Parameters
+         from Miscible Displacement Experiments. Research Report No. 119,
+         USDA-ARS.
 
-    Lindstrom, F.T. and Stone, W.J. (1974). Soil Sci. Soc. Am. Proc.
+     .. [3] Lindstrom, F. T. & Stone, W. J. (1974). Soil Sci. Soc. Am. Proc.
     """
     args = (T, Z, P, R, R_s, beta, beta_s, omega, volume_averaged, m)
 

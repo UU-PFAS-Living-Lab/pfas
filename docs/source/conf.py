@@ -71,4 +71,4 @@ html_static_path = ['_static']
 html_css_files = [
     'custom.css',
 ]
-napoleon_use_param = True
+#napoleon_use_param = True

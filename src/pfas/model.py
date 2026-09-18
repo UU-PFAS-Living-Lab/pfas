@@ -12,39 +12,26 @@ from pfas.component import ALL_COMPONENTS
 
 
 class Model:
-    """Orchestrate sequential execution of preprocessors and solvers.
+    """Orchestrate sequential execution of PFAS model components.
 
-    The Model class implements a builder pattern for constructing and executing
-    a sequence of preprocessing and solving components. It manages the flow of
-    data from configuration through various transformers and ultimately to the
-    analytical solver.
-
-    Parameters
-    ----------
-    config : object
-        Configuration object containing parameters for the simulation. Parameters
-        are extracted from this object based on the annotated fields of each
-        model class.
+    Components are added and executed with :meth:`compute`. Input values,
+    component outputs, and field defaults are retained so that later components
+    can use data produced by earlier components. Computed values can also be
+    accessed as attributes of the model instance.
 
     Attributes
     ----------
-    config : object
-        The configuration object passed at initialization.
     generated_data : dict
-        Dictionary storing outputs from each computation step, making them
-        available as inputs for subsequent steps.
+        Outputs produced by components, available to later components.
+    input_data : dict
+        Explicit keyword arguments supplied to :meth:`compute`.
+    default_values : dict
+        Default values collected from component model fields.
 
-    Examples
-    --------
-    >>> from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor
-    >>> from pfas.configuration import SimulationConfig
-    >>> config = SimulationConfig(...)
-    >>> result = (Model(config)
-    ...     .add(WaterPreprocessor)
-    ...     .add(BoundaryPreprocessor)
-    ...     .add(GridGenerator)
-    ...     .add(SimulationRunner)
-    ... )
+    Notes
+    -----
+    ``Model`` is initialized without arguments. Use :meth:`compute` to execute
+    a component and return the same instance for method chaining.
     """
 
     def __init__(self):
