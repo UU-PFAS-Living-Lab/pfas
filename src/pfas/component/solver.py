@@ -206,7 +206,9 @@ class EquilibriumSolver(
         C1 = C1_bvp + C1_ivp
         C_tot = C1 * R * theta
 
-        return {"C1": Quantity(C1, C_list[0].units), "C_tot": Quantity(C_tot, C_list[0].units)}
+        if isinstance(C_list[0], Quantity):
+            return {"C1": Quantity(C1, C_list[0].units), "C_tot": Quantity(C_tot, C_list[0].units)}
+        return {"C1": C1, "C_tot": C_tot}
 
     @property
     def outputs(self):
