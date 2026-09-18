@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -31,27 +31,7 @@ def _():
     from pfas.model import Model
 
     print("Available datasets:", available_datasets())
-    return (
-        BoundaryPreprocessor,
-        D50AWI,
-        EquilibriumSolver,
-        GSSAAWI,
-        GridGenerator,
-        Le2021_langmuir,
-        LinearSPsorption,
-        Model,
-        NonlinearD50AWI,
-        Retardation,
-        SWCsorption,
-        Szyszkowski,
-        WaterPreprocessor,
-        load_dataset,
-        mo,
-        np,
-        pd,
-        plt,
-        ticker,
-    )
+    return load_dataset, mo, np, pd, plt, ticker
 
 
 @app.cell(hide_code=True)
@@ -76,15 +56,15 @@ def _(load_dataset):
 
     # Solid-phase adsorption: linear
     frac_int = 1.0
-    rate_const = 0.0
-    return pfas_db, pfas_names, soil_db
+    rate_const = 0.0 #1/s
+    return pfas_names, soil_db
 
 
 @app.cell
 def _():
 
-    pulse_duration = 25 * (60 * 60 * 24 * 365)
-    return (pulse_duration,)
+    pulse_duration = 25 * (60 * 60 * 24 * 365) #s
+    return
 
 
 @app.cell(hide_code=True)
@@ -99,26 +79,8 @@ def _(mo):
     return
 
 
-@app.cell
-def _(
-    BoundaryPreprocessor,
-    D50AWI,
-    EquilibriumSolver,
-    GSSAAWI,
-    GridGenerator,
-    Le2021_langmuir,
-    LinearSPsorption,
-    Model,
-    NonlinearD50AWI,
-    Retardation,
-    SWCsorption,
-    Szyszkowski,
-    WaterPreprocessor,
-    pfas_db,
-    pfas_names,
-    pulse_duration,
-    soil_db,
-):
+app._unparsable_cell(
+    r"""
 
     staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
     all_pfas_results = {}
@@ -137,20 +99,20 @@ def _(
             )
 
             soil         = soil_db[soil_name]
-            bulk_dens    = soil["rho_b"]["value"]
+            bulk_dens    = soil["rho_b"]
             porosity     = soil["porosity"]
             theta_r      = soil["theta_r"]
             theta_s      = soil["theta_s"]
-            K_sat        = soil["K_sat"]["value"]
-            vg_alpha     = soil["van_genuchten"]["alpha"]["value"]
+            K_sat        = soil["K_sat"]
+            vg_alpha     = soil["van_genuchten"]["alpha"]
             vg_n         = soil["van_genuchten"]["n"]
             vg_l         = soil["van_genuchten"]["l"]
-            dispersivity = 4.5
-            f_oc         = soil["f_oc"]["value"] / 100
-            f_clay       = soil["f_clay"]["value"] / 100
-            f_silt       = soil["f_silt"]["value"] / 100
+            dispersivity = 4.5S
+            f_oc         = soil["f_oc"] / 100
+            f_clay       = soil["f_clay"] / 100
+            f_silt       = soil["f_silt"]] / 100
             f_silt_clay  = f_silt + f_clay
-            d50          = soil["d50"]["value"] / 10000
+            d50          = soil["d50"] / 10000
 
             # 1. Water flow
             model.compute(WaterPreprocessor,
@@ -246,7 +208,9 @@ def _(
 
         all_pfas_results[pfas_name] = all_soil_results
         print(f"Done — {pfas_name}: {len(all_soil_results)} soils processed.")
-    return all_pfas_results, all_soil_results, model, pfas_name
+    """,
+    name="_"
+)
 
 
 @app.cell(hide_code=True)

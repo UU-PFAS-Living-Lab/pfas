@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -76,35 +76,35 @@ def _(load_dataset):
     pfas_name = "PFOA"
     pfas      = pfas_db[pfas_name]
     n_CFx     = pfas["structural_properties"]["n_CFx"]
-    K_oc_pfoa = pfas["K_oc"]["value"]   # L/kg
-    K_sc_pfoa = pfas["K_sc"]["value"]   # L/kg
+    K_oc_pfoa = pfas["K_oc"]  # L/kg
+    K_sc_pfoa = pfas["K_sc"] # L/kg
 
     # ── Soil: Accusand ────────────────────────────────────────────────────────
     soil_name    = "Accusand"
     soil         = soil_db[soil_name]
-    bulk_dens    = soil["rho_b"]["value"]
+    bulk_dens    = soil["rho_b"] #g/cm3 = kg/dm3
     porosity     = soil["porosity"]
     theta_r      = soil["theta_r"]
     theta_s      = soil["theta_s"]
-    K_sat        = soil["K_sat"]["value"]
-    vg_alpha     = soil["van_genuchten"]["alpha"]["value"]
+    K_sat        = soil["K_sat"]
+    vg_alpha     = soil["van_genuchten"]["alpha"]
     vg_n         = soil["van_genuchten"]["n"]
     vg_l         = soil["van_genuchten"]["l"]
     dispersivity = 3  # cm — not listed for Accusand; typical literature value
 
     # Soil composition: stored as percent in the database → convert to fractions
-    f_oc        = soil["f_oc"]["value"] / 100
-    f_clay      = soil["f_clay"]["value"] / 100
-    f_silt      = soil["f_silt"]["value"] / 100
+    f_oc        = soil["f_oc"]/ 100 
+    f_clay      = soil["f_clay"] / 100
+    f_silt      = soil["f_silt"]/ 100
     f_silt_clay = f_silt + f_clay
 
     # We change organic content to see more difference
     f_oc = 10 / 100
 
     print(f"PFAS : {pfas_name}  |  n_CFx = {n_CFx}")
-    print(f"       K_oc = {K_oc_pfoa} L/kg  |  K_sc = {K_sc_pfoa} L/kg")
-    print(f"Soil : {soil_name}  |  ρ_b = {bulk_dens} g/cm³  |  porosity = {porosity}")
-    print(f"       θ_r = {theta_r}  |  K_sat = {K_sat} cm/s  |  vg_n = {vg_n}")
+    print(f"       K_oc = {K_oc_pfoa}  |  K_sc = {K_sc_pfoa} ")
+    print(f"Soil : {soil_name}  |  ρ_b = {bulk_dens}   |  porosity = {porosity}")
+    print(f"       θ_r = {theta_r}  |  K_sat = {K_sat}  |  vg_n = {vg_n}")
     print(f"       f_oc = {f_oc:.5f}  |  f_silt_clay = {f_silt_clay:.4f}")
     return (
         K_oc_pfoa,

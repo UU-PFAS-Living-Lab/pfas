@@ -10,10 +10,13 @@ def _(mo):
     # Basic simulation
     In this example, we will showcase the basics of initializing our model instance.
 
-    We consider a 60cm long domain, in which we simulate a 10 mg/L pulse of a fictional PFAS for 2000s from the beginning of the considered model time. We run our model for a total of 10000s. There is no contamination present at the start.
+    We consider a 60cm long domain, in which we simulate a 10 mg/cm3 pulse of a fictional PFAS for 2000s from the beginning of the considered model time. We run our model for a total of 10000s. There is no contamination present at the start.
 
-    We keep everything else relatively simple, with direct input of sorption parameters $K_d$ and $K_aw$. We compute air-water interfacial area based on the soil-water characteristic.
-    We consider equilibrium sorption as well.
+    We keep everything else relatively simple, with direct input of sorption parameters $K_d$ and $K_{aw}$. We compute air-water interfacial area based on the soil-water characteristic.
+
+    We consider equilibrium sorption in this example.
+
+    We also showcase the use of the [Pint](https://pint.readthedocs.io/) unit registry - which allows you to keep track of units used throughout the model. You can also change units easily.
     """)
     return
 
@@ -29,19 +32,7 @@ def _():
     from pint import UnitRegistry
 
     ureg = UnitRegistry()
-    return (
-        BoundaryPreprocessor,
-        EquilibriumSolver,
-        GridGenerator,
-        LinearSPsorption,
-        Model,
-        Retardation,
-        SWCsorption,
-        WaterPreprocessor,
-        mo,
-        plt,
-        ureg,
-    )
+    return mo, plt
 
 
 @app.cell(hide_code=True)
@@ -54,18 +45,8 @@ def _(mo):
     return
 
 
-@app.cell
-def _(
-    BoundaryPreprocessor,
-    EquilibriumSolver,
-    GridGenerator,
-    LinearSPsorption,
-    Model,
-    Retardation,
-    SWCsorption,
-    WaterPreprocessor,
-    ureg,
-):
+app._unparsable_cell(
+    r"""
     # Step 1: Generate the grid
     model = Model()
     model.compute(
@@ -111,15 +92,15 @@ def _(
     # Step 5: Compute AWI adsorption
     model.compute(
         SWCsorption,
-        sigma0=71,
+        sigma0=ureg("71 dyn/cm" ,
         scaling_factor_awi=1.0,
-        van_genuchten_alpha = 0.019,
+        van_genuchten_alpha = ureg("0.019 1/cm",
     )
 
     # Step 6: Compute retardation
     model.compute(
         Retardation,
-        Kaw=0.5,
+        Kaw=ureg("0.5 cm^3/cm^2",
         bulk_density=ureg("1.6 g/cm^3") #g/cm3,
     )
 
@@ -129,7 +110,9 @@ def _(
     )
 
     print("Simulation completed successfully!")
-    return (model,)
+    """,
+    name="_"
+)
 
 
 @app.cell(hide_code=True)

@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.16"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -150,7 +150,7 @@ def _(
         # ---------------------------------------------------------------------
         model.compute(
             WaterPreprocessor,
-            average_infiltration_rate=9.51e-7,
+            average_infiltration_rate=9.51e-7, #cm/s
             hydraulic_conductivity=K_sat,
             porosity=porosity,
             dispersivity=dispersivity,
@@ -167,7 +167,7 @@ def _(
 
         model.compute(BoundaryPreprocessor,
             C_list=[
-                pfas["M"]["value"] * 1e-15,
+                pfas["M"]["value"] * 1e-15,  #mol/L
                 0.0,
             ],
             T_list=[
@@ -218,11 +218,11 @@ def _(
         if a is not None and b is not None:
             model.compute(
                 Szyszkowski,
-                a=a,
+                a=a, #mol/L
                 b=b,
-                chi=1,
+                chi=1, 
                 T=T,
-                Cw=1e-12,
+                Cw=1e-12, #mol/L
             )
         else:
             model.compute(
