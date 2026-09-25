@@ -55,19 +55,19 @@ solver.
     # Generate the spatial and temporal grid.
     model.compute(
         GridGenerator,
-        domain_length=60,
+        domain_length=60, #cm
         spatial_resolution=1.0,
-        time_resolution=100,
-        time_total=10000,
+        time_resolution=100, 
+        time_total=10000, #s
     )
 
     # Compute water flow properties.
     model.compute(
         WaterPreprocessor,
-        average_infiltration_rate=1.5,
-        hydraulic_conductivity=6,
+        average_infiltration_rate=1.5, #cm/s
+        hydraulic_conductivity=6, #cm/s
         porosity=0.34,
-        dispersivity=1.5,
+        dispersivity=1.5, #cm
         van_genuchten_n=1.31,
         residual_water_content=0.04,
     )
@@ -75,8 +75,8 @@ solver.
     # Set the 10 mg/L pulse at the upper boundary.
     model.compute(
         BoundaryPreprocessor,
-        C_list=[10.0, 0],
-        T_list=[0, 2000],
+        C_list=[10.0, 0], #mg/L
+        T_list=[0, 2000], #s
     )
 
     # Configure linear solid-phase sorption.
@@ -85,7 +85,7 @@ solver.
         "sorption_isotherm": "linear",
         "linear": {
             "Kd_method": "direct_input",
-            "Kd": 5.0,
+            "Kd": 5.0, #g/cm3
         },
     }
     model.compute(LinearSPsorption, sorption_solid=sorption_solid)
@@ -93,11 +93,11 @@ solver.
     # Compute air-water interfacial adsorption and retardation.
     model.compute(
         SWCsorption,
-        sigma0=71,
+        sigma0=71, #N/cm
         scaling_factor_awi=1.0,
         van_genuchten_alpha=0.019,
     )
-    model.compute(Retardation, Kaw=0.5, bulk_density=1.6)
+    model.compute(Retardation, Kaw=0.5, bulk_density=1.6) #cm3/cm2, #g/cm3
 
     # Run the equilibrium transport simulation.
     model.compute(EquilibriumSolver)

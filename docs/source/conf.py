@@ -40,7 +40,11 @@ extensions = [
     "sphinx_inline_tabs",
     "sphinx_copybutton",
     "sphinx.ext.autosummary",
+    "sphinxcontrib.bibtex",
 ]
+
+bibtex_bibfiles = ["references.bib"]
+bibtex_default_style = "apa"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

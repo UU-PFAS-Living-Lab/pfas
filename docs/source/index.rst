@@ -11,6 +11,7 @@ Pfas documentation
    tutorials
    api
    faq
+   references
 
 .. You can add more toctrees to get nice captions.
 .. .. toctree::

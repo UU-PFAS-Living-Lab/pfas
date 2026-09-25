@@ -25,7 +25,8 @@ class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
     Linear isotherm - Fabregat-Palau (2021)
         ``sorption_isotherm: "linear"``, ``Kd_method: "fabregat_palau"``.
         Kd is estimated from molecular structure and soil composition using
-        :func:`pfas.utils.kd_fabregat_palau`::
+        :func:`pfas.utils.kd_fabregat_palau`, based on the description in
+        Fabregat-Palau et al. (2021) :cite:`fabregatpalau2021modelling`::
 
             sorption_solid = {
                 "sorption_isotherm": "linear",

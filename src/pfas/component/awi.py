@@ -19,7 +19,7 @@ class SWCsorption(BaseModel, validate_assignment=True, extra="forbid"):
     """Calculate air-water interfacial area using thermodynamic relations.
 
     Uses the van Genuchten soil water characteristic curve to estimate
-    air-water interfacial area from water saturation, following Guo et al. 2022 [1]_.
+    air-water interfacial area from water saturation, following Guo et al. 2022 :cite:`guo2022`.
 
     Parameters
     ----------
@@ -43,12 +43,6 @@ class SWCsorption(BaseModel, validate_assignment=True, extra="forbid"):
     outputs : list of str
         List containing ``"aaw"``.
 
-    References
-    ----------
-    .. [1] Guo, B., Zeng, J., Brusseau, M. L. & Zhang, Y. (2022). A
-       screening model for quantifying PFAS leaching in the vadose zone and
-       mass discharge to groundwater. *Advances in Water Resources*, 160,
-       104102. https://doi.org/10.1016/j.advwatres.2021.104102
     """
 
     hydro_properties: HydrologicalProperties
@@ -88,7 +82,7 @@ class SWCsorption(BaseModel, validate_assignment=True, extra="forbid"):
 
 
 class GuoTracer(BaseModel, validate_assignment=True, extra="forbid"):
-    """Calculate air-water interfacial area using the Guo tracer relationship [1]_.
+    """Calculate air-water interfacial area using the Guo tracer relationship :cite:`guo2022`.
 
     Parameters
     ----------
@@ -105,12 +99,6 @@ class GuoTracer(BaseModel, validate_assignment=True, extra="forbid"):
     outputs : list of str
         List containing ``"aaw"``.
 
-    References
-    ----------
-    .. [1] Guo, B., Zeng, J., Brusseau, M. L. & Zhang, Y. (2022). A
-       screening model for quantifying PFAS leaching in the vadose zone and
-       mass discharge to groundwater. *Advances in Water Resources*, 160,
-       104102. https://doi.org/10.1016/j.advwatres.2021.104102
     """
 
     hydro_properties: HydrologicalProperties
@@ -164,7 +152,7 @@ class GSSAAWI(BaseModel, validate_assignment=True, extra="forbid"):
     The geometric smooth-surface specific solid surface area (GSSA)
     is calculated from porosity and median grain diameter and is
     assumed to represent the maximum possible air-water interfacial
-    area. The GSSA-based relationship follows the formulation in [1]_.
+    area. The GSSA-based relationship follows the formulation in :cite:`brusseau2023`.
 
     Parameters
     ----------
@@ -177,13 +165,6 @@ class GSSAAWI(BaseModel, validate_assignment=True, extra="forbid"):
     Notes
     -----
     The median grain diameter ``d50`` must be provided in cm.
-
-     References
-     ----------
-     .. [1] Brusseau, M. L. (2023). Determining air-water interfacial areas for
-         the retention and transport of PFAS and other interfacially active
-         solutes in unsaturated porous media. *Science of the Total
-         Environment*, 884, 163730. https://doi.org/10.1016/j.scitotenv.2023.163730
 
     """
 
@@ -217,7 +198,7 @@ class D50AWI(BaseModel, validate_assignment=True, extra="forbid"):
     Calculate air-water interfacial area using the d50 correlation.
 
     Estimates the maximum air-water interfacial area from the median
-    grain diameter and applies a linear dependence on water saturation. [1]_.
+    grain diameter and applies a linear dependence on water saturation. :cite:`brusseau2023`.
 
 
     Parameters
@@ -230,13 +211,6 @@ class D50AWI(BaseModel, validate_assignment=True, extra="forbid"):
     Notes
     -----
     The median grain diameter ``d50`` must be provided in cm.
-
-     References
-     ----------
-     .. [1] Brusseau, M. L. (2023). Determining air-water interfacial areas for
-         the retention and transport of PFAS and other interfacially active
-         solutes in unsaturated porous media. *Science of the Total
-         Environment*, 884, 163730. https://doi.org/10.1016/j.scitotenv.2023.163730
 
     """
 
@@ -269,7 +243,7 @@ class NonlinearD50AWI(BaseModel, validate_assignment=True, extra="forbid"):
 
     Estimates air-water interfacial area from the median grain
     diameter with an additional nonlinear saturation-dependent
-    correction. [1]_.
+    correction. :cite:`brusseau2023`.
 
 
     Parameters
@@ -283,12 +257,6 @@ class NonlinearD50AWI(BaseModel, validate_assignment=True, extra="forbid"):
     -----
     The median grain diameter ``d50`` must be provided in cm.
 
-     References
-     ----------
-     .. [1] Brusseau, M. L. (2023). Determining air-water interfacial areas for
-         the retention and transport of PFAS and other interfacially active
-         solutes in unsaturated porous media. *Science of the Total
-         Environment*, 884, 163730. https://doi.org/10.1016/j.scitotenv.2023.163730
     """
 
     hydro_properties: HydrologicalProperties

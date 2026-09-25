@@ -14,7 +14,7 @@ class Le2021_asymptote(BaseModel, validate_assignment=True, extra='forbid'): # n
 
     Calculates retardation factor for sorption at the air-water interface
     using a calculated air-water partition coefficient, according to
-    Le et al. (2021).
+    Le et al. (2021) :cite:`le2021group`.
 
     Parameters
     ----------
@@ -69,7 +69,7 @@ class Le2021_asymptote(BaseModel, validate_assignment=True, extra='forbid'): # n
 
 class Le2021_langmuir(BaseModel): # noqa: N801
     """
-    Compute the air-water partition coefficient using the Langmuir isotherm from Le et al. (2021).
+    Compute the air-water partition coefficient using the Langmuir isotherm from Le et al. (2021) :cite:`le2021group`.
 
     Parameters
     ----------
@@ -164,7 +164,7 @@ class Szyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
     Compute air-water interfacial retardation using the Szyszkowski model.
 
     Uses a Szyszkowski-based air-water partition coefficient with
-    parameters from Guo et al. (2022).
+    parameters as described by Guo et al. (2022) :cite:`guo2022`.
 
 
     Parameters
@@ -192,7 +192,7 @@ class Szyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
         List containing 'awi_retardation'.
     """
 
-    sigma0: Annotated[float, Gt(0)] = 0.072
+    sigma0: Annotated[float, Gt(0)] = 0.072 
     a: float
     b: float
     chi: int = 2
