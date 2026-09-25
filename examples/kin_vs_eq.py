@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -41,6 +41,7 @@ def _():
     from matplotlib import pyplot as plt
     import numpy as np
     import marimo as mo
+
     return (
         BoundaryPreprocessor,
         EquilibriumSolver,
@@ -198,13 +199,13 @@ def _(
     bulk_dens,
     np,
 ):
-    FRAC_INT = 0.8
-    RATE_CONST = 0.1
+    FRAC_INT = 0.8 
+    RATE_CONST = 0.1 #1/s
 
     GRID_KWARGS_kin  = dict(
-        domain_length=10,
-        spatial_resolution=0.5,
-        time_resolution=10,
+        domain_length=10, #s
+        spatial_resolution=0.5, 
+        time_resolution=10,#s
         time_total=500,
     )
 
@@ -217,10 +218,10 @@ def _(
 
     model_kin.compute(
         WaterPreprocessor,
-        average_infiltration_rate=1.5,
-        hydraulic_conductivity=6,
+        average_infiltration_rate=1.5, #cm/s
+        hydraulic_conductivity=6, #cm/s
         porosity=0.34,
-        dispersivity=1.5,
+        dispersivity=1.5, #cm
         van_genuchten_n=1.31,
         residual_water_content=0.04,
     )
@@ -242,9 +243,9 @@ def _(
 
     model_kin.compute(
         SWCsorption,
-        sigma0=71,
+        sigma0=71, #dyn/cm
         scaling_factor_awi=1.0,
-        van_genuchten_alpha=0.019,
+        van_genuchten_alpha=0.019, #1/cm
     )
 
     model_kin.compute(

@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -23,6 +23,8 @@ def _():
     import marimo as mo
     import numpy as np
     from pfas.model import Model
+    from pfas import ureg
+
     print("Available datasets:", available_datasets())
     return (
         BoundaryPreprocessor,
@@ -39,6 +41,7 @@ def _():
         mo,
         np,
         plt,
+        ureg,
     )
 
 
@@ -63,17 +66,15 @@ def _(load_dataset):
     pfas_name = "PFOA"
     pfas      = pfas_db[pfas_name]
     n_CFx     = pfas["structural_properties"]["n_CFx"]
-    K_oc      = pfas["K_oc"]["value"]   # L/kg
-    K_sc      = pfas["K_sc"]["value"]   # L/kg
+    K_oc      = pfas["K_oc"]
+    K_sc      = pfas["K_sc"]
 
     # Surface tension of water
     sigma0=72.8
     T = 293.15
 
     print(f"PFAS : {pfas_name}  |  n_CFx = {n_CFx}")
-    print(f"       K_oc = {K_oc} L/kg  |  K_sc = {K_sc} L/kg")
-
-
+    print(f"       K_oc = {K_oc}  |  K_sc = {K_sc}")
     return K_oc, K_sc, T, pfas, pfas_name, soil_db
 
 
@@ -110,6 +111,7 @@ def _(
     WaterPreprocessor,
     pfas,
     soil_db,
+    ureg,
 ):
     staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
 
@@ -128,27 +130,27 @@ def _(
         model = Model()  
 
         soil        = soil_db[soil_name]
-        bulk_dens   = soil["rho_b"]["value"]                   # g/cm3
+        bulk_dens   = soil["rho_b"]                  # g/cm3
         porosity    = soil["porosity"]                         # -
         theta_r     = soil["theta_r"]                          # -
         theta_s     = soil["theta_s"]                          # -
-        K_sat       = soil["K_sat"]["value"]                   # cm/s
-        vg_alpha    = soil["van_genuchten"]["alpha"]["value"]  # 1/cm
+        K_sat       = soil["K_sat"]                   # cm/s
+        vg_alpha    = soil["van_genuchten"]["alpha"]  # 1/cm
         vg_n        = soil["van_genuchten"]["n"]               # -
         vg_l        = soil["van_genuchten"]["l"]               # -
         dispersivity = 4.5                                     # cm
-        f_oc        = soil["f_oc"]["value"] / 100              # - (fraction)
-        f_clay      = soil["f_clay"]["value"] / 100            # - (fraction)
-        f_silt      = soil["f_silt"]["value"] / 100            # - (fraction)
+        f_oc        = soil["f_oc"] / 100              # - (fraction)
+        f_clay      = soil["f_clay"] / 100            # - (fraction)
+        f_silt      = soil["f_silt"] / 100            # - (fraction)
         f_silt_clay = f_silt + f_clay                          # - (fraction)
-        d50         = soil["d50"]["value"] / 10000             # converted to cm
+        d50         = soil["d50"]
 
         # ---------------------------------------------------------------------
         # 1. Water / hydraulic properties
         # ---------------------------------------------------------------------
         model.compute(
             WaterPreprocessor,
-            average_infiltration_rate=9.51e-7,
+            average_infiltration_rate=9.51e-7, #cm/s
             hydraulic_conductivity=K_sat,
             porosity=porosity,
             dispersivity=dispersivity,
@@ -157,7 +159,7 @@ def _(
             residual_water_content=theta_r,
         )
         model.compute(GridGenerator,
-        domain_length=100,                      # cm
+        domain_length=100 * ureg.centimeter,
         spatial_resolution=0.5,                 # cm
         time_resolution=(1/12) * (60*60*24*365),  # seconds
         time_total=250*(60*60*24*365),          # seconds
@@ -165,7 +167,7 @@ def _(
 
         model.compute(BoundaryPreprocessor,
             C_list=[
-                pfas["M"]["value"] * 1e-15,
+                pfas["M"]["value"] * 1e-15,  #mol/L
                 0.0,
             ],
             T_list=[
@@ -210,17 +212,17 @@ def _(
         # Use Szyszkowski when the PFAS has the required parameters.
         # Otherwise use Le2021_langmuir.
         # ---------------------------------------------------------------------
-        a = pfas["Szyszkowski_params"]["a"]["value"]
-        b = pfas["Szyszkowski_params"]["b"]["value"]
+        a = pfas["Szyszkowski_params"]["a"]
+        b = pfas["Szyszkowski_params"]["b"]
 
         if a is not None and b is not None:
             model.compute(
                 Szyszkowski,
-                a=a,
+                a=a, #mol/L
                 b=b,
-                chi=1,
+                chi=1, 
                 T=T,
-                Cw=1e-12,
+                Cw=1e-12, #mol/L
             )
         else:
             model.compute(

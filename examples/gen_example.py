@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -10,10 +10,13 @@ def _(mo):
     # Basic simulation
     In this example, we will showcase the basics of initializing our model instance.
 
-    We consider a 60cm long domain, in which we simulate a 10 mg/L pulse of a fictional PFAS for 2000s from the beginning of the considered model time. We run our model for a total of 10000s. There is no contamination present at the start.
+    We consider a 60cm long domain, in which we simulate a 10 mg/cm3 pulse of a fictional PFAS for 2000s from the beginning of the considered model time. We run our model for a total of 10000s. There is no contamination present at the start.
 
-    We keep everything else relatively simple, with direct input of sorption parameters $K_d$ and $K_aw$. We compute air-water interfacial area based on the soil-water characteristic.
-    We consider equilibrium sorption as well.
+    We keep everything else relatively simple, with direct input of sorption parameters $K_d$ and $K_{aw}$. We compute air-water interfacial area based on the soil-water characteristic.
+
+    We consider equilibrium sorption in this example.
+
+    We also showcase the use of the [Pint](https://pint.readthedocs.io/) unit registry - which allows you to keep track of units used throughout the model. You can also change units easily.
     """)
     return
 
@@ -26,18 +29,10 @@ def _():
     from matplotlib import pyplot as plt
     import marimo as mo
     from pfas.component import EquilibriumSolver
-    return (
-        BoundaryPreprocessor,
-        EquilibriumSolver,
-        GridGenerator,
-        LinearSPsorption,
-        Model,
-        Retardation,
-        SWCsorption,
-        WaterPreprocessor,
-        mo,
-        plt,
-    )
+    from pint import UnitRegistry
+
+    ureg = UnitRegistry()
+    return mo, plt
 
 
 @app.cell(hide_code=True)
@@ -50,34 +45,25 @@ def _(mo):
     return
 
 
-@app.cell
-def _(
-    BoundaryPreprocessor,
-    EquilibriumSolver,
-    GridGenerator,
-    LinearSPsorption,
-    Model,
-    Retardation,
-    SWCsorption,
-    WaterPreprocessor,
-):
+app._unparsable_cell(
+    r"""
     # Step 1: Generate the grid
     model = Model()
     model.compute(
         GridGenerator,
-        domain_length=60,
-        spatial_resolution=1.0,
-        time_resolution=100,
-        time_total=10000
+        domain_length=60 * ureg.centimeter,
+        spatial_resolution=1.0 * ureg.centimeter,
+        time_resolution=100 * ureg.seconds,
+        time_total=10000 * ureg.seconds
     )
 
     # Step 2: Compute water flow properties
     model.compute(
         WaterPreprocessor,
-        average_infiltration_rate=1.5, #cm/s
-        hydraulic_conductivity=6, #cm/s
+        average_infiltration_rate = ureg("1.5 cm/s"),
+        hydraulic_conductivity=ureg("6 cm/s"),
         porosity=0.34,
-        dispersivity=1.5, #cm
+        dispersivity=1.5 * ureg.centimeter, #cm
         van_genuchten_n=1.31,
         residual_water_content=0.04
     )
@@ -85,8 +71,8 @@ def _(
 
     # Step 3: Setup boundary conditions
     model.compute(BoundaryPreprocessor,
-        C_list=[10.0, 0],
-        T_list=[0, 2000]
+        C_list=[ureg("10.0 mg/cm^3"), ureg("0 mg/cm^3")],
+        T_list=[0*ureg.seconds, 2000*ureg.seconds]
     )
 
     # Step 4: Compute solid phase retardation
@@ -95,7 +81,7 @@ def _(
         "sorption_isotherm": "linear",
         "linear": {
             "Kd_method": "direct_input",
-            "Kd": 5.0 #cm3/g
+            "Kd": ureg("5.0 cm^3/g") #cm3/g
         },
     }
     model.compute(
@@ -106,16 +92,16 @@ def _(
     # Step 5: Compute AWI adsorption
     model.compute(
         SWCsorption,
-        sigma0=71,
+        sigma0=ureg("71 dyn/cm" ,
         scaling_factor_awi=1.0,
-        van_genuchten_alpha = 0.019,
+        van_genuchten_alpha = ureg("0.019 1/cm",
     )
 
     # Step 6: Compute retardation
     model.compute(
         Retardation,
-        Kaw=0.5,
-        bulk_density=1.6 #g/cm3,
+        Kaw=ureg("0.5 cm^3/cm^2",
+        bulk_density=ureg("1.6 g/cm^3") #g/cm3,
     )
 
     # Step 7: Run simulation
@@ -124,7 +110,9 @@ def _(
     )
 
     print("Simulation completed successfully!")
-    return (model,)
+    """,
+    name="_"
+)
 
 
 @app.cell(hide_code=True)

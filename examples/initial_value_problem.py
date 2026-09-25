@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -26,6 +26,7 @@ def _():
     from matplotlib import pyplot as plt
     import numpy as np
     import marimo as mo
+
     return (
         BoundaryPreprocessor,
         EquilibriumSolver,
@@ -64,17 +65,17 @@ def _(
     np,
 ):
     # ── Shared parameters ───────────────────────────────────────────────────────
-    bulk_dens = 1.6
+    bulk_dens = 1.6 #g/cm3
 
     model = Model()
 
     # ── Step 1: Generate the grid ───────────────────────────────────────────────
     model.compute(
         GridGenerator,
-        domain_length=60,
-        spatial_resolution=0.5,
-        time_resolution=20,
-        time_total=10000,
+        domain_length=60, #s
+        spatial_resolution=0.5, 
+        time_resolution=20, 
+        time_total=10000, #s
     )
 
     # ── Step 2: Build initial conditions — concentration of 1 in top 50% ──────
@@ -92,10 +93,10 @@ def _(
     # ── Step 3: Compute water flow properties ───────────────────────────────────
     model.compute(
         WaterPreprocessor,
-        average_infiltration_rate=1.5,
-        hydraulic_conductivity=6,
+        average_infiltration_rate=1.5, #cm/s
+        hydraulic_conductivity=6, #cm/s
         porosity=0.34,
-        dispersivity=1.5,
+        dispersivity=1.5, #cm
         van_genuchten_n=1.31,
         residual_water_content=0.04,
     )
@@ -116,7 +117,7 @@ def _(
         },
         "linear": {
             "Kd_method": "direct_input",
-            "Kd": 15,
+            "Kd": 15, #cm3/g
         },
     }
     model.compute(LinearSPsorption, sorption_solid=sorption_solid)
@@ -126,11 +127,11 @@ def _(
         SWCsorption,
         sigma0=71,
         scaling_factor_awi=1.0,
-        van_genuchten_alpha=0.019,
+        van_genuchten_alpha=0.019, #1/cm
     )
 
     # ── Step 7 + 8: Retardation (Kaw supplied directly) and solve ──────────────
-    model.compute(Retardation, Kaw=15, bulk_density=bulk_dens)
+    model.compute(Retardation, Kaw=15, bulk_density=bulk_dens) #cm3/cm2
     model.compute(
         EquilibriumSolver,
         initial_contaminant_concentration=initial_concentration,

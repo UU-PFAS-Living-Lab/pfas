@@ -16,6 +16,7 @@ from typing import Annotated, cast
 import numpy as np
 from annotated_types import Gt
 from numpy.typing import NDArray
+from pint import Quantity
 from pydantic import BaseModel, field_validator, model_validator
 
 from pfas.data_structure import (
@@ -34,6 +35,12 @@ from pfas.solver_utils import (
     _ivp_neq,
     compute_dimensionless_params,
 )
+
+
+def _m(value):
+    if isinstance(value, Quantity):
+        return value.magnitude
+    return value
 
 
 class EquilibriumSolver(
@@ -80,7 +87,7 @@ class EquilibriumSolver(
     hydro_properties: HydrologicalProperties
     adsorption: Adsorption
     boundary_conditions: BoundaryConditions
-    initial_contaminant_concentration: NDArray[np.float64] | None = None
+    initial_contaminant_concentration: NDArray[np.float64|Quantity] | None = None
     bc: str = "resident"
 
     @field_validator("bc")
@@ -135,7 +142,7 @@ class EquilibriumSolver(
         bvp_func = _BVP_FUNCTIONS[self.bc]
         ivp_func = _IVP_FUNCTIONS[self.bc]
 
-        R = self.adsorption.total_retardation
+        R = _m(self.adsorption.total_retardation)
         theta = self.hydro_properties.water_content
         C_list = self.boundary_conditions.C_list
 
@@ -152,7 +159,7 @@ class EquilibriumSolver(
             adsorption=self.adsorption,
             kinetic=False,
         )
-        Z, T, P, T_list = dim.Z, dim.T, dim.P, dim.T_list
+        Z, T, P, T_list = _m(dim.Z), _m(dim.T), _m(dim.P), _m(dim.T_list)
 
         if len(C_list) != len(T_list):
             raise ValueError(
@@ -164,7 +171,13 @@ class EquilibriumSolver(
         # BVP term (eq. 2.20)
         # ------------------------------------------------------------------
         # deltaC[j] = f_j - f_{j-1}  (prepend f_0 = 0, CXTFIT eq. 2.20)
-        deltaC: NDArray[np.float64] = np.diff([0.0] + C_list)
+        if isinstance(C_list[0], Quantity):
+            C_sequence = Quantity([0.0] + [c.magnitude for c in C_list], C_list[0].units)
+        else:
+            C_sequence = [0.0] + C_list
+
+
+        deltaC: NDArray[np.float64|Quantity] = np.diff(C_sequence)
 
         C1_bvp = np.zeros((len(Z), len(T)))
 
@@ -173,7 +186,7 @@ class EquilibriumSolver(
         for i, Ti in enumerate(T):
             for delta, Tj in zip(deltaC, T_list):
                 if Ti > Tj:
-                    C1_bvp[:, i] += delta * bvp_func(Ti - Tj, R, Z, P)
+                    C1_bvp[:, i] += _m(delta) * bvp_func(_m(Ti - Tj), R, Z, P)
 
         # ------------------------------------------------------------------
         # IVP term
@@ -186,13 +199,15 @@ class EquilibriumSolver(
                 for zi, Zi in enumerate(Z):
                     integrand = cast(
                         NDArray[np.float64],
-                        ivp_func(Ti, R, Zi, P, xi) * Ci,
+                        ivp_func(_m(Ti), R, Zi, P, xi) * Ci,
                     )
                     C1_ivp[zi, ti] = np.trapezoid(integrand, xi)
 
         C1 = C1_bvp + C1_ivp
         C_tot = C1 * R * theta
 
+        if isinstance(C_list[0], Quantity):
+            return {"C1": Quantity(C1, C_list[0].units), "C_tot": Quantity(C_tot, C_list[0].units)}
         return {"C1": C1, "C_tot": C_tot}
 
     @property
