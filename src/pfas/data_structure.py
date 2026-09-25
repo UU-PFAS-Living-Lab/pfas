@@ -68,9 +68,9 @@ class HydrologicalProperties:
     water_content : float
         Volumetric water content (theta) (dimensionless).
     pore_velocity : float
-        Average pore water velocity (v) (m/s).
+        Average pore water velocity (v) (L/T).
     dispersion_coefficient : float
-        Hydrodynamic dispersion coefficient (D) (m²/s).
+        Hydrodynamic dispersion coefficient (D) (L²/T).
     """
 
     water_content: float
@@ -85,9 +85,9 @@ class Adsorption:
     Parameters
     ----------
     Kd : float
-        Solid-phase partition coefficient (m3/kg).
+        Solid-phase partition coefficient (L³/M).
     rate_const : float
-        Rate constant for kinetic sorption (alphas) (1/s).
+        Rate constant for kinetic sorption (alphas) (1/T).
     frac_int : float
         Fraction of instantaneous sorption sites (Fs) (dimensionless).
     sp_retardation : float
