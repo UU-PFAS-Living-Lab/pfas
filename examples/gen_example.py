@@ -7,8 +7,13 @@ app = marimo.App(width="medium")
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Running simulations without TOML
-    In this example, we will showcase how we can run a simulation without providing a TOML file.
+    # Basic simulation
+    In this example, we will showcase the basics of initializing our model instance.
+
+    We consider a 60cm long domain, in which we simulate a 10 mg/L pulse of a fictional PFAS for 2000s from the beginning of the considered model time. We run our model for a total of 10000s. There is no contamination present at the start.
+
+    We keep everything else relatively simple, with direct input of sorption parameters $K_d$ and $K_aw$. We compute air-water interfacial area based on the soil-water characteristic.
+    We consider equilibrium sorption as well.
     """)
     return
 
@@ -16,41 +21,23 @@ def _(mo):
 @app.cell
 def _():
     #loading relevant modules 
-    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner
-    from pfas.configuration import read_toml
+    from pfas.component import SWCsorption, LinearSPsorption, Retardation, WaterPreprocessor, BoundaryPreprocessor, GridGenerator
     from pfas.model import Model
     from matplotlib import pyplot as plt
     import marimo as mo
+    from pfas.component import EquilibriumSolver
     return (
         BoundaryPreprocessor,
+        EquilibriumSolver,
         GridGenerator,
-        SWCAdsorptionPreprocessor,
-        SimulationRunner,
-        SorptionKawiDirectInput,
-        SpRetardationPreprocessor,
+        LinearSPsorption,
+        Model,
+        Retardation,
+        SWCsorption,
         WaterPreprocessor,
         mo,
         plt,
     )
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Defining shared parameters betweenthe model classes
-    Some classes require the same parameters. When providing a TOML file, this is handled correctly, but when providing the parameters seperately to the different classes, we need to take care of this ourselves.
-
-    In the next line of code, we will define bulk density. Furthermore, in our calling of the different classes, we will reuse some of the parameters that we have defined (`i.e. "residual_water_content": water_prep.residual_water_content` )
-    """)
-    return
-
-
-@app.cell
-def _():
-    # Shared parameters: 
-
-    bulk_dens = 1.6
-    return (bulk_dens,)
 
 
 @app.cell(hide_code=True)
@@ -66,135 +53,137 @@ def _(mo):
 @app.cell
 def _(
     BoundaryPreprocessor,
+    EquilibriumSolver,
     GridGenerator,
-    SWCAdsorptionPreprocessor,
-    SimulationRunner,
-    SorptionKawiDirectInput,
-    SpRetardationPreprocessor,
+    LinearSPsorption,
+    Model,
+    Retardation,
+    SWCsorption,
     WaterPreprocessor,
-    bulk_dens,
 ):
     # Step 1: Generate the grid
-    grid_gen = GridGenerator(
+    model = Model()
+    model.compute(
+        GridGenerator,
         domain_length=60,
         spatial_resolution=1.0,
         time_resolution=100,
         time_total=10000
     )
-    grid_results = grid_gen.compute()
 
     # Step 2: Compute water flow properties
-    water_prep = WaterPreprocessor(
-        average_infiltration_rate=1.5,
-        hydraulic_conductivity=6,
+    model.compute(
+        WaterPreprocessor,
+        average_infiltration_rate=1.5, #cm/s
+        hydraulic_conductivity=6, #cm/s
         porosity=0.34,
-        dispersivity=1.5,
+        dispersivity=1.5, #cm
         van_genuchten_n=1.31,
-        init_sat=0.2,
         residual_water_content=0.04
     )
-    water_results = water_prep.compute()
+
 
     # Step 3: Setup boundary conditions
-    boundary_prep = BoundaryPreprocessor(
+    model.compute(BoundaryPreprocessor,
         C_list=[10.0, 0],
         T_list=[0, 2000]
     )
-    boundary_results = boundary_prep.compute()
 
     # Step 4: Compute solid phase retardation
     sorption_solid = {
-        "kinetic_sorption": False,
+        "kinetic_sorption": True,
         "sorption_isotherm": "linear",
-        "kinetic": {
-            "frac_int": 0.3,
-            "rate_const": 0.01
-        },
         "linear": {
             "Kd_method": "direct_input",
-            "Kd": 5.0
+            "Kd": 5.0 #cm3/g
         },
     }
-    sp_retard = SpRetardationPreprocessor(
+    model.compute(
+        LinearSPsorption,
         sorption_solid=sorption_solid,
-        bulk_density=bulk_dens,
-        hydro_properties=water_results["hydro_properties"]
     )
-    sp_results = sp_retard.compute()
 
     # Step 5: Compute AWI adsorption
-    swc_adsorp = SWCAdsorptionPreprocessor(
-        hydro_properties=water_results["hydro_properties"],
+    model.compute(
+        SWCsorption,
         sigma0=71,
         scaling_factor_awi=1.0,
-        AWI={
-            "AWI_type": "SWC-based",
-            "SWC-based": {
-                "scaling_factor_awi": 1.0
-            },
-        },
-        soil={
-            "bulk_density": bulk_dens,
-            "porosity": water_prep.porosity,
-            "van_genuchten_alpha": 0.019,
-            "van_genuchten_n": water_prep.van_genuchten_n,
-            "saturated_water_content": 0.34,
-            "residual_water_content": water_prep.residual_water_content,
-            "hydraulic_conductivity": water_prep.hydraulic_conductivity,
-            "dispersivity": water_prep.dispersivity
-        }
+        van_genuchten_alpha = 0.019,
     )
-    awi_results = swc_adsorp.compute()
 
-    # Step 6: Compute Kawi sorption
-    kawi_sorp = SorptionKawiDirectInput(
-        kaw=0.5,
-        hydro_properties=water_results["hydro_properties"],
-        aaw=awi_results["aaw"],
+    # Step 6: Compute retardation
+    model.compute(
+        Retardation,
+        Kaw=0.5,
+        bulk_density=1.6 #g/cm3,
     )
-    kawi_results = kawi_sorp.compute()
 
     # Step 7: Run simulation
-    sim_runner = SimulationRunner(
-        grid=grid_results["grid"],
-        bulk_density=bulk_dens,
-        boundary_conditions=boundary_results["boundary_conditions"],
-        hydro_properties=water_results["hydro_properties"],
-        awi_retardation=kawi_results["awi_retardation"],
-        sorption_solid=sorption_solid,
-        kinetic_sorption=False,
-        volume_averaged=True
+    model.compute(
+        EquilibriumSolver,
     )
-    final_results = sim_runner.compute()
+
     print("Simulation completed successfully!")
-    return final_results, grid_results
+    return (model,)
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ## Plotting results
+
+    Here we plot C1 (the aqueous concentration) as a function of depth and of time.
     """)
     return
 
 
 @app.cell
-def _(final_results, grid_results, plt):
-    simulation_grid = grid_results["grid"]
-    # Select specific time indices to plot
-    t_len = final_results['C_tot'].shape[1]
-    time_indices = [0, t_len//4, t_len//2, 3*t_len//4, -1]  # First, and some intermediate, and last time step
+def _(model, plt):
+    simulation_grid = model.grid
+    # 1. Concentration depth profiles
+
+    t_len = model.C1.shape[1]
+
+    time_indices = [
+        0,
+        10,
+        20,
+        22,
+        30,
+    ]
 
     plt.figure(figsize=(8, 6))
 
     for t_idx in time_indices:
-        plt.plot(final_results['C_tot'][:, t_idx], simulation_grid.depth, label=f"t = {simulation_grid.time[t_idx]:.0f} s")
+        plt.plot(
+            model.C1[:, t_idx],
+            simulation_grid.depth,
+            label=f"t = {simulation_grid.time[t_idx]:.0f} s",
+        )
 
     plt.xlabel("Total PFAS Concentration (mg/L)")
     plt.ylabel("Depth (cm)")
     plt.title("PFAS Concentration Depth Profile at Different Times")
     plt.legend()
-    plt.gca().invert_yaxis()  # Invert y-axis so depth increases downward
+    plt.gca().invert_yaxis()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+    # 2. Breakthrough curve at bottom of model
+    bottom_concentration = model.C1[-1, :]
+
+    plt.figure(figsize=(8, 5))
+
+    plt.plot(
+        simulation_grid.time,
+        bottom_concentration,
+        linewidth=2,
+    )
+
+    plt.xlabel("Time (s)")
+    plt.ylabel("PFAS Concentration at Bottom (mg/L)")
+    plt.title("PFAS Breakthrough Curve at Bottom of Model")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()

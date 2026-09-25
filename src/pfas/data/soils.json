@@ -228,15 +228,15 @@
     "Staring-B01": {
         "name": "Staring-B01",
         "rho_b": {
-            "value": 1.5,
+            "value": 1.473040,
             "unit": "g/cm**3"
         },
         "porosity": 0.427,
         "theta_s": 0.427,
         "theta_r": 0.02,
         "K_sat": {
-            "value": 31.23,
-            "unit": "cm/day"
+            "value": 0.000361458,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -264,15 +264,15 @@
     "Staring-O01": {
         "name": "Staring-O01",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.675123,
+            "unit": "g/cm**3"
         },
         "porosity": 0.366,
         "theta_s": 0.366,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 22.32,
-            "unit": "cm/day"
+            "value": 0.000258333,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -295,20 +295,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 134.0151,
+            "unit": "μm"
         }
     },
     "Staring-O02": {
         "name": "Staring-O02",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.619638,
+            "unit": "g/cm**3"
         },
         "porosity": 0.387,
         "theta_s": 0.387,
         "theta_r": 0.02,
         "K_sat": {
-            "value": 22.76,
-            "unit": "cm/day"
+            "value": 0.000263426,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -331,20 +335,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 102.0409,
+            "unit": "μm"
         }
     },
     "Staring-O03": {
         "name": "Staring-O03",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.743819,
+            "unit": "g/cm**3"
         },
         "porosity": 0.34,
         "theta_s": 0.34,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 12.37,
-            "unit": "cm/day"
+            "value": 0.0001431713,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -367,20 +375,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 108.3076,
+            "unit": "μm"
         }
     },
     "Staring-O04": {
         "name": "Staring-O04",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.680407,
+            "unit": "g/cm**3"
         },
         "porosity": 0.364,
         "theta_s": 0.364,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 25.81,
-            "unit": "cm/day"
+            "value": 0.0002987269,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -403,20 +415,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 57.4566,
+            "unit": "μm"
         }
     },
     "Staring-O05": {
         "name": "Staring-O05",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.751745,
+            "unit": "g/cm**3"
         },
         "porosity": 0.337,
         "theta_s": 0.337,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 17.42,
-            "unit": "cm/day"
+            "value": 0.0002016204,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -439,20 +455,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 282.0889,
+            "unit": "μm"
         }
     },
     "Staring-O06": {
         "name": "Staring-O06",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.762314,
+            "unit": "g/cm**3"
         },
         "porosity": 0.333,
         "theta_s": 0.333,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 32.83,
-            "unit": "cm/day"
+            "value": 0.0003799769,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -475,20 +495,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 94.5621,
+            "unit": "μm"
         }
     },
     "Staring-O07": {
         "name": "Staring-O07",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.286727,
+            "unit": "g/cm**3"
         },
         "porosity": 0.513,
         "theta_s": 0.513,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 37.55,
-            "unit": "cm/day"
+            "value": 0.0004346065,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -511,20 +535,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 69.8943,
+            "unit": "μm"
         }
     },
     "Staring-O08": {
         "name": "Staring-O08",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.454626,
+            "unit": "g/cm**3"
         },
         "porosity": 0.454,
         "theta_s": 0.454,
         "theta_r": 0.0,
         "K_sat": {
-            "value": 8.64,
-            "unit": "cm/day"
+            "value": 0.0001000000,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -547,20 +575,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 71.7130,
+            "unit": "μm"
         }
     },
     "Staring-O09": {
         "name": "Staring-O09",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.449931,
+            "unit": "g/cm**3"
         },
         "porosity": 0.458,
         "theta_s": 0.458,
         "theta_r": 0.0,
         "K_sat": {
-            "value": 3.77,
-            "unit": "cm/day"
+            "value": 0.0000436343,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -583,20 +615,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 56.2685,
+            "unit": "μm"
         }
     },
     "Staring-O10": {
         "name": "Staring-O10",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.420030,
+            "unit": "g/cm**3"
         },
         "porosity": 0.472,
         "theta_s": 0.472,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 2.3,
-            "unit": "cm/day"
+            "value": 0.0000266204,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -619,20 +655,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 51.5041,
+            "unit": "μm"
         }
     },
     "Staring-O11": {
         "name": "Staring-O11",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.505731,
+            "unit": "g/cm**3"
         },
         "porosity": 0.444,
         "theta_s": 0.444,
         "theta_r": 0.0,
         "K_sat": {
-            "value": 2.12,
-            "unit": "cm/day"
+            "value": 0.0000245370,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -655,20 +695,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 17.4554,
+            "unit": "μm"
         }
     },
     "Staring-O12": {
         "name": "Staring-O12",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.200950,
+            "unit": "g/cm**3"
         },
         "porosity": 0.561,
         "theta_s": 0.561,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 1.08,
-            "unit": "cm/day"
+            "value": 0.0000125000,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -691,20 +735,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 3.1238,
+            "unit": "μm"
         }
     },
     "Staring-O13": {
         "name": "Staring-O13",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.198653,
+            "unit": "g/cm**3"
         },
         "porosity": 0.573,
         "theta_s": 0.573,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 9.69,
-            "unit": "cm/day"
+            "value": 0.0001121528,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -727,20 +775,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 1.7397,
+            "unit": "μm"
         }
     },
     "Staring-O14": {
         "name": "Staring-O14",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.601143,
+            "unit": "g/cm**3"
         },
         "porosity": 0.394,
         "theta_s": 0.394,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 2.5,
-            "unit": "cm/day"
+            "value": 0.0000289352,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -763,20 +815,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 27.7223,
+            "unit": "μm"
         }
     },
     "Staring-O15": {
         "name": "Staring-O15",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 1.558869,
+            "unit": "g/cm**3"
         },
         "porosity": 0.41,
         "theta_s": 0.41,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 2.79,
-            "unit": "cm/day"
+            "value": 0.0000322917,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -799,20 +855,24 @@
         "f_oc": {
             "value": 1.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 19.8580,
+            "unit": "μm"
         }
     },
     "Staring-O16": {
         "name": "Staring-O16",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 0.206099,
+            "unit": "g/cm**3"
         },
         "porosity": 0.889,
         "theta_s": 0.889,
         "theta_r": 0.0,
         "K_sat": {
-            "value": 1.46,
-            "unit": "cm/day"
+            "value": 0.0000168981,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -835,20 +895,24 @@
         "f_oc": {
             "value": 67.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 24.2890,
+            "unit": "μm"
         }
     },
     "Staring-O17": {
         "name": "Staring-O17",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 0.280369,
+            "unit": "g/cm**3"
         },
         "porosity": 0.849,
         "theta_s": 0.849,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 3.4,
-            "unit": "cm/day"
+            "value": 0.0000393519,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -871,20 +935,24 @@
         "f_oc": {
             "value": 67.5,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 3.0624,
+            "unit": "μm"
         }
     },
     "Staring-O18": {
         "name": "Staring-O18",
         "rho_b": {
-            "value": null,
-            "unit": null
+            "value": 0.992250,
+            "unit": "g/cm**3"
         },
         "porosity": 0.58,
         "theta_s": 0.58,
         "theta_r": 0.01,
         "K_sat": {
-            "value": 35.97,
-            "unit": "cm/day"
+            "value": 0.0004160880,
+            "unit": "cm/s"
         },
         "van_genuchten": {
             "alpha": {
@@ -907,6 +975,10 @@
         "f_oc": {
             "value": 25.0,
             "unit": "percent"
+        },
+        "d50": {
+            "value": 106.5260,
+            "unit": "μm"
         }
     }
 }

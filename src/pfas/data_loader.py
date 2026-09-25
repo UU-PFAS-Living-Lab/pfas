@@ -32,9 +32,6 @@ from importlib import resources
 
 def load_json_file(path):
     """Load a JSON file from an arbitrary filesystem path."""
-    if not os.path.isfile(path):
-        raise ValueError(f"File not found: {path}")
-
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 

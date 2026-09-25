@@ -25,7 +25,7 @@ author = ""
 
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
+release = '0.2.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -40,7 +40,11 @@ extensions = [
     "sphinx_inline_tabs",
     "sphinx_copybutton",
     "sphinx.ext.autosummary",
+    "sphinxcontrib.bibtex",
 ]
+
+bibtex_bibfiles = ["references.bib"]
+bibtex_default_style = "apa"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -57,16 +61,18 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 html_theme = "sphinx_rtd_theme"
-html_logo = "images/logos/white_med.png"
+html_logo = "images/logo_pfas.png"
 html_theme_options = {
     "logo_only": True,
     "navigation_depth": -1,
-    "display_version": True,
     "style_external_links": True,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-# html_static_path = ['_static']
-napoleon_use_param = True
+html_static_path = ['_static']
+html_css_files = [
+    'custom.css',
+]
+#napoleon_use_param = True

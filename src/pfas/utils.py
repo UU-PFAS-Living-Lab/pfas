@@ -9,7 +9,7 @@ air-water interface area estimation, and numerical integration support.
 import numpy as np
 
 
-def aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf): #noqa: PLR0913
+def aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf):  # noqa: PLR0913, PLR0917
     """Compute air-water interfacial area using thermodynamic approach.
 
     Estimates the air-water interfacial area per unit volume of porous medium
@@ -95,9 +95,106 @@ def aaw_func_tracer(sw, x2, x1, x0):
     aaw = x2*sw**2 + x1*sw + x0
     return aaw
 
+def aaw_func_GSSA(d50, poro, th=None, ths=None, sw=None): # noqa: N802
+    """Compute air-water interfacial area using the GSSA-based linear model.
+
+    Estimates the air-water interfacial area per unit bulk volume as a
+    linear function of water saturation, assuming that the geometric
+    smooth-surface specific solid surface area (GSSA) represents the
+    maximum possible interfacial area.
+
+    Parameters
+    ----------
+    th : float or ndarray
+        Volumetric water content.
+    ths : float
+        Saturated volumetric water content.
+    poro : float
+        Porosity of the porous medium (dimensionless, 0-1).
+    d50 : float
+        Median grain diameter (cm).
+
+    Returns
+    -------
+    Aaw : float or ndarray
+        Air-water interfacial area per unit volume (cm²/cm³).
+
+    Notes
+    -----
+    N/A
+
+    """
+    if sw is None:
+        sw = th / ths
+
+    aaw = (1 - sw) * (6 * (1 - poro) / d50)
+
+    return aaw
+
+
+def aaw_func_d50(d50, th=None, ths=None, sw=None):
+    """Compute air-water interfacial area using the d50 correlation.
+
+    Estimates the air-water interfacial area per unit bulk volume as a
+    linear function of water saturation, with the maximum interfacial
+    area estimated from median grain diameter.
+
+    Parameters
+    ----------
+    sw : float or ndarray
+        Water saturation (dimensionless, 0-1).
+    d50  : float
+        Median grain diameter (cm)
+
+    Returns
+    -------
+    Aaw : float or ndarray
+        Air-water interfacial area per unit volume (cm²/cm³).
+
+    Notes
+    -----
+    N/A
+
+    """
+    if sw is None:
+        sw = th / ths
+
+    aaw = (1 - sw) * 3.9 * d50**-1.2
+
+    return aaw
+
+
+def aaw_func_nonlinear_d50(d50, th=None, ths=None, sw=None):
+    """Compute air-water interfacial area from grain diameter and water saturation.
+
+    Parameters
+    ----------
+    sw : float or ndarray
+        Water saturation (dimensionless, 0-1).
+    d50  : float
+        Median grain diameter (cm)
+
+    Returns
+    -------
+    Aaw : float or ndarray
+        Air-water interfacial area per unit volume (cm²/cm³).
+
+    Notes
+    -----
+    N/A
+
+    """
+    if sw is None:
+        sw = th / ths
+
+    aaw = (-2.85 * sw + 3.6) * ((1 - sw) * 3.9 * d50**-1.2)
+
+    return aaw
 
 def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
-    """Calculate distribution coefficient using Fabregat-Palau (2021) model.
+    """Calculate distribution coefficient using the Fabregat-Palau model.
+
+    Based on Fabregat-Palaue et al. (2021) :cite:`fabregatpalau2021modelling`.
 
     Computes the soil-water distribution coefficient (Kd) for PFAS compounds
     based on the number of perfluorinated carbons and soil organic carbon
@@ -119,8 +216,8 @@ def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
 
     References
     ----------
-    Fabregat-Palau et al. (2021). Modelling the sorption behaviour of
-    perfluoroalkyl acids in soils.
+    Fabregat-Palau et al. :cite:`fabregatpalau2021modelling`. Modelling the
+    sorption behaviour of perfluoroalkyl acids in soils.
     """
     k_oc = k_oc_fabregat_palau2021(n_CFx)
     k_silt_clay = k_sc_fabregat_palau2021(n_CFx)
@@ -129,7 +226,7 @@ def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
 
 
 def k_sc_fabregat_palau2021(n_CFx):
-    """Calculate silt-clay sorption coefficient (Fabregat-Palau 2021).
+    """Calculate silt-clay sorption coefficient :cite:`fabregatpalau2021modelling`.
 
     Parameters
     ----------
@@ -143,15 +240,15 @@ def k_sc_fabregat_palau2021(n_CFx):
 
     References
     ----------
-    Fabregat-Palau et al. (2021). Modelling the sorption behaviour of
-    perfluoroalkyl acids in soils.
+    Fabregat-Palau et al. :cite:`fabregatpalau2021modelling`. Modelling the
+    sorption behaviour of perfluoroalkyl acids in soils.
     """
     k_sc = 10 ** (0.32 * n_CFx - 1.7)
     return k_sc
 
 
 def k_oc_fabregat_palau2021(n_CFx):
-    """Calculate organic carbon sorption coefficient (Fabregat-Palau 2021).
+    """Calculate organic carbon sorption coefficient :cite:`fabregatpalau2021modelling`.
 
     Parameters
     ----------
@@ -165,8 +262,8 @@ def k_oc_fabregat_palau2021(n_CFx):
 
     References
     ----------
-    Fabregat-Palau et al. (2021). Modelling the sorption behaviour of
-    perfluoroalkyl acids in soils.
+    Fabregat-Palau et al. :cite:`fabregatpalau2021modelling`. Modelling the
+    sorption behaviour of perfluoroalkyl acids in soils.
     """
     k_oc = 10 ** (0.41 * n_CFx - 0.7)
     return k_oc
@@ -205,3 +302,176 @@ def kd_freundlich(C_rep, K_freund, n_freund):  # noqa: N802
         return K_freund
     Kd = K_freund * C_rep ** (n_freund - 1)
     return Kd
+
+#Kaw formule van Le et al. (2021):
+def Kaw_0_Le2021(structural_properties): # noqa: N802
+    """Calculate low-concentration air-water partitioning using the Le et al. (2021) model.
+
+    Based on Le et al. (2021) :cite:`le2021group`.
+
+    Parameters
+    ----------
+    structural_properties : dict
+        Dictionary with the PFAS structural group counts.
+    """
+    n_CFx = structural_properties["n_CFx"]
+    n_CHx = structural_properties["n_CHx"]
+    n_COO = structural_properties["n_COO"]
+    n_COOH = structural_properties["n_COOH"]
+    n_SO3 = structural_properties["n_SO3"]
+    n_R4N = structural_properties["n_R4N"]
+    n_OH = structural_properties["n_OH"]
+    n_OSO3 = structural_properties["n_OSO3"]
+    n__O_ = structural_properties["n__O_"]
+    n__S_ = structural_properties["n__S_"]
+    n_N_CH3_2_CH2_COO = structural_properties["n_N_CH3_2_CH2_COO"]
+
+    Intercept       = -5.19
+    CFx             =  0.60
+    CHx             =  0.36
+    COO             = -2.42
+    COOH            = -0.47
+    SO3             = -2.35
+    R4N             = -4.30
+    OH              = -0.79
+    OSO3            = -2.39
+    _O_             = -0.41
+    _S_             = -0.21
+    N_CH3_2_CH2_COO = -1.07
+
+    log10_Kaw_0 = (
+        Intercept
+        + CFx * n_CFx
+        + CHx * n_CHx
+        + COO * n_COO
+        + COOH * n_COOH
+        + SO3 * n_SO3
+        + R4N * n_R4N
+        + OH * n_OH
+        + OSO3 * n_OSO3
+        + _O_ * n__O_
+        + _S_ * n__S_
+        + N_CH3_2_CH2_COO * n_N_CH3_2_CH2_COO
+    )
+    Kaw_0 = 10 ** log10_Kaw_0
+    return Kaw_0
+
+#dG0 formule van Le et al. (2021):
+def dG0_Le2021(structural_properties): # noqa: N802
+    """Calculate the Gibbs free energy change using the Le et al. model :cite:`le2021group`.
+
+    Parameters
+    ----------
+    structural_properties : dict
+        Dictionary with the PFAS structural group counts.
+    """
+    n_CFx = structural_properties["n_CFx"]
+    n_CHx = structural_properties["n_CHx"]
+    n_COO = structural_properties["n_COO"]
+    n_COOH = structural_properties["n_COOH"]
+    n_SO3 = structural_properties["n_SO3"]
+    n_R4N = structural_properties["n_R4N"]
+    n_OH = structural_properties["n_OH"]
+    n_OSO3 = structural_properties["n_OSO3"]
+    n__O_ = structural_properties["n__O_"]
+    n__S_ = structural_properties["n__S_"]
+    n_N_CH3_2_CH2_COO = structural_properties["n_N_CH3_2_CH2_COO"]
+
+    Intercept       = -14.29
+    CFx             = -3.57
+    CHx             = -2.07
+    COO             =  11.56
+    COOH            =  0.34
+    SO3             =  11.48
+    R4N             =  22.06
+    OH              =  4.22
+    OSO3            =  10.78
+    _O_             =  1.91
+    _S_             =  1.79
+    N_CH3_2_CH2_COO =  3.42
+
+    dG0 = (
+        Intercept
+        + CFx * n_CFx
+        + CHx * n_CHx
+        + COO * n_COO
+        + COOH * n_COOH
+        + SO3 * n_SO3
+        + R4N * n_R4N
+        + OH * n_OH
+        + OSO3 * n_OSO3
+        + _O_ * n__O_
+        + _S_ * n__S_
+        + N_CH3_2_CH2_COO * n_N_CH3_2_CH2_COO
+    )
+    return dG0
+
+
+#dG0 formule van Le et al. (2021):
+def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw): #noqa: N802
+    """Calculate the Langmuir partition coefficient using the Le et al. model :cite:`le2021group`.
+
+    Computes the Gibbs free energy change of adsorption for PFAS compounds
+    based on the number of perfluorinated carbons and the specific headgroup.
+
+    Parameters
+    ----------
+    Gamma_max
+        maximum surface excess
+    Keq
+        equilibrium adsorption constant
+    Cw
+        concentration
+
+    Returns
+    -------
+    dG0 : float
+        Distribution coefficient ().
+
+    """
+    omega = 55.3      # water molar concentration (mol/L) at 298K
+    R     = 0.008314  # gas constant (kJ/mol/K)
+    T     = 298       # temperature (K)
+
+    Keq = (1/omega) * np.exp(-dG0/(R*T))
+
+    Kaw = (Kaw_0)/(1 + Keq*Cw)
+
+    return Kaw
+
+def Kaw_Szyszkowski(sigma0, a, b, Cw, chi=2, T=298): # noqa: N802, PLR0913, PLR0917
+    """Calculate air-water partitioning coefficient using the Szyszkowski equation.
+
+    Parameters
+    ----------
+    sigma0 : float
+        Surface tension of PFAS-free water (dyn/cm).
+    a : float
+        Szyszkowski fitting parameter (mol/L).
+    b : float
+        Szyszkowski fitting parameter (dimensionless).
+    Cw : float
+        Aqueous PFAS concentration (mol/L).
+    chi : int, optional
+        Ionisation coefficient. Use 1 for nonionic PFAS or ionic PFAS
+        with swamping electrolyte, and 2 for ionic PFAS without
+        swamping electrolyte. Default is 2.
+    T : float, optional
+        Temperature (K). Default is 298 K.
+
+    Returns
+    -------
+    Kaw : float
+        Air-water interfacial adsorption coefficient (cm3/cm2), equivalent to cm.
+    """
+    R = 8.314e7  # dyn cm / mol / K
+
+    # Convert mol/L to mol/cm3
+    a_mol_cm3 = a / 1000
+    Cw_mol_cm3 = Cw / 1000
+
+    Kaw = (sigma0 * b) / (
+        chi * R * T * (a_mol_cm3 + Cw_mol_cm3)
+    )
+
+    return Kaw

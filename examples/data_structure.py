@@ -8,7 +8,7 @@ app = marimo.App(width="medium")
 def _(mo):
     mo.md(r"""
     # Utilizing data structure
-    This tutorial demonstrates how to use the data structure provided by the pfas package, which includes experimental data from peer-reviewed studies and soil property information for various soil types.
+    This tutorial demonstrates how to use the data structure provided by the pfas package, which includes experimental data from peer-reviewed studies and soil property information for various soil types. We also demonstrate the functionality of the built-in unit converter.
     """)
     return
 
@@ -16,22 +16,11 @@ def _(mo):
 @app.cell
 def _():
     #loading relevant modules 
-    from pfas.preprocessing import WaterPreprocessor, BoundaryPreprocessor, GridGenerator, SpRetardationPreprocessor, SWCAdsorptionPreprocessor, SorptionKawiDirectInput, SimulationRunner
-    from pfas.configuration import read_toml
+
     from pfas.model import Model
     from matplotlib import pyplot as plt
     import marimo as mo
-    return (
-        BoundaryPreprocessor,
-        GridGenerator,
-        SWCAdsorptionPreprocessor,
-        SimulationRunner,
-        SorptionKawiDirectInput,
-        SpRetardationPreprocessor,
-        WaterPreprocessor,
-        mo,
-        plt,
-    )
+    return (mo,)
 
 
 @app.cell(hide_code=True)
@@ -95,7 +84,7 @@ def _(PFASs, soils, spa_matrix):
     vg_alpha    = vg_params["alpha"]["value"]    # numeric value (1/cm)
     dispersivity = 1.5                       # not present for Accusand, use default
     C_rep = 1 #indication of nonlinearity for freundlich sorption, can be between 0 and 1
-    # Check for solid phase adsorption paraeters available:
+    # Check for solid phase adsorption parameters available in the dataset:
     if soil_name in spa_matrix and pfas_name in spa_matrix[soil_name]:
         spa = dict(spa_matrix[soil_name][pfas_name])
         freundlich_k = spa["Freundlich_K"]["value"]   # numeric value
@@ -111,180 +100,138 @@ def _(PFASs, soils, spa_matrix):
     else:
         print(f"\nNo spa_matrix entry for {pfas_name} in {soil_name}. Using fallback Kd.")
         use_spa = False
-    return (
-        C_rep,
-        bulk_dens,
-        dispersivity,
-        frac_int,
-        freundlich_k,
-        freundlich_n,
-        porosity,
-        rate_const,
-        soil,
-        theta_r,
-        use_spa,
-        vg_alpha,
-        vg_n,
-    )
+    return pfas, soil, spa, vg_params
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(mo):
     mo.md(r"""
-    ##Running Simulation
+    ## Converting Units
+    Within the *pfas* package it is important to be consistent with units to ensure the right results. To this end, all data in the database comes with a unit, as is shown in the code above.
+    To help with converting, the pfas package has its own unit converter. This converts the units to SI units automatically.
     """)
     return
+
+
+@app.cell
+def _(pfas, soil, spa, vg_params):
+    from pfas.unit_converter import UnitConverter
+
+    molar_mass_si = UnitConverter.to_si(
+        pfas["M"]["value"],
+        pfas["M"]["unit"],
+    )[0]
+
+    K_oc_si = UnitConverter.to_si(
+        pfas["K_oc"]["value"],
+        pfas["K_oc"]["unit"],
+    )[0]
+
+    diffusivity_si = UnitConverter.to_si(
+        pfas["diffusivity"]["value"],
+        pfas["diffusivity"]["unit"],
+    )[0]
+
+    bulk_dens_si = UnitConverter.to_si(
+        soil["rho_b"]["value"],
+        soil["rho_b"]["unit"],
+    )[0]
+
+    K_sat_si = UnitConverter.to_si(
+        soil["K_sat"]["value"],
+        soil["K_sat"]["unit"],
+    )[0]
+
+    vg_alpha_si = UnitConverter.to_si(
+        vg_params["alpha"]["value"],
+        vg_params["alpha"]["unit"],
+    )[0]
+
+    rate_const_si = UnitConverter.to_si(
+        spa["kinetic_adsorption_rate"]["value"],
+        spa["kinetic_adsorption_rate"]["unit"],
+    )[0]
+    return (
+        K_oc_si,
+        K_sat_si,
+        bulk_dens_si,
+        diffusivity_si,
+        molar_mass_si,
+        rate_const_si,
+        vg_alpha_si,
+    )
 
 
 @app.cell
 def _(
-    BoundaryPreprocessor,
-    C_rep,
-    GridGenerator,
-    SWCAdsorptionPreprocessor,
-    SimulationRunner,
-    SorptionKawiDirectInput,
-    SpRetardationPreprocessor,
-    WaterPreprocessor,
-    bulk_dens,
-    dispersivity,
-    frac_int,
-    freundlich_k,
-    freundlich_n,
-    porosity,
-    rate_const,
+    K_oc_si,
+    K_sat_si,
+    bulk_dens_si,
+    diffusivity_si,
+    mo,
+    molar_mass_si,
+    pfas,
+    rate_const_si,
     soil,
-    theta_r,
-    use_spa,
-    vg_alpha,
-    vg_n,
+    spa,
+    vg_alpha_si,
+    vg_params,
 ):
-    ## Running simulation 
-    from pfas.utils import kd_freundlich
-    # Step 1: Generate the grid
-    grid_gen = GridGenerator(
-        domain_length=60,
-        spatial_resolution=1.0,
-        time_resolution=100,
-        time_total=5000,
-    )
-    grid_results = grid_gen.compute()
+    import pandas as pd
 
-    # Step 2: Compute water flow / hydraulic properties
-    water_prep = WaterPreprocessor(
-        average_infiltration_rate=1.5,
-        hydraulic_conductivity=soil["K_sat"]["value"],   # pulled from soil data
-        porosity=porosity,
-        dispersivity=dispersivity,
-        van_genuchten_n=vg_n,
-        init_sat=0.2,
-        residual_water_content=theta_r,
-    )
-    water_results = water_prep.compute()
-
-    # Step 3: Setup boundary conditions
-    boundary_prep = BoundaryPreprocessor(
-        C_list=[10.0, 0],
-        T_list=[0, 2000],        # pulse from t=0 to t=2000 s
-    )
-    boundary_results = boundary_prep.compute()
-    sorption_solid = {
-            "kinetic_sorption": use_spa,
-            "sorption_isotherm": "linear",
-            "kinetic": {
-                "frac_int": frac_int,
-                "rate_const": rate_const,
-            },
-            "linear": {
-                "Kd_method": "direct_input",
-                "Kd": kd_freundlich(C_rep, freundlich_k, freundlich_n),
-            },
-    }
-
-
-    sp_retard = SpRetardationPreprocessor(
-        sorption_solid= sorption_solid,
-        bulk_density=bulk_dens,
-        hydro_properties=water_results["hydro_properties"],
-    )
-    sp_results = sp_retard.compute()
-
-    # Step 5: Air-water interface (AWI) adsorption
-    swc_adsorp = SWCAdsorptionPreprocessor(
-        hydro_properties=water_results["hydro_properties"],
-        sigma0=71,
-        scaling_factor_awi=1.0,
-        AWI={
-            "AWI_type": "SWC-based",
-            "SWC-based": {
-                "scaling_factor_awi": 1.0,
-            },
+    unit_table = pd.DataFrame([
+        {
+            "Parameter": "Molar mass",
+            "Old value": pfas["M"]["value"],
+            "Old unit": pfas["M"]["unit"],
+            "New value": molar_mass_si,
+            "New unit": "kg/mol",
         },
-        soil={
-            "bulk_density": bulk_dens,
-            "porosity": water_prep.porosity,
-            "van_genuchten_alpha": vg_alpha,
-            "van_genuchten_n": water_prep.van_genuchten_n,
-            "saturated_water_content": porosity,
-            "residual_water_content": water_prep.residual_water_content,
-            "hydraulic_conductivity": water_prep.hydraulic_conductivity,
-            "dispersivity": water_prep.dispersivity,
+        {
+            "Parameter": "Koc",
+            "Old value": pfas["K_oc"]["value"],
+            "Old unit": pfas["K_oc"]["unit"],
+            "New value": K_oc_si,
+            "New unit": "m**3/kg",
         },
-    )
-    awi_results = swc_adsorp.compute()
+        {
+            "Parameter": "Diffusivity",
+            "Old value": pfas["diffusivity"]["value"],
+            "Old unit": pfas["diffusivity"]["unit"],
+            "New value": diffusivity_si,
+            "New unit": "m**2/s",
+        },
+        {
+            "Parameter": "Bulk density",
+            "Old value": soil["rho_b"]["value"],
+            "Old unit": soil["rho_b"]["unit"],
+            "New value": bulk_dens_si,
+            "New unit": "kg/m**3",
+        },
+        {
+            "Parameter": "Ksat",
+            "Old value": soil["K_sat"]["value"],
+            "Old unit": soil["K_sat"]["unit"],
+            "New value": K_sat_si,
+            "New unit": "m/s",
+        },
+        {
+            "Parameter": "VG alpha",
+            "Old value": vg_params["alpha"]["value"],
+            "Old unit": vg_params["alpha"]["unit"],
+            "New value": vg_alpha_si,
+            "New unit": "1/m",
+        },
+        {
+            "Parameter": "Kinetic rate",
+            "Old value": spa["kinetic_adsorption_rate"]["value"],
+            "Old unit": spa["kinetic_adsorption_rate"]["unit"],
+            "New value": rate_const_si,
+            "New unit": "1/s",
+        },
+    ])
 
-    # Step 6: Kawi sorption
-    # Step 6: Compute Kawi sorption
-    kawi_sorp = SorptionKawiDirectInput(
-        kaw=0.5,
-        hydro_properties=water_results["hydro_properties"],
-        aaw=awi_results["aaw"],
-    )
-    kawi_results = kawi_sorp.compute()
-
-    # Step 7: Run the simulation
-    sim_runner = SimulationRunner(
-        grid=grid_results["grid"],
-        bulk_density=bulk_dens,
-        boundary_conditions=boundary_results["boundary_conditions"],
-        hydro_properties=water_results["hydro_properties"],
-        awi_retardation=kawi_results["awi_retardation"],
-        sorption_solid=sorption_solid,
-        kinetic_sorption=True,
-        volume_averaged=True
-    )
-    final_results = sim_runner.compute()
-    return final_results, grid_results
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ##Plotting Results
-    """)
-    return
-
-
-@app.cell
-def _(final_results, grid_results, plt):
-    simulation_grid = grid_results["grid"]
-    # Select specific time indices to plot
-    t_len = final_results['C_tot'].shape[1]
-    time_indices = [0, t_len//4, t_len//2, 3*t_len//4, -1]  # First, and some intermediate, and last time step
-
-    plt.figure(figsize=(8, 6))
-
-    for t_idx in time_indices:
-        plt.plot(final_results['C_tot'][:, t_idx], simulation_grid.depth, label=f"t = {simulation_grid.time[t_idx]:.0f} s")
-
-    plt.xlabel("Total PFAS Concentration (mg/L)")
-    plt.ylabel("Depth (cm)")
-    plt.title("PFAS Concentration Depth Profile at Different Times")
-    plt.legend()
-    plt.gca().invert_yaxis()  # Invert y-axis so depth increases downward
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.show()
+    mo.ui.table(unit_table)
     return
 
 

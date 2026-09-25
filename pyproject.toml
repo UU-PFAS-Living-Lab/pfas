@@ -37,11 +37,12 @@ test = [
 	"pytest", "ruff", "mypy", "nbval", "pytest-cov", "scipy-stubs", 
 ]
 docs = [
-    "sphinx<9.0.0", "sphinx-rtd-theme", "sphinxcontrib-napoleon",
+    "sphinx<9.0.0", "sphinxcontrib-bibtex", "sphinx-rtd-theme", "sphinxcontrib-napoleon",
     "sphinx-autodoc-typehints", "sphinx_inline_tabs", "sphinx_copybutton",
+    "pybtex-apa-style"
 ]
 examples = [
-    "marimo"
+    "marimo", "pandas", "matplotlib", "scipy", "numpy",
 ]
 dev = ["pfas[test,docs,examples]"]
 

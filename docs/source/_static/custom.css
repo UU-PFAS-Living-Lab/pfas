@@ -1,0 +1,69 @@
+/* Color overrides */
+.wy-side-nav-search {
+    background-color: #2d5a27;
+}
+
+.wy-nav-top {
+    background-color: #2d5a27;
+}
+
+.wy-side-nav-search input[type=text] {
+    border-color: #4a8c42;
+}
+
+a {
+    color: #3a7a32;
+}
+
+a:hover {
+    color: #2d5a27;
+}
+
+/* Sidebar */
+.wy-nav-side {
+    background-color: #1e3a1a;
+}
+
+.wy-menu-vertical a {
+    color: #c8e6c4;
+}
+
+.wy-menu-vertical a:hover {
+    background-color: #2d5a27;
+    color: #ffffff;
+}
+
+.wy-menu-vertical li.current a {
+    background-color: #4a8c42;
+    color: #ffffff;
+}
+
+/* Code blocks */
+div[class^="highlight"] {
+    border-left: 4px solid #4a8c42;
+    border-radius: 0 4px 4px 0;
+}
+
+/* Headings */
+h1, h2, h3 {
+    color: #1e3a1a;
+}
+
+h1 {
+    border-bottom: 2px solid #4a8c42;
+    padding-bottom: 8px;
+}
+
+/* Admonitions / notes */
+.rst-content .note .admonition-title {
+    background-color: #4a8c42;
+}
+
+.rst-content .note {
+    border-color: #4a8c42;
+}
+
+/* Footer */
+footer {
+    border-top: 2px solid #4a8c42;
+}
