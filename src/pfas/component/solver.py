@@ -69,11 +69,8 @@ class EquilibriumSolver(
     The IVP term integrates the Green's function kernel over the initial
     concentration profile Ci(xi) (CXTFIT Table 2.2).
 
-    References
-    ----------
-    Toride, Leij & van Genuchten (1995), CXTFIT Version 2.0, Research Report
-    No. 137, USDA-ARS. Section 2, eq. (2.20) for multiple rectangular pulses
-    via step superposition.
+    The multiple rectangular pulse formulation follows :cite:`toride1995`,
+    Section 2, equation (2.20).
     """
 
     grid: SimulationGrid
@@ -256,15 +253,9 @@ class KineticSolver(
 
         C_tot = θ·β·R·C₁ + ρ_b·C₂
 
-    References
-    ----------
-    van Genuchten, M. Th. (1981). Non-Equilibrium Transport Parameters from
-    Miscible Displacement Experiments. Research Report No. 119, USDA-ARS.
-
-    Toride, Leij & van Genuchten (1995). CXTFIT Version 2.0. Research Report
-    No. 137, USDA-ARS. Eqs. 3.6, 3.20–3.24; Tables 3.1, 3.4.
-
-    Lindstrom, F.T. and Stone, W.J. (1974). Soil Sci. Soc. Am. Proc.
+    The formulation follows van Genuchten :cite:`vangenuchten1981`,
+    Toride et al. :cite:`toride1995`, and Lindstrom and Stone
+    :cite:`lindstrom1974`.
     """
 
     grid: SimulationGrid

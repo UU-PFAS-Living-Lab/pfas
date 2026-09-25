@@ -12,8 +12,8 @@ class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
     Three Kd resolution methods are supported, selected via the
     ``sorption_isotherm`` and ``Kd_method`` keys inside *sorption_solid*:
 
-    **Linear isotherm — direct input** (``sorption_isotherm: "linear"``,
-    ``Kd_method: "direct_input"``)
+    Linear isotherm - direct input
+        ``sorption_isotherm: "linear"``, ``Kd_method: "direct_input"``.
         The distribution coefficient is supplied directly::
 
             sorption_solid = {
@@ -22,10 +22,11 @@ class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
                 ...
             }
 
-    **Linear isotherm — Fabregat-Palau (2021)** (``sorption_isotherm: "linear"``,
-    ``Kd_method: "fabregat_palau"``)
+    Linear isotherm - Fabregat-Palau (2021)
+        ``sorption_isotherm: "linear"``, ``Kd_method: "fabregat_palau"``.
         Kd is estimated from molecular structure and soil composition using
-        :func:`pfas.utils.kd_fabregat_palau`::
+        :func:`pfas.utils.kd_fabregat_palau`, based on the description in
+        Fabregat-Palau et al. (2021) :cite:`fabregatpalau2021modelling`::
 
             sorption_solid = {
                 "sorption_isotherm": "linear",

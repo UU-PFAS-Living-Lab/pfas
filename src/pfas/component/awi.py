@@ -16,11 +16,33 @@ from pfas.utils import (
 
 
 class SWCsorption(BaseModel, validate_assignment=True, extra="forbid"):
-    """
-    Calculate air-water interface area using thermodynamic relations.
+    """Calculate air-water interfacial area using thermodynamic relations.
 
-    Uses van Genuchten soil water characteristic curve to estimate
-    air-water interfacial area from water saturation.
+    Uses the van Genuchten soil water characteristic curve to estimate
+    air-water interfacial area from water saturation, following Guo et al. 2022 :cite:`guo2022`.
+
+    Parameters
+    ----------
+    hydro_properties : HydrologicalProperties
+        Hydraulic properties from :class:`~pfas.data_structure.HydrologicalProperties`.
+    sigma0 : float, optional
+        Air-water surface tension (N/m). Defaults to ``0.072``.
+    scaling_factor_awi : float
+        Scaling factor applied to the thermodynamic estimate.
+    van_genuchten_n : float
+        van Genuchten ``n`` parameter.
+    van_genuchten_alpha : float
+        van Genuchten ``alpha`` parameter.
+    porosity : float
+        Soil porosity, between 0 and 1.
+    residual_water_content : float
+        Residual water content, between 0 and 1.
+
+    Attributes
+    ----------
+    outputs : list of str
+        List containing ``"aaw"``.
+
     """
 
     hydro_properties: HydrologicalProperties
@@ -60,7 +82,24 @@ class SWCsorption(BaseModel, validate_assignment=True, extra="forbid"):
 
 
 class GuoTracer(BaseModel, validate_assignment=True, extra="forbid"):
-    """Calculate air-water interface area using the Guo et al. (2022) tracer relationship."""
+    """Calculate air-water interfacial area using the Guo tracer relationship :cite:`guo2022`.
+
+    Parameters
+    ----------
+    hydro_properties : HydrologicalProperties
+        Hydraulic properties from :class:`~pfas.data_structure.HydrologicalProperties`.
+    AWI : dict
+        Air-water-interface configuration containing a ``"Guo"`` mapping with
+        ``guo_x0``, ``guo_x1``, and ``guo_x2``.
+    soil : dict
+        Soil configuration.
+
+    Attributes
+    ----------
+    outputs : list of str
+        List containing ``"aaw"``.
+
+    """
 
     hydro_properties: HydrologicalProperties
     AWI: dict
@@ -113,7 +152,7 @@ class GSSAAWI(BaseModel, validate_assignment=True, extra="forbid"):
     The geometric smooth-surface specific solid surface area (GSSA)
     is calculated from porosity and median grain diameter and is
     assumed to represent the maximum possible air-water interfacial
-    area.
+    area. The GSSA-based relationship follows the formulation in :cite:`brusseau2023`.
 
     Parameters
     ----------
@@ -159,7 +198,8 @@ class D50AWI(BaseModel, validate_assignment=True, extra="forbid"):
     Calculate air-water interfacial area using the d50 correlation.
 
     Estimates the maximum air-water interfacial area from the median
-    grain diameter and applies a linear dependence on water saturation.
+    grain diameter and applies a linear dependence on water saturation. :cite:`brusseau2023`.
+
 
     Parameters
     ----------
@@ -203,7 +243,8 @@ class NonlinearD50AWI(BaseModel, validate_assignment=True, extra="forbid"):
 
     Estimates air-water interfacial area from the median grain
     diameter with an additional nonlinear saturation-dependent
-    correction.
+    correction. :cite:`brusseau2023`.
+
 
     Parameters
     ----------
@@ -215,6 +256,7 @@ class NonlinearD50AWI(BaseModel, validate_assignment=True, extra="forbid"):
     Notes
     -----
     The median grain diameter ``d50`` must be provided in cm.
+
     """
 
     hydro_properties: HydrologicalProperties

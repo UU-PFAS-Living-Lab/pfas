@@ -7,44 +7,55 @@ The source files are available in the `examples folder <https://github.com/UU-PF
 Data Structure
 --------------
 
-An overview of the data structures used in the package.
+An overview of the data structures and data availability within the PFAS package.
 
-.. raw:: html
+`Open the Data Structure tutorial in Marimo <https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/data_structure.py/wasm>`_.
 
-   <iframe src="https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/data_structure.py/wasm?embed=true" width="100%" height="600px" frameborder="0" style="border: 1px solid #ccc; border-radius: 4px;" sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-forms" allowfullscreen loading="lazy"></iframe>
+Basic Simulation
+----------------
+
+Build and run a complete PFAS transport simulation with a flux input.
+
+`Open the Basic Simulation tutorial in Marimo <https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/gen_example.py/wasm>`_.
 
 Initial Value Problem
 ---------------------
 
 How to set up and solve an initial value problem for PFAS transport.
 
-.. raw:: html
-
-   <iframe src="https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/initial_value_problem.py/wasm?embed=true" width="100%" height="600px" frameborder="0" style="border: 1px solid #ccc; border-radius: 4px;" sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-forms" allowfullscreen loading="lazy"></iframe>
+`Open the Initial Value Problem tutorial in Marimo <https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/initial_value_problem.py/wasm>`_.
 
 Kd Sorption
 -----------
 
-Modeling linear sorption (Kd) to soil particles.
+Modeling linear sorption (Kd) to soil using different mathematical approximations.
 
-.. raw:: html
+`Open the Kd Sorption tutorial in Marimo <https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/Kd_sorption_component.py/wasm>`_.
 
-   <iframe src="https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/Kd_sorption.py/wasm?embed=true" width="100%" height="600px" frameborder="0" style="border: 1px solid #ccc; border-radius: 4px;" sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-forms" allowfullscreen loading="lazy"></iframe>
+Kinetic and Equilibrium Sorption
+--------------------------------
 
-Factory
--------
+Compare kinetic and equilibrium sorption formulations.
 
-Using factory patterns to construct and configure models.
+`Open the Kinetic versus Equilibrium tutorial in Marimo <https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/kin_vs_eq.py/wasm>`_.
 
-.. raw:: html
+Mass Balance
+------------
 
-   <iframe src="https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/factory.py/wasm?embed=true" width="100%" height="600px" frameborder="0" style="border: 1px solid #ccc; border-radius: 4px;" sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-forms" allowfullscreen loading="lazy"></iframe>
+Check the mass balance across the modeled PFAS phases.
 
-Generate Example
-----------------
+`Open the Mass Balance tutorial in Marimo <https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/mass_balance.py/wasm>`_.
 
-Generating simulation configurations programmatically.
+Running Models for Different Soils
+-----------------------------------
 
-.. raw:: html
+Run the transport model for different soil types.
 
-   <iframe src="https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/gen_example.py/wasm?embed=true" width="100%" height="600px" frameborder="0" style="border: 1px solid #ccc; border-radius: 4px;" sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-forms" allowfullscreen loading="lazy"></iframe>
+`Open the Different Soils tutorial in Marimo <https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/RunningModelDifferentSoils.py/wasm>`_.
+
+Looping over Staring Soils and PFASs
+------------------------------------
+
+Run simulations for multiple Staring soils and PFAS compounds.
+
+`Open the Staring Soils and PFASs tutorial in Marimo <https://marimo.app/github/UU-PFAS-Living-Lab/pfas/blob/main/examples/loop_for_Staring_soils_and_PFASs.py/wasm>`_.
