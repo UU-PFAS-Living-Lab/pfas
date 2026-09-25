@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from annotated_types import Gt, Interval
+from pint.registry import Quantity
 from pydantic import BaseModel, model_validator
 
 from pfas.data_structure import HydrologicalProperties
@@ -15,7 +16,7 @@ from pfas.utils import (
 )
 
 
-class SWCsorption(BaseModel, validate_assignment=True, extra="forbid"):
+class SWCsorption(BaseModel, validate_assignment=True, extra="forbid", arbitrary_types_allowed=True):
     """
     Calculate air-water interface area using thermodynamic relations.
 
@@ -24,10 +25,10 @@ class SWCsorption(BaseModel, validate_assignment=True, extra="forbid"):
     """
 
     hydro_properties: HydrologicalProperties
-    sigma0: Annotated[float, Gt(0)] = 0.072
+    sigma0: Annotated[float|Quantity, Gt(0)] = 0.072
     scaling_factor_awi: Annotated[float, Gt(0)]
     van_genuchten_n: Annotated[float, Gt(0)]
-    van_genuchten_alpha: Annotated[float, Gt(0)]
+    van_genuchten_alpha: Annotated[float|Quantity, Gt(0)]
     porosity: Annotated[float, Interval(ge=0, le=1)]
     residual_water_content: Annotated[float, Interval(ge=0, le=1)]
 

@@ -32,7 +32,19 @@ def _():
     from pint import UnitRegistry
 
     ureg = UnitRegistry()
-    return mo, plt
+    return (
+        BoundaryPreprocessor,
+        EquilibriumSolver,
+        GridGenerator,
+        LinearSPsorption,
+        Model,
+        Retardation,
+        SWCsorption,
+        WaterPreprocessor,
+        mo,
+        plt,
+        ureg,
+    )
 
 
 @app.cell(hide_code=True)
@@ -45,8 +57,18 @@ def _(mo):
     return
 
 
-app._unparsable_cell(
-    r"""
+@app.cell
+def _(
+    BoundaryPreprocessor,
+    EquilibriumSolver,
+    GridGenerator,
+    LinearSPsorption,
+    Model,
+    Retardation,
+    SWCsorption,
+    WaterPreprocessor,
+    ureg,
+):
     # Step 1: Generate the grid
     model = Model()
     model.compute(
@@ -92,15 +114,15 @@ app._unparsable_cell(
     # Step 5: Compute AWI adsorption
     model.compute(
         SWCsorption,
-        sigma0=ureg("71 dyn/cm" ,
+        sigma0=ureg("71 dyn/cm") ,
         scaling_factor_awi=1.0,
-        van_genuchten_alpha = ureg("0.019 1/cm",
+        van_genuchten_alpha = ureg("0.019 1/cm"),
     )
 
     # Step 6: Compute retardation
     model.compute(
         Retardation,
-        Kaw=ureg("0.5 cm^3/cm^2",
+        Kaw=ureg("0.5 cm^3/cm^2"),
         bulk_density=ureg("1.6 g/cm^3") #g/cm3,
     )
 
@@ -110,9 +132,7 @@ app._unparsable_cell(
     )
 
     print("Simulation completed successfully!")
-    """,
-    name="_"
-)
+    return (model,)
 
 
 @app.cell(hide_code=True)
