@@ -69,7 +69,9 @@ class Le2021_asymptote(BaseModel, validate_assignment=True, extra='forbid'): # n
 
 class Le2021_langmuir(BaseModel): # noqa: N801
     """
-    Compute the air-water partition coefficient using the Langmuir isotherm from Le et al. (2021) :cite:`le2021group`.
+    Compute the air-water partition coefficient using the Langmuir isotherm.
+
+    Based on Le et al. (2021) :cite:`le2021group`.
 
     Parameters
     ----------
@@ -192,7 +194,7 @@ class Szyszkowski(BaseModel, validate_assignment=True, extra='forbid'):
         List containing 'awi_retardation'.
     """
 
-    sigma0: Annotated[float, Gt(0)] = 0.072 
+    sigma0: Annotated[float, Gt(0)] = 0.072
     a: float
     b: float
     chi: int = 2

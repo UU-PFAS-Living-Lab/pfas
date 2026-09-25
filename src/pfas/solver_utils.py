@@ -1,7 +1,8 @@
 """Mathematical primitives and preprocessing utilities for ADE analytical solvers.
 
-This module contains analytical solutions based on van Genuchten and Alves :cite:`vangenuchtenalves1982`,
-the CXTFIT formulation :cite:`toride1995`, and its corresponding non-equilibrium transport formulation :cite:`vangenuchten1981`,
+This module contains analytical solutions based on van Genuchten and Alves
+:cite:`vangenuchtenalves1982`, the CXTFIT formulation :cite:`toride1995`, and
+its corresponding non-equilibrium transport formulation :cite:`vangenuchten1981`,
 with the Bessel-series approximation following Lindstrom and Stone :cite:`lindstrom1974`:
 - Dimensionless parameter computation and the :class:`DimensionlessParams` container
 - BVP helper functions for equilibrium sorption (one per boundary condition type)
