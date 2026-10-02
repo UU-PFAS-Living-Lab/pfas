@@ -236,7 +236,7 @@ def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
     k_oc = k_oc_fabregat_palau2021(n_CFx)
     k_silt_clay = k_sc_fabregat_palau2021(n_CFx)
     Kd = k_oc * f_oc + k_silt_clay * f_silt_clay
-    return Kd
+    return Kd * ureg.liter / ureg.kilogram
 
 
 def k_sc_fabregat_palau2021(n_CFx):
@@ -250,7 +250,7 @@ def k_sc_fabregat_palau2021(n_CFx):
     Returns
     -------
     k_sc : float
-        Silt-clay sorption coefficient (L/kg).
+        Silt-clay sorption coefficient (L/kg silt + clay).
 
     References
     ----------
@@ -272,7 +272,7 @@ def k_oc_fabregat_palau2021(n_CFx):
     Returns
     -------
     k_oc : float
-        Organic carbon sorption coefficient (L/kg).
+        Organic carbon sorption coefficient (L/kg organic carbon).
 
     References
     ----------
@@ -282,40 +282,59 @@ def k_oc_fabregat_palau2021(n_CFx):
     k_oc = 10 ** (0.41 * n_CFx - 0.7)
     return k_oc
 
-def kd_freundlich(C_rep, K_freund, n_freund):  # noqa: N802
-    """Calculate distribution coefficient using the Freundlich sorption model.
 
-    Computes the soil-water distribution coefficient (Kd) from a Freundlich
-    isotherm, which describes non-linear sorption onto soil.
+def kd_freundlich(
+    C_rep,
+    K_freund,
+    n_freund,
+):  # noqa: N802
+    """Calculate Kd at a representative concentration.
 
-    The Freundlich isotherm is defined as:
-        S = K_freund * C^n_freund
-    which gives a concentration-dependent Kd:
-        Kd = K_freund * C_rep^(n_freund - 1)
+    Kd = K_freund * C_rep**(n_freund - 1)
 
-    For C_rep = 0, Kd reduces to K_freund (equivalent to C_rep = 1).
+    The function accepts either:
+    - Pint quantities for unit-aware calculations; or
+    - plain numerical values, assuming consistent units.
 
     Parameters
     ----------
-    C_rep : float
-        Representative aqueous-phase concentration [mg/L].
-        If zero, Kd is returned as K_freund (C_rep = 1 assumed).
-    K_freund : float
-        Freundlich capacity coefficient [(mg/kg) / (mg/L)^n_freund].
+    C_rep : float or pint.Quantity
+        Representative aqueous concentration.
+    K_freund : float or pint.Quantity
+        Freundlich capacity coefficient.
     n_freund : float
-        Freundlich exponent [-]. n_freund < 1 indicates favourable
-        (concave) sorption; n_freund = 1 recovers linear (Kd) sorption.
+        Freundlich exponent.
 
     Returns
     -------
-    Kd : float
-        Concentration-dependent distribution coefficient [L/kg].
-
+    float or pint.Quantity
+        Distribution coefficient Kd.
     """
-    if C_rep == 0:
-        return K_freund
-    Kd = K_freund * C_rep ** (n_freund - 1)
-    return Kd
+    if isinstance(n_freund, Quantity):
+        n_freund = n_freund.to("").magnitude
+
+    n_freund = float(n_freund)
+
+    if isinstance(C_rep, Quantity) != isinstance(K_freund, Quantity):
+        raise TypeError(
+            "C_rep and K_freund must either both be Pint quantities "
+            "or both be plain numerical values."
+        )
+
+    if isinstance(C_rep, Quantity):
+        if C_rep.magnitude <= 0:
+            raise ValueError("C_rep must be greater than zero.")
+
+        Kd = K_freund * C_rep ** (n_freund - 1)
+        return Kd.to("liter / kilogram")
+
+    C_rep = float(C_rep)
+    K_freund = float(K_freund)
+
+    if C_rep <= 0:
+        raise ValueError("C_rep must be greater than zero.")
+
+    return K_freund * C_rep ** (n_freund - 1)
 
 #Kaw formule van Le et al. (2021):
 def Kaw_0_Le2021(structural_properties): # noqa: N802

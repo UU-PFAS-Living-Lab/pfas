@@ -29,7 +29,7 @@ def _(mo):
 def _():
     from pfas.model import Model
     from pfas.component import LinearSPsorption, SWCsorption, Retardation, EquilibriumSolver, WaterPreprocessor, BoundaryPreprocessor, GridGenerator, FreundlichSPsorption
-
+    from pfas import ureg
     from pfas.data_loader import load_dataset, available_datasets
     from matplotlib import pyplot as plt
     import marimo as mo
@@ -49,6 +49,7 @@ def _():
         load_dataset,
         mo,
         plt,
+        ureg,
     )
 
 
@@ -61,6 +62,7 @@ def _(mo):
     library using `load_dataset("PFASs")` and `load_dataset("soils")`.
     No values are hardcoded — the cell below loads the full databases and extracts
     the entries for **PFOA** and **Accusand**.
+    These entries come with units, which were registered with Pint.
     We manually increase the level of OM to 10% in order to see the effects on solid phase sorption.
     """)
     return
@@ -76,13 +78,13 @@ def _(load_dataset):
     pfas_name = "PFOA"
     pfas      = pfas_db[pfas_name]
     n_CFx     = pfas["structural_properties"]["n_CFx"]
-    K_oc_pfoa = pfas["K_oc"]  # L/kg
+    K_oc_pfoa = pfas["K_oc"]
     K_sc_pfoa = pfas["K_sc"] # L/kg
 
     # ── Soil: Accusand ────────────────────────────────────────────────────────
     soil_name    = "Accusand"
     soil         = soil_db[soil_name]
-    bulk_dens    = soil["rho_b"] #g/cm3 = kg/dm3
+    bulk_dens    = soil["rho_b"] 
     porosity     = soil["porosity"]
     theta_r      = soil["theta_r"]
     theta_s      = soil["theta_s"]
@@ -117,7 +119,6 @@ def _(load_dataset):
         n_CFx,
         porosity,
         theta_r,
-        vg_alpha,
         vg_l,
         vg_n,
     )
@@ -147,26 +148,27 @@ def _(mo):
 
 
 @app.cell
-def _(K_oc_pfoa, K_sc_pfoa, f_oc, f_silt_clay, n_CFx):
-    Kd_linear_direct = K_oc_pfoa * f_oc + K_sc_pfoa * f_silt_clay
+def _(K_oc_pfoa, K_sc_pfoa, f_oc, f_silt_clay, n_CFx, ureg):
+    Kd_linear_direct = K_oc_pfoa * f_oc + K_sc_pfoa * f_silt_clay.magnitude
 
     K_freund = K_oc_pfoa * f_oc
+    print(K_freund)
     n_freund = 0.8
-    C_rep    = 0.5
+    C_rep    = 0.5 * ureg.milligram / ureg.liter
 
     sorption_linear = {
         "kinetic_sorption": False,
         "sorption_isotherm": "linear",
-        "kinetic": {"frac_int": 0.3, "rate_const": 0.01},
+        "kinetic": {"frac_int": 0.3, "rate_const": 0.01/ ureg.s },
         "linear": {"Kd_method": "direct_input", "Kd": Kd_linear_direct},
     }
 
     sorption_freundlich = {
         "kinetic_sorption": False,
         "sorption_isotherm": "freundlich",
-        "kinetic": {"frac_int": 0.3, "rate_const": 0.01},
+        "kinetic": {"frac_int": 0.3, "rate_const": 0.01/ ureg.s },
         "freundlich": {
-            "K_freund": K_freund,
+            "K_freund": 10.7 * ((ureg.milligram / ureg.kilogram)/ (ureg.milligram / ureg.liter) ** n_freund),
             "n_freund": n_freund,
             "C_rep": C_rep,
         },
@@ -175,16 +177,16 @@ def _(K_oc_pfoa, K_sc_pfoa, f_oc, f_silt_clay, n_CFx):
     sorption_fabregat = {
         "kinetic_sorption": False,
         "sorption_isotherm": "linear",
-        "kinetic": {"frac_int": 0.3, "rate_const": 0.01},
+        "kinetic": {"frac_int": 0.3, "rate_const": 0.01/ ureg.s },
         "linear": {
             "Kd_method": "fabregat_palau",
             "n_CFx": n_CFx,
             "f_oc": f_oc,
-            "f_silt_clay": f_silt_clay,
+            "f_silt_clay": f_silt_clay.magnitude,
         },
     }
 
-    print(f"Linear Kd (tabulated, injected as direct_input) = {Kd_linear_direct:.4f} L/kg")
+    print(f"Linear Kd (tabulated, injected as direct_input) = {Kd_linear_direct:.4f} ")
     return sorption_fabregat, sorption_freundlich, sorption_linear
 
 
@@ -215,7 +217,7 @@ def _(
     sorption_freundlich,
     sorption_linear,
     theta_r,
-    vg_alpha,
+    ureg,
     vg_l,
     vg_n,
 ):
@@ -225,15 +227,15 @@ def _(
 
         m.compute(
             GridGenerator,
-            domain_length=60,
-            spatial_resolution=1.0,
-            time_resolution=1000,
-            time_total=40000,
+            domain_length=60 *ureg.centimeter,
+            spatial_resolution=1.0 * ureg.centimeter,
+            time_resolution=1000*ureg.s,
+            time_total=40000*ureg.s,
         )
 
         m.compute(
             WaterPreprocessor,
-            average_infiltration_rate=1.5e-2,
+            average_infiltration_rate=ureg("0.5e-3 cm/s") ,
             hydraulic_conductivity=K_sat,
             porosity=porosity,
             dispersivity=dispersivity,
@@ -241,18 +243,18 @@ def _(
             van_genuchten_l=vg_l,
             residual_water_content=theta_r,
         )
-
+  
         m.compute(
             BoundaryPreprocessor,
-            C_list=[0.1, 0],
-            T_list=[0, 2000],
+            C_list=[ureg("1 mg/L"), ureg("0 mg/L")],
+            T_list=[0*ureg.seconds, 2000*ureg.seconds],
         )
 
         m.compute(
-            SWCsorption,
-            sigma0=71,
-            scaling_factor_awi=1.0,
-            van_genuchten_alpha=vg_alpha,
+        SWCsorption,
+        sigma0=ureg("71 dyn/cm") ,
+        scaling_factor_awi=1.0,
+        van_genuchten_alpha = ureg("0.019 1/cm"),
         )
 
         return m
@@ -270,9 +272,10 @@ def _(
     def run_branch(label, sorption_cls, sorption_solid):
         branch_model = build_base_model()
         branch_model.compute(sorption_cls, sorption_solid=sorption_solid)
-        branch_model.compute(Retardation, Kaw=0.5, bulk_density=bulk_dens)
+        branch_model.compute(Retardation, Kaw=ureg("0.00005 m^3/m^2"), bulk_density=bulk_dens)
         branch_model.compute(EquilibriumSolver)
-        print(f"  {label}: done  (Kd = {branch_model.Kd:.4f} L/kg)")
+        print(f"  {label}: done  (Kd = {branch_model.Kd:.4f} )")
+        print(f" {label}: retardation = {branch_model.adsorption}")
         return branch_model
 
     branch_models = {
@@ -301,10 +304,12 @@ def _(mo):
 
 
 @app.cell
-def _(model_fabregat, model_freund, model_linear, plt):
+def _(model_fabregat, model_freund, model_linear, plt, ureg):
+    ureg.setup_matplotlib(True)  
+    ureg.mpl_formatter = "{:~P}"  
     sim_grid = model_linear.grid
 
-    t_idx_2000 = min(range(len(sim_grid.time)), key=lambda i: abs(sim_grid.time[i] - 10000))
+    t_idx_2000 = min(range(len(sim_grid.time)), key=lambda i: abs(sim_grid.time[i] - 10000*ureg.seconds))
     actual_time = sim_grid.time[t_idx_2000]
 
     branches = [
@@ -332,7 +337,7 @@ def _(model_fabregat, model_freund, model_linear, plt):
     ax1.grid(True, alpha=0.3)
 
     ax2 = axes_cmp[1]
-    depth_target_cm = 30
+    depth_target_cm = 30*ureg.cm
     depth_idx = min(range(len(sim_grid.depth)), key=lambda i: abs(sim_grid.depth[i] - depth_target_cm))
     actual_depth = sim_grid.depth[depth_idx]
 
