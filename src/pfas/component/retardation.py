@@ -57,8 +57,8 @@ class Retardation(BaseModel, validate_assignment=True, extra='forbid',
         dict
             Dictionary with key 'adsorption' containing an Adsorption instance.
         """
-        awi_retardation = (self.Kaw * self.aaw) / self.hydro_properties.water_content
-        sp_retardation = (self.bulk_density * self.Kd) / self.hydro_properties.water_content
+        awi_retardation = ((self.Kaw * self.aaw) / self.hydro_properties.water_content).to("dimensionless")
+        sp_retardation = ((self.bulk_density * self.Kd) / self.hydro_properties.water_content).to("dimensionless")
         kin_params = self.kin_params or {}
 
         return {

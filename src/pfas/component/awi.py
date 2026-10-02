@@ -5,6 +5,7 @@ from typing import Annotated
 from annotated_types import Gt, Interval
 from pint.registry import Quantity
 from pydantic import BaseModel, model_validator
+from pfas import ureg
 
 from pfas.data_structure import HydrologicalProperties
 from pfas.utils import (
@@ -16,49 +17,68 @@ from pfas.utils import (
 )
 
 
-class SWCsorption(BaseModel, validate_assignment=True, extra="forbid", arbitrary_types_allowed=True):
-    """
-    Calculate air-water interface area using thermodynamic relations.
+from typing import Annotated
 
-    Uses van Genuchten soil water characteristic curve to estimate
-    air-water interfacial area from water saturation.
-    """
+from pydantic import BaseModel, Field, field_validator
+from annotated_types import Gt, Interval
+from pint import Quantity
+
+
+class SWCsorption(
+    BaseModel,
+    validate_assignment=True,
+    extra="forbid",
+    arbitrary_types_allowed=True,
+):
+    """Calculate air-water interface area using thermodynamic relations."""
 
     hydro_properties: HydrologicalProperties
-    sigma0: Annotated[float|Quantity, Gt(0)] = 0.072
+
+    sigma0: Annotated[Quantity, Gt(0)] = (
+        0.072 * ureg.newton / ureg.meter
+    )
+
     scaling_factor_awi: Annotated[float, Gt(0)]
-    van_genuchten_n: Annotated[float, Gt(0)]
-    van_genuchten_alpha: Annotated[float|Quantity, Gt(0)]
+    van_genuchten_n: Annotated[float, Gt(1)]
+    van_genuchten_alpha: Annotated[Quantity, Gt(0)]
+
     porosity: Annotated[float, Interval(ge=0, le=1)]
     residual_water_content: Annotated[float, Interval(ge=0, le=1)]
 
-    def compute(self):
+    water_density: Annotated[Quantity, Gt(0)] = (
+        1000 * ureg.kg / ureg.meter**3
+    )
+
+    gravity: Annotated[Quantity, Gt(0)] = (
+        9.81 * ureg.meter / ureg.second**2
+    )
+
+    def compute(self) -> dict[str, Quantity]:
         """Calculate air-water interfacial area."""
         poro = self.porosity
-        alpha = self.van_genuchten_alpha
-        n_vg = self.van_genuchten_n
         theta = self.hydro_properties.water_content
         thetar = self.residual_water_content
         thetas = poro
 
         aaw = aaw_func_thermo(
-            self.sigma0,
-            poro,
-            alpha,
-            n_vg,
-            theta,
-            thetar,
-            thetas,
-            self.scaling_factor_awi,
+            sigma0=self.sigma0,
+            poro=poro,
+            alpha=self.van_genuchten_alpha,
+            n=self.van_genuchten_n,
+            th=theta,
+            thr=thetar,
+            ths=thetas,
+            sf=self.scaling_factor_awi,
+            water_density=self.water_density,
+            gravity=self.gravity,
         )
 
         return {"aaw": aaw}
 
     @property
-    def outputs(self):
-        """List of output keys from compute() method."""
+    def outputs(self) -> list[str]:
+        """List of output keys from compute()."""
         return ["aaw"]
-
 
 class GuoTracer(BaseModel, validate_assignment=True, extra="forbid"):
     """Calculate air-water interface area using the Guo et al. (2022) tracer relationship."""

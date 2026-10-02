@@ -30,8 +30,8 @@ def _():
     import marimo as mo
     from pfas.component import EquilibriumSolver
     from pint import UnitRegistry
-
-    ureg = UnitRegistry()
+    from pfas import ureg
+    #ureg = UnitRegistry()
     return (
         BoundaryPreprocessor,
         EquilibriumSolver,
@@ -122,7 +122,7 @@ def _(
     # Step 6: Compute retardation
     model.compute(
         Retardation,
-        Kaw=ureg("0.5 cm^3/cm^2"),
+        Kaw=ureg("0.5 m^3/m^2"),
         bulk_density=ureg("1.6 g/cm^3") #g/cm3,
     )
 
@@ -132,6 +132,9 @@ def _(
     )
 
     print("Simulation completed successfully!")
+    print(model.aaw.units)
+    print(model.Kd.units)
+    print(model.adsorption)
     return (model,)
 
 

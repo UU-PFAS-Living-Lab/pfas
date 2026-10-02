@@ -7,23 +7,35 @@ air-water interface area estimation, and numerical integration support.
 """
 
 import numpy as np
+from pfas import ureg 
+from pint import Quantity
 
-
-def aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf):  # noqa: PLR0913, PLR0917
+def aaw_func_thermo(  # noqa: PLR0913, PLR0917
+    sigma0: Quantity,
+    poro: float,
+    alpha: Quantity,
+    n: float,
+    th: float,
+    thr: float,
+    ths: float,
+    sf: float,
+    water_density: Quantity,
+    gravity: Quantity, 
+ ) -> Quantity:  # noqa: PLR0913, PLR0917
     """Compute air-water interfacial area using thermodynamic approach.
 
     Estimates the air-water interfacial area per unit volume of porous medium
     using thermodynamic relations based on capillary pressure and water content,
-    following van Genuchten soil water retention characteristics.
+    following van Genuchten soil water retention characteristic. 
 
     Parameters
     ----------
     sigma0 : float
-        Surface tension of water (dyn/cm).
+        Surface tension of water (pressure per length). 
     poro : float
         Porosity of the porous medium (dimensionless, 0-1).
     alpha : float
-        van Genuchten parameter (cm⁻¹), related to the air-entry pressure.
+        van Genuchten parameter (L^-1), related to the air-entry pressure.
     n : float
         van Genuchten parameter (dimensionless), related to pore size distribution.
     th : float
@@ -38,28 +50,28 @@ def aaw_func_thermo(sigma0, poro, alpha, n, th, thr, ths, sf):  # noqa: PLR0913,
     Returns
     -------
     Aaw : float
-        Air-water interfacial area per unit volume (cm²/cm³).
+        Air-water interfacial area per unit volume (L^2 L^-3). Its displayed units
+    depend on the units supplied for the input quantities.
 
-    Notes
-    -----
-    The function integrates the capillary pressure curve over saturation range
-    to estimate the interfacial area. Water properties are assumed:
-
-    - Water density: 1000 kg/m³
-    - Gravitational acceleration: 9.81 m/s²
     """
-    rhow = 1000
-    g = 9.81
-    m = 1 - 1/n
-    sr = thr/ths
+    m = 1 - 1 / n
+    sr = thr / ths
+
     sw = np.linspace(th/ths,1,1000)
-    def pc(sw):
-        return (((1-sr)/(sw-sr))**(1/m) - 1)**(1/n)/alpha/100*rhow*g
 
-    aaw = 10*np.trapezoid(poro/sigma0*pc(sw),sw)
-    aaw = aaw*sf
+    def pc(saturation: np.ndarray) -> Quantity:
+        return (
+            (
+                ((1 - sr) / (saturation - sr)) ** (1 / m) - 1
+            ) ** (1 / n)
+            / alpha
+            * water_density
+            * gravity
+        )
 
-    return aaw
+    aaw = poro / sigma0 * np.trapezoid(pc(sw), sw)
+
+    return (aaw * sf).to_base_units()
 
 def aaw_func_tracer(sw, x2, x1, x0):
     """Compute air-water interfacial area using empirical polynomial model.
@@ -83,7 +95,7 @@ def aaw_func_tracer(sw, x2, x1, x0):
     Returns
     -------
     Aaw : float or ndarray
-        Air-water interfacial area per unit volume (cm²/cm³).
+        Air-water interfacial area per unit volume. 
 
     Notes
     -----
@@ -117,8 +129,7 @@ def aaw_func_GSSA(d50, poro, th=None, ths=None, sw=None): # noqa: N802
     Returns
     -------
     Aaw : float or ndarray
-        Air-water interfacial area per unit volume (cm²/cm³).
-
+        Air-water interfacial area per unit volume. 
     Notes
     -----
     N/A
