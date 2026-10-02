@@ -195,8 +195,6 @@ class EquilibriumSolver(
         C1_ivp = np.zeros((len(Z), len(T)), dtype=np.float64)
     
         if np.any(Ci != 0):
-            # Ci is sampled on grid.depth, so integrate over the matching
-            # dimensionless depth coordinates rather than assuming 0..1.
             xi = Z
             if len(xi) != len(Ci):
                 raise ValueError("Ci must be sampled on the same points as Z.")
