@@ -128,6 +128,8 @@ def _(
         sigma0=71,
         scaling_factor_awi=1.0,
         van_genuchten_alpha=0.019, #1/cm
+        water_density = 1000, 
+        gravity = 9.81,
     )
 
     # ── Step 7 + 8: Retardation (Kaw supplied directly) and solve ──────────────

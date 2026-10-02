@@ -10,50 +10,56 @@ import numpy as np
 from pfas import ureg 
 from pint import Quantity
 
+def _uses_units(**named) -> bool:
+    """True if all given inputs are Quantities, False if none are.
+ 
+    Raises if they are mixed, because a half-unitless call is almost
+    certainly a mistake.
+    """
+    flags = {isinstance(v, Quantity) for v in named.values()}
+    if len(flags) > 1:
+        with_units = [k for k, v in named.items() if isinstance(v, Quantity)]
+        without = [k for k, v in named.items() if not isinstance(v, Quantity)]
+        raise ValueError(
+            f"Mixed inputs: {with_units} have units but {without} do not. "
+            "Pass either all Quantities or all plain numbers."
+        )
+    return flags.pop()
+
 def aaw_func_thermo(  # noqa: PLR0913, PLR0917
-    sigma0: Quantity,
+    sigma0: Quantity | float,
     poro: float,
-    alpha: Quantity,
+    alpha: Quantity | float,
     n: float,
     th: float,
     thr: float,
     ths: float,
     sf: float,
-    water_density: Quantity,
-    gravity: Quantity, 
- ) -> Quantity:  # noqa: PLR0913, PLR0917
-    """Compute air-water interfacial area using thermodynamic approach.
-
-    Estimates the air-water interfacial area per unit volume of porous medium
-    using thermodynamic relations based on capillary pressure and water content,
-    following van Genuchten soil water retention characteristic. 
-
+    water_density: Quantity | float,
+    gravity: Quantity | float,
+) -> Quantity | float:
+    """Compute air-water interfacial area using the thermodynamic approach.
+ 
+    Aaw(Sw) = (poro / sigma0) * integral from Sw to 1 of Pc(S) dS, with Pc from
+    the van Genuchten retention curve.
+ 
     Parameters
     ----------
-    sigma0 : float
-        Surface tension of water (pressure per length). 
-    poro : float
-        Porosity of the porous medium (dimensionless, 0-1).
-    alpha : float
-        van Genuchten parameter (L^-1), related to the air-entry pressure.
-    n : float
-        van Genuchten parameter (dimensionless), related to pore size distribution.
-    th : float
-        Current water content (dimensionless).
-    thr : float
-        Residual water content (dimensionless).
-    ths : float
-        Saturated water content (dimensionless).
-    sf : float
-        Scaling factor to correct the thermodynamic-based estimate (dimensionless).
-
+    sigma0, alpha, water_density, gravity
+        Either all pint Quantities or all plain numbers. Plain numbers must be
+        in one consistent unit system (e.g. SI), since nothing can be checked.
+    poro, n, th, thr, ths, sf : float
+        Dimensionless.
+ 
     Returns
     -------
-    Aaw : float
-        Air-water interfacial area per unit volume (L^2 L^-3). Its displayed units
-    depend on the units supplied for the input quantities.
-
+    Quantity or float
+        A Quantity in SI base units (1/m) if the inputs had units, otherwise a
+        float in the inverse of the length unit implied by the inputs.
     """
+    with_units = _uses_units(
+        sigma0=sigma0, alpha=alpha
+    )
     m = 1 - 1 / n
     sr = thr / ths
 
@@ -68,10 +74,9 @@ def aaw_func_thermo(  # noqa: PLR0913, PLR0917
             * water_density
             * gravity
         )
-
-    aaw = poro / sigma0 * np.trapezoid(pc(sw), sw)
-
-    return (aaw * sf).to_base_units()
+    
+    aaw = poro / sigma0 * np.trapezoid(pc(sw), sw) * sf
+    return aaw.to_base_units() if with_units else aaw
 
 def aaw_func_tracer(sw, x2, x1, x0):
     """Compute air-water interfacial area using empirical polynomial model.
