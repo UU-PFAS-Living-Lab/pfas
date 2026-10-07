@@ -337,176 +337,282 @@ def kd_freundlich(
     return K_freund * C_rep ** (n_freund - 1)
 
 #Kaw formule van Le et al. (2021):
-def Kaw_0_Le2021(structural_properties): # noqa: N802
-    """Calculate low concentration air-water partitioning coefficient using Le et al. (2021) model.
+def Kaw_0_Le2021(  # noqa: N802
+    structural_properties: dict[str, float | int],
+) -> float:
+    """
+    Calculate the dilute-limit air-water partition coefficient using Le et al. (2021).
 
     Parameters
     ----------
     structural_properties : dict
-        Dictionary with the PFAS structural group counts.
-    """
-    n_CFx = structural_properties["n_CFx"]
-    n_CHx = structural_properties["n_CHx"]
-    n_COO = structural_properties["n_COO"]
-    n_COOH = structural_properties["n_COOH"]
-    n_SO3 = structural_properties["n_SO3"]
-    n_R4N = structural_properties["n_R4N"]
-    n_OH = structural_properties["n_OH"]
-    n_OSO3 = structural_properties["n_OSO3"]
-    n__O_ = structural_properties["n__O_"]
-    n__S_ = structural_properties["n__S_"]
-    n_N_CH3_2_CH2_COO = structural_properties["n_N_CH3_2_CH2_COO"]
-
-    Intercept       = -5.19
-    CFx             =  0.60
-    CHx             =  0.36
-    COO             = -2.42
-    COOH            = -0.47
-    SO3             = -2.35
-    R4N             = -4.30
-    OH              = -0.79
-    OSO3            = -2.39
-    _O_             = -0.41
-    _S_             = -0.21
-    N_CH3_2_CH2_COO = -1.07
-
-    log10_Kaw_0 = (
-        Intercept
-        + CFx * n_CFx
-        + CHx * n_CHx
-        + COO * n_COO
-        + COOH * n_COOH
-        + SO3 * n_SO3
-        + R4N * n_R4N
-        + OH * n_OH
-        + OSO3 * n_OSO3
-        + _O_ * n__O_
-        + _S_ * n__S_
-        + N_CH3_2_CH2_COO * n_N_CH3_2_CH2_COO
-    )
-    Kaw_0 = 10 ** log10_Kaw_0
-    return Kaw_0
-
-#dG0 formule van Le et al. (2021):
-def dG0_Le2021(structural_properties): # noqa: N802
-    """Calculate the Gibbs free energy change of adsorption using Le et al. (2021) model.
-
-    Parameters
-    ----------
-    structural_properties : dict
-        Dictionary with the PFAS structural group counts.
-    """
-    n_CFx = structural_properties["n_CFx"]
-    n_CHx = structural_properties["n_CHx"]
-    n_COO = structural_properties["n_COO"]
-    n_COOH = structural_properties["n_COOH"]
-    n_SO3 = structural_properties["n_SO3"]
-    n_R4N = structural_properties["n_R4N"]
-    n_OH = structural_properties["n_OH"]
-    n_OSO3 = structural_properties["n_OSO3"]
-    n__O_ = structural_properties["n__O_"]
-    n__S_ = structural_properties["n__S_"]
-    n_N_CH3_2_CH2_COO = structural_properties["n_N_CH3_2_CH2_COO"]
-
-    Intercept       = -14.29
-    CFx             = -3.57
-    CHx             = -2.07
-    COO             =  11.56
-    COOH            =  0.34
-    SO3             =  11.48
-    R4N             =  22.06
-    OH              =  4.22
-    OSO3            =  10.78
-    _O_             =  1.91
-    _S_             =  1.79
-    N_CH3_2_CH2_COO =  3.42
-
-    dG0 = (
-        Intercept
-        + CFx * n_CFx
-        + CHx * n_CHx
-        + COO * n_COO
-        + COOH * n_COOH
-        + SO3 * n_SO3
-        + R4N * n_R4N
-        + OH * n_OH
-        + OSO3 * n_OSO3
-        + _O_ * n__O_
-        + _S_ * n__S_
-        + N_CH3_2_CH2_COO * n_N_CH3_2_CH2_COO
-    )
-    return dG0
-
-
-#dG0 formule van Le et al. (2021):
-def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw): #noqa: N802
-    """Calculate the Gibbs free energy change of adsorption using Le et al. (2021) model.
-
-    Computes the Gibbs free energy change of adsorption for PFAS compounds
-    based on the number of perfluorinated carbons and the specific headgroup.
-
-    Parameters
-    ----------
-    Gamma_max
-        maximum surface excess
-    Keq
-        equilibrium adsorption constant
-    Cw
-        concentration
+        Dictionary containing PFAS structural-group counts.
 
     Returns
     -------
+    float
+        Dilute-limit air-water partition coefficient in the implicit unit
+        specified by ``_KAW_0_LE2021_UNIT``.
+    """
+    n_CFx = structural_properties["n_CFx"]
+    n_CHx = structural_properties["n_CHx"]
+    n_COO = structural_properties["n_COO"]
+    n_COOH = structural_properties["n_COOH"]
+    n_SO3 = structural_properties["n_SO3"]
+    n_R4N = structural_properties["n_R4N"]
+    n_OH = structural_properties["n_OH"]
+    n_OSO3 = structural_properties["n_OSO3"]
+    n__O_ = structural_properties["n__O_"]
+    n__S_ = structural_properties["n__S_"]
+    n_N_CH3_2_CH2_COO = structural_properties["n_N_CH3_2_CH2_COO"]
+
+    intercept = -5.19
+    cfx = 0.60
+    chx = 0.36
+    coo = -2.42
+    cooh = -0.47
+    so3 = -2.35
+    r4n = -4.30
+    oh = -0.79
+    oso3 = -2.39
+    oxygen = -0.41
+    sulfur = -0.21
+    n_ch3_2_ch2_coo = -1.07
+
+    log10_kaw_0 = (
+        intercept
+        + cfx * n_CFx
+        + chx * n_CHx
+        + coo * n_COO
+        + cooh * n_COOH
+        + so3 * n_SO3
+        + r4n * n_R4N
+        + oh * n_OH
+        + oso3 * n_OSO3
+        + oxygen * n__O_
+        + sulfur * n__S_
+        + n_ch3_2_ch2_coo * n_N_CH3_2_CH2_COO
+    )
+
+    return 10**log10_kaw_0
+
+
+# dG0 formula from Le et al. (2021).
+def dG0_Le2021(  # noqa: N802
+    structural_properties: dict[str, float | int],
+) -> float:
+    """
+    Calculate the Gibbs free energy of adsorption using Le et al. (2021).
+
+    Parameters
+    ----------
+    structural_properties : dict
+        Dictionary containing PFAS structural-group counts.
+
+    Returns
+    -------
+    float
+        Gibbs free energy of adsorption in kJ/mol.
+    """
+    n_CFx = structural_properties["n_CFx"]
+    n_CHx = structural_properties["n_CHx"]
+    n_COO = structural_properties["n_COO"]
+    n_COOH = structural_properties["n_COOH"]
+    n_SO3 = structural_properties["n_SO3"]
+    n_R4N = structural_properties["n_R4N"]
+    n_OH = structural_properties["n_OH"]
+    n_OSO3 = structural_properties["n_OSO3"]
+    n__O_ = structural_properties["n__O_"]
+    n__S_ = structural_properties["n__S_"]
+    n_N_CH3_2_CH2_COO = structural_properties["n_N_CH3_2_CH2_COO"]
+
+    intercept = -14.29
+    cfx = -3.57
+    chx = -2.07
+    coo = 11.56
+    cooh = 0.34
+    so3 = 11.48
+    r4n = 22.06
+    oh = 4.22
+    oso3 = 10.78
+    oxygen = 1.91
+    sulfur = 1.79
+    n_ch3_2_ch2_coo = 3.42
+
+    return (
+        intercept
+        + cfx * n_CFx
+        + chx * n_CHx
+        + coo * n_COO
+        + cooh * n_COOH
+        + so3 * n_SO3
+        + r4n * n_R4N
+        + oh * n_OH
+        + oso3 * n_OSO3
+        + oxygen * n__O_
+        + sulfur * n__S_
+        + n_ch3_2_ch2_coo * n_N_CH3_2_CH2_COO
+    )
+
+
+def Kaw_langmuir_Le2021(  # noqa: N802
+    *,
+    Kaw_0: float,
+    dG0: float,
+    Cw: Quantity | float,
+    omega: Quantity | float,
+    T: Quantity | float,
+) -> Quantity | float:
+    """
+    Calculate the concentration-dependent air-water partition coefficient.
+
+    Implements the Langmuir-based approach of Le et al. (2021).
+
+    Parameters
+    ----------
+    Kaw_0 : float
+        Dilute-limit air-water partition coefficient calculated using
+        ``Kaw_0_Le2021``. Its unit is defined internally by
+        ``_KAW_0_LE2021_UNIT``.
+
     dG0 : float
-        Distribution coefficient ().
+        Gibbs free energy of adsorption from ``dG0_Le2021``, in kJ/mol.
 
-    References
-    ----------
-    Le et al. (2021). A group-contribution model for predicting the physicochemical
-    behavior of PFAS components for understanding environmental fate.
-    """
-    omega = 55.3      # water molar concentration (mol/L) at 298K
-    R     = 0.008314  # gas constant (kJ/mol/K)
-    T     = 298       # temperature (K)
+    Cw : float or pint.Quantity
+        Aqueous PFAS concentration. Plain floats are interpreted as mol/L.
 
-    Keq = (1/omega) * np.exp(-dG0/(R*T))
+    omega : float or pint.Quantity
+        Water molar concentration. Plain floats are interpreted as mol/L.
 
-    Kaw = (Kaw_0)/(1 + Keq*Cw)
-
-    return Kaw
-
-def Kaw_Szyszkowski(sigma0, a, b, Cw, chi=2, T=298): # noqa: N802, PLR0913, PLR0917
-    """Calculate air-water partitioning coefficient using the Szyszkowski equation.
-
-    Parameters
-    ----------
-    sigma0 : float
-        Surface tension of PFAS-free water (dyn/cm).
-    a : float
-        Szyszkowski fitting parameter (mol/L).
-    b : float
-        Szyszkowski fitting parameter (dimensionless).
-    Cw : float
-        Aqueous PFAS concentration (mol/L).
-    chi : int, optional
-        Ionisation coefficient. Use 1 for nonionic PFAS or ionic PFAS
-        with swamping electrolyte, and 2 for ionic PFAS without
-        swamping electrolyte. Default is 2.
-    T : float, optional
-        Temperature (K). Default is 298 K.
+    T : float or pint.Quantity
+        Temperature. Plain floats are interpreted as K.
 
     Returns
     -------
-    Kaw : float
-        Air-water interfacial adsorption coefficient (cm3/cm2), equivalent to cm.
+    float or pint.Quantity
+        Concentration-dependent air-water partition coefficient.
+
+    Notes
+    -----
+    ``Cw``, ``omega``, and ``T`` must either all be Pint quantities or all
+    be plain floats. Mixed input is rejected by ``_uses_units``.
     """
-    R = 8.314e7  # dyn cm / mol / K
-
-    # Convert mol/L to mol/cm3
-    a_mol_cm3 = a / 1000
-    Cw_mol_cm3 = Cw / 1000
-
-    Kaw = (sigma0 * b) / (
-        chi * R * T * (a_mol_cm3 + Cw_mol_cm3)
+    with_units = _uses_units(
+        Cw=Cw,
+        omega=omega,
+        T=T,
     )
 
-    return Kaw
+    if with_units:
+        Cw_q = Cw.to("mole / liter")
+        omega_q = omega.to("mole / liter")
+        T_q = T.to("kelvin")
+
+        kaw_0_q = Kaw_0 * ureg.centimeter
+        dG0_q = dG0 * ureg.kilojoule / ureg.mole
+
+        gas_constant = (
+            0.008314462618
+            * ureg.kilojoule
+            / ureg.mole
+            / ureg.kelvin
+        )
+
+        exponent = (-dG0_q / (gas_constant * T_q)).to("").magnitude
+        Keq = np.exp(exponent) / omega_q
+
+        return (kaw_0_q / (1 + Keq * Cw_q)).to(
+            ureg.centimeter
+
+        )
+
+    # Float convention:
+    # Cw and omega: mol/L; T: K; dG0: kJ/mol.
+    gas_constant = 0.008314462618  # kJ/(mol K)
+    Keq = np.exp(-dG0 / (gas_constant * T)) / omega
+
+    return Kaw_0 / (1 + Keq * Cw)
+
+
+def Kaw_Szyszkowski(  # noqa: N802, PLR0913, PLR0917
+    *,
+    sigma0: Quantity | float,
+    a: Quantity | float,
+    b: float,
+    Cw: Quantity | float,
+    chi: float,
+    T: Quantity | float,
+) -> Quantity | float:
+    """
+    Calculate the air-water partition coefficient using the Szyszkowski equation.
+
+    Parameters
+    ----------
+    sigma0 : float or pint.Quantity
+        Surface tension of PFAS-free water. Plain floats are interpreted
+        as N/m.
+
+    a : float or pint.Quantity
+        Szyszkowski fitting parameter. Plain floats are interpreted as mol/L.
+
+    b : float
+        Dimensionless Szyszkowski fitting parameter.
+
+    Cw : float or pint.Quantity
+        Aqueous PFAS concentration. Plain floats are interpreted as mol/L.
+
+    chi : float
+        Dimensionless ionisation coefficient. Use 1 for nonionic PFAS or
+        ionic PFAS with swamping electrolyte, and 2 for ionic PFAS without
+        swamping electrolyte.
+
+    T : float or pint.Quantity
+        Temperature. Plain floats are interpreted as K.
+
+    Returns
+    -------
+    float or pint.Quantity
+        Air-water partition coefficient. Float calculations return a value
+        in m; Pint calculations return a Quantity convertible to m.
+
+    Notes
+    -----
+    ``sigma0``, ``a``, ``Cw``, and ``T`` must either all be Pint quantities
+    or all be plain floats. Mixed input is rejected by ``_uses_units``.
+    """
+    with_units = _uses_units(
+        sigma0=sigma0,
+        a=a,
+        Cw=Cw,
+        T=T,
+    )
+
+    if with_units:
+        sigma0_q = sigma0.to("newton / meter")
+        a_q = a.to("mole / meter**3")
+        Cw_q = Cw.to("mole / meter**3")
+        T_q = T.to("kelvin")
+
+        gas_constant = (
+            8.314462618
+            * ureg.joule
+            / ureg.mole
+            / ureg.kelvin
+        )
+
+        kaw = (sigma0_q * b) / (
+            chi * gas_constant * T_q * (a_q + Cw_q)
+        )
+
+        return kaw.to("centimeter")
+
+    # Float convention:
+    # sigma0: N/m; a and Cw: mol/L; T: K; result: m.
+    gas_constant = 8.314462618  # J/(mol K)
+
+    a_mol_m3 = a * 1000.0
+    Cw_mol_m3 = Cw * 1000.0
+
+    return (sigma0 * b) / (
+        chi * gas_constant * T * (a_mol_m3 + Cw_mol_m3)
+    )

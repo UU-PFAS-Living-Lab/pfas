@@ -11,6 +11,8 @@ def _(mo):
     In this notebook we run our model, utilizing the different available Aaw approaches, for different PFAS and different soil types.
     We keep one method for calculating the Kd and one method for calculating Kaw.
     For completion, these differences are also shown at the bottom of this script.
+
+    We first start by loading the relevant modules in the code block below.
     """)
     return
 
@@ -22,16 +24,37 @@ def _():
     from pfas.data_loader import load_dataset, available_datasets
     from pfas.component.awi import SWCsorption, GuoTracer, D50AWI, NonlinearD50AWI, GSSAAWI
     from matplotlib import pyplot as plt
-    from pathlib import Path
     import marimo as mo
     import matplotlib.ticker as ticker
     import pandas as pd
     import numpy as np
     import os
     from pfas.model import Model
+    from pfas import ureg
 
     print("Available datasets:", available_datasets())
-    return load_dataset, mo, np, pd, plt, ticker
+    return (
+        BoundaryPreprocessor,
+        D50AWI,
+        EquilibriumSolver,
+        GSSAAWI,
+        GridGenerator,
+        Le2021_langmuir,
+        LinearSPsorption,
+        Model,
+        NonlinearD50AWI,
+        Retardation,
+        SWCsorption,
+        Szyszkowski,
+        WaterPreprocessor,
+        load_dataset,
+        mo,
+        np,
+        pd,
+        plt,
+        ticker,
+        ureg,
+    )
 
 
 @app.cell(hide_code=True)
@@ -44,7 +67,7 @@ def _(mo):
 
 
 @app.cell
-def _(load_dataset):
+def _(load_dataset, ureg):
     pfas_db = load_dataset("PFASs")
     soil_db = load_dataset("soils")
 
@@ -52,19 +75,18 @@ def _(load_dataset):
 
     print("Available PFAS:", list(pfas_db.keys()))  # to see what's available
 
-    sigma0=72.8
+    sigma0=ureg("71 dyn/cm")
 
     # Solid-phase adsorption: linear
     frac_int = 1.0
-    rate_const = 0.0 #1/s
-    return pfas_names, soil_db
+    return pfas_db, pfas_names, soil_db
 
 
 @app.cell
-def _():
+def _(ureg):
 
-    pulse_duration = 25 * (60 * 60 * 24 * 365) #s
-    return
+    pulse_duration = 25 * ureg.years #25 years
+    return (pulse_duration,)
 
 
 @app.cell(hide_code=True)
@@ -79,9 +101,27 @@ def _(mo):
     return
 
 
-app._unparsable_cell(
-    r"""
-
+@app.cell
+def _(
+    BoundaryPreprocessor,
+    D50AWI,
+    EquilibriumSolver,
+    GSSAAWI,
+    GridGenerator,
+    Le2021_langmuir,
+    LinearSPsorption,
+    Model,
+    NonlinearD50AWI,
+    Retardation,
+    SWCsorption,
+    Szyszkowski,
+    WaterPreprocessor,
+    pfas_db,
+    pfas_names,
+    pulse_duration,
+    soil_db,
+    ureg,
+):
     staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
     all_pfas_results = {}
 
@@ -92,10 +132,10 @@ app._unparsable_cell(
         for soil_name in staring_soils:
             model = Model()  
             model.compute(GridGenerator,
-                domain_length=100,                        # cm
-                spatial_resolution=0.5,                   # cm
-                time_resolution=(1/12) * (60*60*24*365),  # seconds
-                time_total=250*(60*60*24*365),            # seconds
+                domain_length=100 * ureg.centimeter,
+                spatial_resolution=0.5 *ureg.centimeter,
+                time_resolution= 1 * ureg.month ,  
+                time_total=250 * ureg.years,        
             )
 
             soil         = soil_db[soil_name]
@@ -107,16 +147,16 @@ app._unparsable_cell(
             vg_alpha     = soil["van_genuchten"]["alpha"]
             vg_n         = soil["van_genuchten"]["n"]
             vg_l         = soil["van_genuchten"]["l"]
-            dispersivity = 4.5S
+            dispersivity = 4.5 * ureg.centimeter
             f_oc         = soil["f_oc"] / 100
             f_clay       = soil["f_clay"] / 100
-            f_silt       = soil["f_silt"]] / 100
+            f_silt       = soil["f_silt"] / 100
             f_silt_clay  = f_silt + f_clay
             d50          = soil["d50"] / 10000
-
+            print(pfas["M"]* 1e-9)
             # 1. Water flow
             model.compute(WaterPreprocessor,
-                average_infiltration_rate=9.51e-7,
+                average_infiltration_rate=ureg("9.51e-7 cm/s"),
                 hydraulic_conductivity=K_sat,
                 porosity=porosity,
                 dispersivity=dispersivity,
@@ -127,15 +167,14 @@ app._unparsable_cell(
 
             # 2. Boundary conditions
             model.compute(BoundaryPreprocessor,
-                C_list=[pfas["M"]["value"] * 1e-9, 0.0],
-                T_list=[0.0, pulse_duration],
+                C_list=[pfas["M"]* ureg("1e-9 mol/l"), ureg("0 mg/L")],
+                T_list=[0.0*ureg.years, pulse_duration],
             )
 
             # 3. Solid-phase sorption
             sorption_solid = {
                 "kinetic_sorption": False,
                 "sorption_isotherm": "linear",
-                "kinetic": {"frac_int": 1.0, "rate_const": 0.0},
                 "linear": {
                     "Kd_method": "fabregat_palau",
                     "n_CFx": pfas["structural_properties"]["n_CFx"],
@@ -146,19 +185,26 @@ app._unparsable_cell(
             model.compute(LinearSPsorption, sorption_solid=sorption_solid)
 
             # 4. Kaw method
-            a = pfas["Szyszkowski_params"]["a"]["value"]
-            b = pfas["Szyszkowski_params"]["b"]["value"]
-
+            a = pfas["Szyszkowski_params"]["a"]
+            b = pfas["Szyszkowski_params"]["b"]
+    
             if a is not None and b is not None:
-                model.compute(Szyszkowski,
-                    sigma0=71, a=a, b=b, chi=1, T=293.15, Cw=1e-12,
+                model.compute(
+                    Szyszkowski,
+                    sigma0=ureg("71 dyn/cm"),
+                    a=a,
+                    b=b,
+                    chi=1,
+                    T=293.15 * ureg.kelvin,
+                    Cw=ureg("1e-12 mol/L"),
                 )
             else:
-                model.compute(Le2021_langmuir,
+                model.compute(
+                    Le2021_langmuir,
                     structural_properties=pfas["structural_properties"],
-                    Cw=1e-12,
+                    Cw=ureg("1e-12 mol/L"),
                 )
-                model.input_data["sigma0"] = 71 
+                model.input_data["sigma0"] = ureg("71 dyn/cm")
 
             # 5. Aaw + Retardation + simulation
             aaw_methods = {
@@ -208,9 +254,7 @@ app._unparsable_cell(
 
         all_pfas_results[pfas_name] = all_soil_results
         print(f"Done — {pfas_name}: {len(all_soil_results)} soils processed.")
-    """,
-    name="_"
-)
+    return all_pfas_results, all_soil_results, model, pfas_name
 
 
 @app.cell(hide_code=True)
