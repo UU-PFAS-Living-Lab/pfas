@@ -30,9 +30,21 @@ def _():
     import marimo as mo
     from pfas.component import EquilibriumSolver
     from pint import UnitRegistry
-
-    ureg = UnitRegistry()
-    return mo, plt
+    from pfas import ureg
+    #ureg = UnitRegistry()
+    return (
+        BoundaryPreprocessor,
+        EquilibriumSolver,
+        GridGenerator,
+        LinearSPsorption,
+        Model,
+        Retardation,
+        SWCsorption,
+        WaterPreprocessor,
+        mo,
+        plt,
+        ureg,
+    )
 
 
 @app.cell(hide_code=True)
@@ -45,8 +57,18 @@ def _(mo):
     return
 
 
-app._unparsable_cell(
-    r"""
+@app.cell
+def _(
+    BoundaryPreprocessor,
+    EquilibriumSolver,
+    GridGenerator,
+    LinearSPsorption,
+    Model,
+    Retardation,
+    SWCsorption,
+    WaterPreprocessor,
+    ureg,
+):
     # Step 1: Generate the grid
     model = Model()
     model.compute(
@@ -71,7 +93,7 @@ app._unparsable_cell(
 
     # Step 3: Setup boundary conditions
     model.compute(BoundaryPreprocessor,
-        C_list=[ureg("10.0 mg/cm^3"), ureg("0 mg/cm^3")],
+        C_list=[ureg("10.0 mg/L"), ureg("0 mg/L")],
         T_list=[0*ureg.seconds, 2000*ureg.seconds]
     )
 
@@ -92,15 +114,15 @@ app._unparsable_cell(
     # Step 5: Compute AWI adsorption
     model.compute(
         SWCsorption,
-        sigma0=ureg("71 dyn/cm" ,
+        sigma0=ureg("71 dyn/cm") ,
         scaling_factor_awi=1.0,
-        van_genuchten_alpha = ureg("0.019 1/cm",
+        van_genuchten_alpha = ureg("0.019 1/cm"),
     )
 
     # Step 6: Compute retardation
     model.compute(
         Retardation,
-        Kaw=ureg("0.5 cm^3/cm^2",
+        Kaw=ureg("0.5 m^3/m^2"),
         bulk_density=ureg("1.6 g/cm^3") #g/cm3,
     )
 
@@ -110,9 +132,10 @@ app._unparsable_cell(
     )
 
     print("Simulation completed successfully!")
-    """,
-    name="_"
-)
+    print(model.aaw.units)
+    print(model.Kd.units)
+    print(model.adsorption)
+    return (model,)
 
 
 @app.cell(hide_code=True)
@@ -126,54 +149,37 @@ def _(mo):
 
 
 @app.cell
-def _(model, plt):
-    simulation_grid = model.grid
-    # 1. Concentration depth profiles
+def _(model, plt, ureg):
+    ureg.setup_matplotlib(True)  
+    ureg.mpl_formatter = "{:~P}"   
+    grid = model.grid
+    time_indices = [0, 10, 20, 22, 30]
 
-    t_len = model.C1.shape[1]
-
-    time_indices = [
-        0,
-        10,
-        20,
-        22,
-        30,
-    ]
-
-    plt.figure(figsize=(8, 6))
+    # 1. Depth profiles
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.xaxis.set_units(ureg.mg / ureg.L)   # pick the display units
+    ax.yaxis.set_units(ureg.cm)
 
     for t_idx in time_indices:
-        plt.plot(
-            model.C1[:, t_idx],
-            simulation_grid.depth,
-            label=f"t = {simulation_grid.time[t_idx]:.0f} s",
-        )
+        t = grid.time[t_idx].to("s")
+        ax.plot(model.C1[:, t_idx], grid.depth, label=f"t = {t:.0f~P}")
 
-    plt.xlabel("Total PFAS Concentration (mg/L)")
-    plt.ylabel("Depth (cm)")
-    plt.title("PFAS Concentration Depth Profile at Different Times")
-    plt.legend()
-    plt.gca().invert_yaxis()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.show()
+    ax.set_title("PFAS Concentration Depth Profile at Different Times")
+    ax.invert_yaxis()
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
 
-    # 2. Breakthrough curve at bottom of model
-    bottom_concentration = model.C1[-1, :]
+    # 2. Breakthrough curve at bottom
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.xaxis.set_units(ureg.s)
+    ax.yaxis.set_units(ureg.mg / ureg.L)
 
-    plt.figure(figsize=(8, 5))
+    ax.plot(grid.time, model.C1[-1, :], linewidth=2)
 
-    plt.plot(
-        simulation_grid.time,
-        bottom_concentration,
-        linewidth=2,
-    )
-
-    plt.xlabel("Time (s)")
-    plt.ylabel("PFAS Concentration at Bottom (mg/L)")
-    plt.title("PFAS Breakthrough Curve at Bottom of Model")
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
+    ax.set_title("PFAS Breakthrough Curve at Bottom of Model")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
     plt.show()
     return
 

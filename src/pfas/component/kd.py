@@ -86,39 +86,57 @@ class LinearSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
 
         return {"Kd": kd}
 
-class FreundlichSPsorption(BaseModel, validate_assignment=True, extra='forbid'):
-    """Calculate the solid-phase retardation factor using a Freundlich isotherm.
+class FreundlichSPsorption(BaseModel, validate_assignment=True):
+    """Calculate solid-phase Kd using a Freundlich isotherm.
+
+    The Freundlich relationship is evaluated at the representative
+    concentration:
+
+        Kd = K_freund * C_rep**(n_freund - 1)
 
     Parameters
     ----------
     sorption_solid : dict
-        Dictionary containing sorption parameters as described above.
-    bulk_density : float
-        Soil bulk density (kg/m³). Must be positive.
-    hydro_properties : HydrologicalProperties
-        Hydraulic properties from WaterPreprocessor.
+        Freundlich sorption configuration.
 
-    Attributes
-    ----------
-    outputs : list of str
-        List containing ``'Kd'``.
+    Returns
+    -------
+    dict
+        Contains ``Kd`` as either a float or a Pint quantity, depending
+        on the inputs.
     """
 
     sorption_solid: dict
-    def compute(self):
 
+    def compute(self):
         cfg = self.sorption_solid.get("freundlich")
+
         if not cfg:
             raise ValueError(
-                "sorption_isotherm is 'freundlich' but 'freundlich' key is missing "
-                "from sorption_solid."
+                "sorption_isotherm is 'freundlich' but the "
+                "'freundlich' configuration is missing."
             )
-        for key in ("K_freund", "n_freund"):
-            if key not in cfg:
-                raise ValueError(
-                    f"Freundlich isotherm requires '{key}' "
-                    "inside sorption_solid['freundlich']."
-                )
-        C_rep = cfg.get("C_rep", 1.0)  # noqa: N806
-        kd = kd_freundlich(C_rep, cfg["K_freund"], cfg["n_freund"])
-        return {"Kd": kd}
+
+        required_keys = (
+            "K_freund",
+            "n_freund",
+            "C_rep",
+        )
+
+        missing_keys = [
+            key for key in required_keys if key not in cfg
+        ]
+
+        if missing_keys:
+            raise ValueError(
+                "Freundlich isotherm requires "
+                f"{missing_keys} inside sorption_solid['freundlich']."
+            )
+
+        Kd = kd_freundlich(
+            C_rep=cfg["C_rep"],
+            K_freund=cfg["K_freund"],
+            n_freund=cfg["n_freund"],
+        )
+
+        return {"Kd": Kd}
