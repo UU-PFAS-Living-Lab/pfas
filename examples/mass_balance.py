@@ -10,6 +10,8 @@ def _(mo):
     # Mass balance
 
     In this example we will model a simple case and check our mass balance.
+
+    We keep track of our own units in this example and thus do not make use of the Pint registry. Please note that this is not recommended.
     """)
     return
 
