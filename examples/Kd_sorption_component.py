@@ -95,9 +95,9 @@ def _(load_dataset):
     dispersivity = 3  # cm — not listed for Accusand; typical literature value
 
     # Soil composition: stored as percent in the database → convert to fractions
-    f_oc        = soil["f_oc"]/ 100 
-    f_clay      = soil["f_clay"] / 100
-    f_silt      = soil["f_silt"]/ 100
+    f_oc        = soil["f_oc"]
+    f_clay      = soil["f_clay"] 
+    f_silt      = soil["f_silt"]
     f_silt_clay = f_silt + f_clay
 
     # We change organic content to see more difference
@@ -130,8 +130,8 @@ def _(mo):
     ## Step 2 — Sorption parameters per method
 
     Each `sorption_solid` dict carries its method's *native* parameters —
-    Kd itself is never computed here by hand. The one exception is the
-    "Linear Kd" branch: its Kd comes from a tabulated K_oc/K_sc formula that
+    $K_d$ itself is never computed here by hand. The one exception is the
+    "Linear Kd" branch: its $K_d$ comes from a tabulated K_oc/K_sc formula that
     isn't one of `LinearSPsorption`'s built-in `Kd_method` options
     (`direct_input`, `fabregat_palau`), so it's computed once and passed in
     as a `direct_input` value — everything else resolves inside `compute()`.
@@ -361,7 +361,7 @@ def _(model_fabregat, model_freund, model_linear, plt, ureg):
         ax3.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.001,
-            f"{val:.4f}",
+            f"{val:.2f~}",
             ha="center",
             va="bottom",
             fontsize=9,

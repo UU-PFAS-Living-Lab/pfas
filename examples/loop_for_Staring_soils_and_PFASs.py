@@ -424,7 +424,7 @@ def _(mo):
     mo.md(r"""
     ##Plotting BTC for all soils
 
-    <!-- The generated_data allows you to access both input and output of the model and thus also allows for relative simple plotting. -->
+    In this code block we show the influence of the different paremeterization strategies for the computation of the AWI at a depth of 50cm across all soils.
     """)
     return
 

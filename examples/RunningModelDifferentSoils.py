@@ -69,13 +69,10 @@ def _(load_dataset):
     K_oc      = pfas["K_oc"]
     K_sc      = pfas["K_sc"]
 
-    # Surface tension of water
-    sigma0=72.8
-    T = 293.15
 
     print(f"PFAS : {pfas_name}  |  n_CFx = {n_CFx}")
     print(f"       K_oc = {K_oc}  |  K_sc = {K_sc}")
-    return K_oc, K_sc, T, pfas, pfas_name, soil_db
+    return K_oc, K_sc, pfas, pfas_name, soil_db
 
 
 @app.cell(hide_code=True)
@@ -107,16 +104,12 @@ def _(
     Retardation,
     SWCsorption,
     Szyszkowski,
-    T,
     WaterPreprocessor,
     pfas,
     soil_db,
     ureg,
 ):
     staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
-
-    # If the order needs to be explicitly O01 → O18, use:
-    # staring_soils = [f"Staring-O{i:02d}" for i in range(1, 19)]
 
     print(f"Running {len(staring_soils)} Staring soils:")
     print(staring_soils)
@@ -125,24 +118,24 @@ def _(
     all_soil_results = {}
 
 
-    pulse_duration = 25 * (60 * 60 * 24 * 365)  # seconds
+    pulse_duration = 25 *ureg.years
     for soil_name in staring_soils:
         model = Model()  
 
         soil        = soil_db[soil_name]
-        bulk_dens   = soil["rho_b"]                  # g/cm3
-        porosity    = soil["porosity"]                         # -
-        theta_r     = soil["theta_r"]                          # -
-        theta_s     = soil["theta_s"]                          # -
-        K_sat       = soil["K_sat"]                   # cm/s
-        vg_alpha    = soil["van_genuchten"]["alpha"]  # 1/cm
-        vg_n        = soil["van_genuchten"]["n"]               # -
-        vg_l        = soil["van_genuchten"]["l"]               # -
-        dispersivity = 4.5                                     # cm
-        f_oc        = soil["f_oc"] / 100              # - (fraction)
-        f_clay      = soil["f_clay"] / 100            # - (fraction)
-        f_silt      = soil["f_silt"] / 100            # - (fraction)
-        f_silt_clay = f_silt + f_clay                          # - (fraction)
+        bulk_dens   = soil["rho_b"]                  
+        porosity    = soil["porosity"]                      
+        theta_r     = soil["theta_r"]                       
+        theta_s     = soil["theta_s"]                       
+        K_sat       = soil["K_sat"]                 
+        vg_alpha    = soil["van_genuchten"]["alpha"] 
+        vg_n        = soil["van_genuchten"]["n"]              
+        vg_l        = soil["van_genuchten"]["l"]              
+        dispersivity = 4.5                                   
+        f_oc        = soil["f_oc"] 
+        f_clay      = soil["f_clay"] 
+        f_silt      = soil["f_silt"] 
+        f_silt_clay = f_silt + f_clay                       
         d50         = soil["d50"]
 
         # ---------------------------------------------------------------------
@@ -150,7 +143,7 @@ def _(
         # ----------, -----------------------------------------------------------
         model.compute(
             WaterPreprocessor,
-            average_infiltration_rate=9.51e-7, #cm/s
+            average_infiltration_rate=ureg("9.51e-7 cm/s"), 
             hydraulic_conductivity=K_sat,
             porosity=porosity,
             dispersivity=dispersivity,
@@ -160,21 +153,15 @@ def _(
         )
         model.compute(GridGenerator,
         domain_length=100 * ureg.centimeter,
-        spatial_resolution=0.5,                 # cm
-        time_resolution=(1/12) * (60*60*24*365),  # seconds
-        time_total=250*(60*60*24*365),          # seconds
+        spatial_resolution=0.5*ureg.cm,                 # cm
+        time_resolution= 1 * ureg.month,  # seconds
+        time_total=250 * ureg.year,          # seconds
             )
 
         model.compute(BoundaryPreprocessor,
-            C_list=[
-                pfas["M"]["value"] * 1e-15,  #mol/L
-                0.0,
-            ],
-            T_list=[
-                0.0,
-                pulse_duration,
-            ],
-        )
+                C_list=[pfas["M"]* ureg("1e-15 mol/l"), ureg("0 mg/L")],
+                T_list=[0.0*ureg.years, pulse_duration],
+            )
 
         # ---------------------------------------------------------------------
         # 3. Solid-phase adsorption
@@ -201,7 +188,7 @@ def _(
 
         model.compute(
             SWCsorption,
-            sigma0=71,
+            sigma0=ureg("71 dyn/cm"),
             scaling_factor_awi=4.15,
             van_genuchten_alpha=vg_alpha,
         )
@@ -221,14 +208,14 @@ def _(
                 a=a, #mol/L
                 b=b,
                 chi=1, 
-                T=T,
-                Cw=1e-12, #mol/L
+                T=293*ureg.kelvin,
+                Cw=ureg("1e-12 mol/L"), #mol/L
             )
         else:
             model.compute(
                 Le2021_langmuir,
                 structural_properties=pfas["structural_properties"],  
-                Cw=1e-12,
+                Cw=ureg("1e-12 mol/L"),
             )
 
         model.compute(
@@ -292,13 +279,13 @@ def _(all_soil_results):
             # Derived quantities
             Se = (theta - theta_r) / (theta_s - theta_r)
             v = hydro.pore_velocity
-            v_mm_yr = v * (60 * 60 * 24 * 365 * 10)
+            v_mm_yr = v.to("millimeter / year")
 
             print(f"\n{soil_name}")
-            print(f"  v:   {v_mm_yr:.2f} mm/yr")
+            print(f"  v:   {v_mm_yr:.2f}")
             print(f"  Se:  {Se:.2f} (-)")
-            print(f"  Aaw: {results['Aaw']:.2f} cm2/cm3")
-            print(f"  Kd:  {results['Kd']:.4e} cm3/g")
+            print(f"  Aaw: {results['Aaw']:.2f}")
+            print(f"  Kd:  {results['Kd']:.4e}")
             print(f"  Solid-phase retardation: {retardation.sp_retardation:.4f}")
             print(f"  AWI retardation:         {retardation.awi_retardation:.4f}")
 
@@ -307,7 +294,7 @@ def _(all_soil_results):
 
 
 @app.cell
-def _(all_soil_results, model, pfas, pfas_name):
+def _(all_soil_results, model, pfas, pfas_name, ureg):
     def plot_breakthrough(all_soil_results, pfas):
         import matplotlib.pyplot as plt
         import numpy as np
@@ -320,8 +307,8 @@ def _(all_soil_results, model, pfas, pfas_name):
             "Staring-O18": "brown",
         }
 
-        t          = model.grid.time / (60 * 60 * 24 * 365)
-        C_recharge = pfas['M']["value"] * 1e-15  # g/cm3, equivalent to 1 pmol/L
+        t          = model.grid.time
+        C_recharge = pfas["M"]* ureg("1e-15 mol/l")
 
         fig, ax = plt.subplots(figsize=(5, 4))
 
@@ -348,7 +335,7 @@ def _(all_soil_results, model, pfas, pfas_name):
 
 
 @app.cell
-def _(all_soil_results, model, np, pfas, pfas_name, plt):
+def _(all_soil_results, model, np, pfas, pfas_name, plt, ureg):
     def plot_concentration_profile(all_soil_results,pfas):
 
         selected_soils = [
@@ -367,21 +354,21 @@ def _(all_soil_results, model, np, pfas, pfas_name, plt):
 
         time       = model.grid.time / (60*60*24*365)
         depth      = model.grid.depth
-        C_recharge = pfas['M']["value"] * 1e-15  # g/cm3, equivalent to 1 pmol/L
-        average_infiltration_rate  =9.51E-7
+        C_recharge = pfas["M"]* ureg("1e-15 mol/l")  # g/cm3, equivalent to 1 pmol/L
+        average_infiltration_rate  =ureg("9.51e-7 cm/s")
 
-        C_profile_time = 35 # years
+        C_profile_time = 35*ureg.years
         idx_35     = np.argmin(np.abs(time - C_profile_time))
         time_35    = time[idx_35]
 
-        BTC_depth  = 100 # cm
+        BTC_depth  = 100 *ureg.cm
         idx_100    = np.argmin(np.abs(depth - BTC_depth))
         depth_100  = depth[idx_100]
 
         fig, axes  = plt.subplots(1, 2, figsize=(8, 4))
         for soil in selected_soils:
             res    = all_soil_results[soil]
-            C1     = res["sim"]           # mg/cm
+            C1     = res["sim"]         
 
             C_profile_35yr = C1[:, idx_35] / C_recharge
 
