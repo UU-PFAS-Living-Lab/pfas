@@ -152,7 +152,7 @@ def _(
             f_clay       = soil["f_clay"] / 100
             f_silt       = soil["f_silt"] / 100
             f_silt_clay  = f_silt + f_clay
-            d50          = soil["d50"] / 10000
+            d50          = soil["d50"]
             print(pfas["M"]* 1e-9)
             # 1. Water flow
             model.compute(WaterPreprocessor,
@@ -262,6 +262,8 @@ def _(mo):
     mo.md(r"""
     ##Plotting $A_{aw}$ for all soils
     In this part of this file we explore the differences between the different $A_{aw}$ approximations. First, we observe the absolute differences. After, we compare all methods to the thermodynamic method *aaw_thermo*.
+    Because we used the Pint registry, we are able to convert all the Aaw units first to cm.
+    Afterwards (when we substract the difference between methods) Pint takes care of this automatically.
     """)
     return
 
@@ -425,40 +427,71 @@ def _(mo):
 
 
 @app.cell
-def _(all_soil_results, model, pfas_name, plt):
-    # ── Plot: breakthrough curves at depth ≈ 50 cm, all soils ────────────────
-    seconds_per_year_bt = 60 * 60 * 24 * 365
-    depth_target_cm = 50
-    depth_idx_bt = min(range(len(model.grid.depth)),
-        key=lambda i: abs(model.grid.depth[i] - depth_target_cm)
+def _(all_soil_results, model, pfas_name, plt, ureg):
+    ureg.setup_matplotlib(True)
+    ureg.mpl_formatter = "{:~P}"
+
+    # Find the grid cell nearest 50 cm
+    depth_target = 50 * ureg.cm
+    depth_idx_bt = min(
+        range(len(model.grid.depth)),
+        key=lambda i: abs(
+            model.grid.depth[i].to(ureg.cm).magnitude
+            - depth_target.to(ureg.cm).magnitude
+        ),
     )
-    actual_depth_bt = model.grid.depth[depth_idx_bt]
+    actual_depth_bt = model.grid.depth[depth_idx_bt].to(ureg.cm)
+
+    # Convert time to the desired display unit; Pint handles the conversion.
+    time_years_bt = model.grid.time.to(ureg.year)
 
     fig_bt, axes_bt = plt.subplots(1, 4, figsize=(18, 5), sharey=True)
-    method_labels_bt = {"thermo": "Thermodynamic", "func_GSSA": "GSSA-based", "func_d50": "d50-based", "func_nonlin_d50": "d50, nonlinear saturation"}
+
+    method_labels_bt = {
+        "thermo": "Thermodynamic",
+        "func_GSSA": "GSSA-based",
+        "func_d50": "d50-based",
+        "func_nonlin_d50": "d50, nonlinear saturation",
+    }
     cmap_bt = plt.get_cmap("tab20", len(all_soil_results))
 
     for ax_idx, (aaw_key, aaw_label_bt) in enumerate(method_labels_bt.items()):
         ax_bt = axes_bt[ax_idx]
-        for s_idx, sname in enumerate(all_soil_results.keys()):
+        ax_bt.xaxis.set_units(ureg.year)
+        ax_bt.yaxis.set_units(ureg.mg / ureg.L)
+
+        for s_idx, sname in enumerate(all_soil_results):
             C = all_soil_results[sname]["sim"][aaw_key][depth_idx_bt, :]
             ax_bt.plot(
-                model.grid.time / seconds_per_year_bt, C,
-                color=cmap_bt(s_idx), label=sname, linewidth=1.2
+                time_years_bt,
+                C,
+                color=cmap_bt(s_idx),
+                label=sname,
+                linewidth=1.2,
             )
+
         ax_bt.set_title(f"Aaw: {aaw_label_bt}")
-        ax_bt.set_xlabel("Time (years)")
+        ax_bt.set_xlabel(f"Time ({ureg.year:P})")
+
         if ax_idx == 0:
-            ax_bt.set_ylabel("Total PFAS Concentration (mg/L)")
+            ax_bt.set_ylabel(
+                f"Total PFAS concentration ({(ureg.mg / ureg.L):~P})"
+            )
         ax_bt.grid(True, alpha=0.3)
 
-    axes_bt[-1].legend(title="Soil", bbox_to_anchor=(1.02, 1),
-                       loc="upper left", fontsize=7, ncol=1)
-    fig_bt.suptitle(
-        f"Breakthrough at ≈{actual_depth_bt:.0f} cm — {pfas_name}, all Staring soils",
-        fontsize=12
+    axes_bt[-1].legend(
+        title="Soil",
+        bbox_to_anchor=(1.02, 1),
+        loc="upper left",
+        fontsize=7,
+        ncol=1,
     )
-    plt.tight_layout()
+
+    fig_bt.suptitle(
+        f"Breakthrough at ≈{actual_depth_bt:.0f~P} — {pfas_name}, all Staring soils",
+        fontsize=12,
+    )
+    fig_bt.tight_layout()
     fig_bt
     return
 
