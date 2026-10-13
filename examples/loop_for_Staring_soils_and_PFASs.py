@@ -10,7 +10,9 @@ def _(mo):
     # Methods for computing Aaw for different PFAS and different soils
     In this notebook we run our model, utilizing the different available Aaw approaches, for different PFAS and different soil types.
     We keep one method for calculating the Kd and one method for calculating Kaw.
-    For completion, these differences are also shown at the bottom of this script.
+    We show the differences in contribution of this at the bottom of the script.
+
+    In these simulations we use an average infiltration rate which corresponds to the average Dutch precipitation rate. As reference soils we use the [Staring Reeks](https://doi.org/10.18174/512761), which comprises 18 soil types typical to the Netherlands. Our soil database, contemplary to this package, contains the necessary data.
 
     We first start by loading the relevant modules in the code block below.
     """)
@@ -148,9 +150,10 @@ def _(
             vg_n         = soil["van_genuchten"]["n"]
             vg_l         = soil["van_genuchten"]["l"]
             dispersivity = 4.5 * ureg.centimeter
-            f_oc         = soil["f_oc"] / 100
-            f_clay       = soil["f_clay"] / 100
-            f_silt       = soil["f_silt"] / 100
+            f_oc         = soil["f_oc"]
+            print(f_oc)
+            f_clay       = soil["f_clay"]
+            f_silt       = soil["f_silt"]
             f_silt_clay  = f_silt + f_clay
             d50          = soil["d50"]
             print(pfas["M"]* 1e-9)
@@ -323,7 +326,7 @@ def _(all_soil_results, np, plt, ureg):
     ax_aaw.set_yscale("log")
     plt.tight_layout()
     fig_aaw
-    return
+    return (Quantity,)
 
 
 @app.cell
@@ -502,7 +505,7 @@ def _(mo):
     #Other parameters
     In this code block we look at the differences in computed Kaw values, Kd values and effective saturation with the chosen methods.
 
-    We start with comparing the $K_{aw}$ values, before comparing $K_d$ values across soils  and providing the effective saturation for these soils.
+    We start with comparing the $K_{aw}$ values between different PFAS, before comparing $K_d$ values across soils  and providing the effective saturation for these soils. Please see other examples where all functionality is shown for computing $K_{aw}$ and $K_d$ with different methods.
     """)
     return
 
@@ -555,13 +558,20 @@ def _(all_pfas_results, pd, pfas_names, plt, ticker):
 
 
 @app.cell
-def _(all_pfas_results, plt, soil_db, ticker):
+def _(Quantity, all_pfas_results, plt, soil_db, ticker, ureg):
     #Kd
     soil_order = [s for s in soil_db.keys() if s.startswith("Staring-O")]
+    kd_display_unit = ureg.cm**3 / ureg.g
+
+    def kd_magnitude(kd):
+        if isinstance(kd, Quantity):
+            return kd.to(kd_display_unit).magnitude
+        return float(kd)  # Assumed to already be in cm³/g
+
 
     kd_by_soil = {
         soil_name: [
-            soil_results[soil_name]["Kd"]
+            kd_magnitude(soil_results[soil_name]["Kd"])
             for soil_results in all_pfas_results.values()
             if soil_name in soil_results
         ]
@@ -594,6 +604,7 @@ def _(all_pfas_results, plt, soil_db, ticker):
     ax_kd.grid(True, which="major", axis="both", alpha=0.45)
     ax_kd.tick_params(axis="x", labelrotation=45, labelsize=10)
     ax_kd.tick_params(axis="y", labelsize=10)
+
     for label in ax_kd.get_xticklabels():
         label.set_ha("right")
 
@@ -707,17 +718,6 @@ def _(all_pfas_results, np, plt):
                 bottom=sp_R,
                 label=label,
             )
-
-             # Total R
-            # for j, R in enumerate(R_total):
-            #     ax.text(
-            #         x[j] + offset,
-            #         R + max(R_total) * 0.01,
-            #         f"{R:.0f}",
-            #         ha="center",
-            #         va="bottom",
-            #         fontsize=7,
-            #     )
 
         ax.set_xticks(x)
         ax.set_xticklabels(soils, rotation=45, ha="right")
