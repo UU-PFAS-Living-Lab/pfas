@@ -187,7 +187,7 @@ def _(
             # 4. Kaw method
             a = pfas["Szyszkowski_params"]["a"]
             b = pfas["Szyszkowski_params"]["b"]
-    
+
             if a is not None and b is not None:
                 model.compute(
                     Szyszkowski,
@@ -267,31 +267,58 @@ def _(mo):
 
 
 @app.cell
-def _(all_soil_results, np, plt):
+def _(all_soil_results, np, plt, ureg):
     # ── Plot: Aaw comparison across all 18 Staring soils ─────────────────────
     exclude = ""
-    soil_names_plot = [s for s in all_soil_results.keys() if s not in exclude]
-    aaw_thermo     = [all_soil_results[s]["Aaw"]["thermo"]          for s in soil_names_plot]
-    aaw_GSSA       = [all_soil_results[s]["Aaw"]["func_GSSA"]       for s in soil_names_plot]
-    aaw_d50        = [all_soil_results[s]["Aaw"]["func_d50"]        for s in soil_names_plot]
-    aaw_nonlin_d50 = [all_soil_results[s]["Aaw"]["func_nonlin_d50"] for s in soil_names_plot]
+    from pint import Quantity
+    def aaw_in_per_cm(value):
+        if isinstance(value, Quantity):
+            return value.to(1 / ureg.centimeter).magnitude
+        return float(value)  # Assumed already in 1/cm
 
-    x     =np.arange(len(soil_names_plot))
+
+    exclude = set()  # e.g., {"Staring-O1"}
+    soil_names_plot = [s for s in all_soil_results if s not in exclude]
+
+    aaw_thermo = [
+        aaw_in_per_cm(all_soil_results[s]["Aaw"]["thermo"])
+        for s in soil_names_plot
+    ]
+    aaw_GSSA = [
+        aaw_in_per_cm(all_soil_results[s]["Aaw"]["func_GSSA"])
+        for s in soil_names_plot
+    ]
+    aaw_d50 = [
+        aaw_in_per_cm(all_soil_results[s]["Aaw"]["func_d50"])
+        for s in soil_names_plot
+    ]
+    aaw_nonlin_d50 = [
+        aaw_in_per_cm(all_soil_results[s]["Aaw"]["func_nonlin_d50"])
+        for s in soil_names_plot
+    ]
+
+    x = np.arange(len(soil_names_plot))
     width = 0.20
 
     fig_aaw, ax_aaw = plt.subplots(figsize=(10, 5))
-    ax_aaw.bar(x - 1.5 * width, aaw_thermo,     width, label="Thermodynamic",        color="#1f77b4")
-    ax_aaw.bar(x - 0.5 * width, aaw_GSSA,       width, label="GSSA-based",           color="#ff7f0e")
-    ax_aaw.bar(x + 0.5 * width, aaw_d50,        width, label="d50-based",            color="#2ca02c")
-    ax_aaw.bar(x + 1.5 * width, aaw_nonlin_d50, width, label="d50, nonlinear saturation", color="#d62728")
+    ax_aaw.bar(x - 1.5 * width, aaw_thermo, width, label="Thermodynamic", color="#1f77b4")
+    ax_aaw.bar(x - 0.5 * width, aaw_GSSA, width, label="GSSA-based", color="#ff7f0e")
+    ax_aaw.bar(x + 0.5 * width, aaw_d50, width, label="d50-based", color="#2ca02c")
+    ax_aaw.bar(
+        x + 1.5 * width,
+        aaw_nonlin_d50,
+        width,
+        label="d50, nonlinear saturation",
+        color="#d62728",
+    )
 
-    ax_aaw.set_xticks(list(x))
+    ax_aaw.set_xticks(x)
     ax_aaw.set_xticklabels(soil_names_plot, rotation=45, ha="right", fontsize=8)
-    ax_aaw.set_ylabel("Aaw (cm²/cm³)")
-    # ax_aaw.set_yscale("log")
-    ax_aaw.set_title(f"Air-water interfacial area — all Staring soils")
+    ax_aaw.set_ylabel("Aaw (1/cm)")
+    ax_aaw.set_title("Air-water interfacial area — all Staring soils")
     ax_aaw.legend()
     ax_aaw.grid(True, alpha=0.3, axis="y")
+    ax_aaw.set_yscale("log")
     plt.tight_layout()
     fig_aaw
     return

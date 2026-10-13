@@ -148,7 +148,7 @@ def aaw_func_GSSA(d50, poro, th=None, ths=None, sw=None): # noqa: N802
     return aaw
 
 
-def aaw_func_d50(d50, th=None, ths=None, sw=None):
+def aaw_func_d50_Lyu(d50, th=None, ths=None, sw=None):
     """Compute air-water interfacial area using the d50 correlation.
 
     Estimates the air-water interfacial area per unit bulk volume as a
@@ -173,39 +173,53 @@ def aaw_func_d50(d50, th=None, ths=None, sw=None):
 
     """
     if sw is None:
-        sw = th / ths
+            sw = th / ths
+    
+    uses_units = _uses_units(d50=d50)
 
-    aaw = (1 - sw) * 3.9 * d50**-1.2
+    if uses_units:
+        # The empirical correlation expects the numerical value in cm.
+        d50_cm = d50.to(ureg.centimeter).magnitude
+    else:
+        # Plain numerical d50 is assumed to be in cm.
+        d50_cm = d50
 
-    return aaw
+    aaw_value = (1 - sw) * 3.9 * d50_cm**-1.2
+    if uses_units:
+            # Return a unit-aware result in 1/cm.
+            return aaw_value / ureg.centimeter
+    
+    return aaw_value
 
 
 def aaw_func_nonlinear_d50(d50, th=None, ths=None, sw=None):
-    """Compute air-water interfacial area from grain diameter and water saturation.
+    """Calculate air-water interfacial area.
 
-    Parameters
-    ----------
-    sw : float or ndarray
-        Water saturation (dimensionless, 0-1).
-    d50  : float
-        Median grain diameter (cm)
-
-    Returns
-    -------
-    Aaw : float or ndarray
-        Air-water interfacial area per unit volume (cm²/cm³).
-
-    Notes
-    -----
-    N/A
-
+    Plain-number inputs are interpreted using d50 in cm.
+    Quantity inputs must all be Pint quantities; th, ths, or sw
+    should be dimensionless quantities.
     """
     if sw is None:
-        sw = th / ths
+                sw = th / ths
+        
+    uses_units = _uses_units(d50=d50)
 
-    aaw = (-2.85 * sw + 3.6) * ((1 - sw) * 3.9 * d50**-1.2)
+    if uses_units:
+        # The empirical correlation expects the numerical value in cm.
+        d50_cm = d50.to(ureg.centimeter).magnitude
+    else:
+        # Plain numerical d50 is assumed to be in cm.
+        d50_cm = d50
 
-    return aaw
+    aaw_value = (-2.85 * sw + 3.6) * (1 - sw) * 3.9 * d50_cm**-1.2
+
+    if uses_units:
+        # Return a unit-aware result in 1/cm.
+        return aaw_value / ureg.centimeter
+
+    # For plain-number inputs, the result is numerically in 1/cm.
+    return aaw_value
+
 
 def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
     """Calculate distribution coefficient using Fabregat-Palau (2021) model.
