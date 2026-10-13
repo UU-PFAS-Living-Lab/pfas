@@ -131,7 +131,7 @@ def _(
         vg_alpha    = soil["van_genuchten"]["alpha"] 
         vg_n        = soil["van_genuchten"]["n"]              
         vg_l        = soil["van_genuchten"]["l"]              
-        dispersivity = 4.5                                   
+        dispersivity = 4.5 *ureg.cm                                   
         f_oc        = soil["f_oc"] 
         f_clay      = soil["f_clay"] 
         f_silt      = soil["f_silt"] 
@@ -247,6 +247,7 @@ def _(
             f"{soil_name} completed | "
             f"Kd = {model.Kd:.4g} | "
             f"Kaw = {model.Kaw:.4g}"
+            f"adsorption ={model.adsorption}"
         )
     return all_soil_results, model
 
@@ -352,7 +353,7 @@ def _(all_soil_results, model, np, pfas, pfas_name, plt, ureg):
             "Staring-O18": "brown",
         }
 
-        time       = model.grid.time / (60*60*24*365)
+        time       = model.grid.time
         depth      = model.grid.depth
         C_recharge = pfas["M"]* ureg("1e-15 mol/l")  # g/cm3, equivalent to 1 pmol/L
         average_infiltration_rate  =ureg("9.51e-7 cm/s")
