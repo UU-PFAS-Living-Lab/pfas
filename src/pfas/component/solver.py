@@ -18,7 +18,7 @@ from annotated_types import Gt
 from numpy.typing import NDArray
 from pint import Quantity
 from pydantic import BaseModel, field_validator, model_validator
-
+from pfas import ureg
 from pfas.data_structure import (
     Adsorption,
     BoundaryConditions,
@@ -37,11 +37,17 @@ from pfas.solver_utils import (
 )
 
 
-def _m(value):
-    if isinstance(value, Quantity):
-        return value.magnitude
-    return value
+def _m(x):
+    if isinstance(x, Quantity):
+        return x.to("dimensionless").magnitude if x.dimensionless else x.to_base_units().magnitude
+    return x
 
+def _mag(x, unit=None) -> NDArray[np.float64]:
+    """Return ``x`` as a float array, converted to ``unit`` if ``x`` has units."""
+    if isinstance(x, Quantity):
+        value = x.m_as(unit) if unit is not None else x.magnitude
+        return np.asarray(value, dtype=np.float64)
+    return np.asarray(x, dtype=np.float64)
 
 class EquilibriumSolver(
     BaseModel, validate_assignment=True, extra="forbid", arbitrary_types_allowed=True
@@ -87,7 +93,7 @@ class EquilibriumSolver(
     hydro_properties: HydrologicalProperties
     adsorption: Adsorption
     boundary_conditions: BoundaryConditions
-    initial_contaminant_concentration: NDArray[np.float64|Quantity] | None = None
+    initial_contaminant_concentration: NDArray[np.float64] | Quantity | None = None
     bc: str = "resident"
 
     @field_validator("bc")
@@ -124,34 +130,37 @@ class EquilibriumSolver(
 
         return values
 
-    def compute(self) -> dict[str, NDArray[np.float64]]:
-        """Compute aqueous and total concentrations.
-
-        Returns
-        -------
-        dict
-            ``{"C1": C1, "C_tot": C_tot}``, each of shape ``(len(Z), len(T))``.
-            ``C1`` is the aqueous phase concentration (mg/L); ``C_tot`` is the
-            total concentration (mg/L bulk volume).
-
-        Raises
-        ------
-        ValueError
-            If ``len(boundary_conditions.C_list) != len(dim.T_list)``.
-        """
+    
+    def compute(self) -> dict[str, NDArray[np.float64] | Quantity]:
+        """Compute aqueous and total concentrations."""
         bvp_func = _BVP_FUNCTIONS[self.bc]
         ivp_func = _IVP_FUNCTIONS[self.bc]
-
+    
         R = _m(self.adsorption.total_retardation)
-        theta = self.hydro_properties.water_content
+        theta = _m(self.hydro_properties.water_content)
+    
+        # ------------------------------------------------------------------
+        # 1. Normalise inputs: concentrations -> plain float arrays in one unit
+        # ------------------------------------------------------------------
         C_list = self.boundary_conditions.C_list
-
-        Ci = (
-            self.initial_contaminant_concentration
-            if self.initial_contaminant_concentration is not None
-            else np.zeros(len(self.grid.depth))
-        )
-
+        unit = getattr(C_list[0], "units", None)  # None if C_list is unitless
+        C_values = np.array([_mag(c, unit) for c in C_list])
+        deltaC = np.diff(C_values, prepend=0.0)
+    
+        Ci_in = self.initial_contaminant_concentration
+        if Ci_in is None:
+            Ci = np.zeros(len(self.grid.depth), dtype=np.float64)
+        else:
+            if isinstance(Ci_in, Quantity) != (unit is not None):
+                raise ValueError(
+                    "C_list and initial_contaminant_concentration must either "
+                    "both have units or both be unitless."
+                )
+            Ci = _mag(Ci_in, unit)
+    
+        # ------------------------------------------------------------------
+        # 2. Dimensionless parameters (plain floats from here on)
+        # ------------------------------------------------------------------
         dim = compute_dimensionless_params(
             self.grid,
             self.hydro_properties,
@@ -159,62 +168,58 @@ class EquilibriumSolver(
             adsorption=self.adsorption,
             kinetic=False,
         )
-        Z, T, P, T_list = _m(dim.Z), _m(dim.T), _m(dim.P), _m(dim.T_list)
-
-        if len(C_list) != len(T_list):
+        Z = np.asarray(_m(dim.Z), dtype=np.float64)
+        T = np.asarray(_m(dim.T), dtype=np.float64)
+        P = _m(dim.P)
+        T_list = np.asarray(_m(dim.T_list), dtype=np.float64)
+    
+        if len(C_values) != len(T_list):
             raise ValueError(
-                f"C_list (len={len(C_list)}) and dim.T_list (len={len(T_list)}) "
-                "must have the same length."
+                f"C_list (len={len(C_values)}) and dim.T_list "
+                f"(len={len(T_list)}) must have the same length."
             )
-
+    
         # ------------------------------------------------------------------
-        # BVP term (eq. 2.20)
+        # 3. BVP term: superposition of rectangular pulses
         # ------------------------------------------------------------------
-        # deltaC[j] = f_j - f_{j-1}  (prepend f_0 = 0, CXTFIT eq. 2.20)
-        if isinstance(C_list[0], Quantity):
-            C_sequence = Quantity([0.0] + [c.magnitude for c in C_list], C_list[0].units)
-        else:
-            C_sequence = [0.0] + C_list
-
-
-        deltaC: NDArray[np.float64|Quantity] = np.diff(C_sequence)
-
-        C1_bvp = np.zeros((len(Z), len(T)))
-
-        # eq. 2.20:  C^B(Z,T) = sum_j  deltaC[j] * G1^E(Z, T-T_j)
-        #            only for T > T_j  (Heaviside)
+        C1_bvp = np.zeros((len(Z), len(T)), dtype=np.float64)
+    
         for i, Ti in enumerate(T):
             for delta, Tj in zip(deltaC, T_list):
                 if Ti > Tj:
-                    C1_bvp[:, i] += _m(delta) * bvp_func(_m(Ti - Tj), R, Z, P)
-
+                    C1_bvp[:, i] += delta * bvp_func(Ti - Tj, R, Z, P)
+    
         # ------------------------------------------------------------------
-        # IVP term
+        # 4. IVP term: integrate Green's function over the initial profile
         # ------------------------------------------------------------------
-        C1_ivp = np.zeros((len(Z), len(T)))
-
-        if max(Ci) != 0:
-            xi: NDArray[np.float64] = np.linspace(0, 1, len(Ci), dtype=np.float64)
+        C1_ivp = np.zeros((len(Z), len(T)), dtype=np.float64)
+    
+        if np.any(Ci != 0):
+            xi = Z
+            if len(xi) != len(Ci):
+                raise ValueError("Ci must be sampled on the same points as Z.")
+    
             for ti, Ti in enumerate(T):
                 for zi, Zi in enumerate(Z):
-                    integrand = cast(
-                        NDArray[np.float64],
-                        ivp_func(_m(Ti), R, Zi, P, xi) * Ci,
-                    )
+                    integrand = ivp_func(Ti, R, Zi, P, xi) * Ci
                     C1_ivp[zi, ti] = np.trapezoid(integrand, xi)
-
+    
+        # ------------------------------------------------------------------
+        # 5. Combine and reattach units once
+        # ------------------------------------------------------------------
         C1 = C1_bvp + C1_ivp
         C_tot = C1 * R * theta
-
-        if isinstance(C_list[0], Quantity):
-            return {"C1": Quantity(C1, C_list[0].units), "C_tot": Quantity(C_tot, C_list[0].units)}
-        return {"C1": C1, "C_tot": C_tot}
+    
+        if unit is None:
+            return {"C1": C1, "C_tot": C_tot}
+    
+        return {"C1": ureg.Quantity(C1, unit), "C_tot": ureg.Quantity(C_tot, unit)}
+    
 
     @property
     def outputs(self):
         """List of output keys from compute() method."""
         return ["C1", "C_tot"]
-
 
 class KineticSolver(
     BaseModel, validate_assignment=True, extra="forbid", arbitrary_types_allowed=True
@@ -286,8 +291,8 @@ class KineticSolver(
     hydro_properties: HydrologicalProperties
     adsorption: Adsorption
     boundary_conditions: BoundaryConditions
-    bulk_density: Annotated[float, Gt(0)]
-    initial_contaminant_concentration: NDArray[np.float64] | None = None
+    bulk_density: Annotated[float, Gt(0)]  | Quantity 
+    initial_contaminant_concentration: NDArray[np.float64] | Quantity | None = None
     volume_averaged: bool = True
 
     @model_validator(mode="before")
@@ -314,7 +319,7 @@ class KineticSolver(
 
         return values
 
-    def compute(self) -> dict[str, NDArray[np.float64]]:
+    def compute(self) -> dict[str, NDArray[np.float64] | Quantity]:
         """Compute aqueous, sorbed, and total concentrations.
 
         Returns
@@ -325,23 +330,36 @@ class KineticSolver(
             (mg/L), ``C2`` is sorbed phase concentration (mg/kg), and
             ``C_tot`` is total concentration (mg/L bulk volume),
             C_tot = θ·β·R·C₁ + ρ_b·C₂ (CXTFIT eq. 3.6).
+            If ``C_list`` has units the outputs are returned as pint
+            Quantities, otherwise as plain float arrays.
         """
-        R = self.adsorption.total_retardation
-        beta_s = self.adsorption.beta_s
-        beta = self.adsorption.beta
+        R = _m(self.adsorption.total_retardation)
+        beta_s = _m(self.adsorption.beta_s)
+        beta = _m(self.adsorption.beta)
         volume_averaged = self.volume_averaged
-        R_s = self.adsorption.sp_retardation
-        f = self.adsorption.frac_int
-        Kd = self.adsorption.Kd
-        theta = self.hydro_properties.water_content
+        R_s = _m(self.adsorption.sp_retardation)
+        f = _m(self.adsorption.frac_int)
+        Kd_raw = self.adsorption.Kd
+        Kd_unit = getattr(Kd_raw, "units", None)  # None if Kd is unitless
+        Kd = float(Kd_raw.magnitude) if isinstance(Kd_raw, Quantity) else Kd_raw
+        theta = _m(self.hydro_properties.water_content)
         rho_b = self.bulk_density
-        C_list = self.boundary_conditions.C_list
 
-        Ci = (
-            self.initial_contaminant_concentration
-            if self.initial_contaminant_concentration is not None
-            else np.zeros(len(self.grid.depth))
-        )
+        # Normalise concentrations -> plain float arrays in one unit
+        C_list = self.boundary_conditions.C_list
+        unit = getattr(C_list[0], "units", None)  # None if C_list is unitless
+        C_values = np.array([_mag(c, unit) for c in C_list])
+
+        Ci_in = self.initial_contaminant_concentration
+        if Ci_in is None:
+            Ci = np.zeros(len(self.grid.depth), dtype=np.float64)
+        else:
+            if isinstance(Ci_in, Quantity) != (unit is not None):
+                raise ValueError(
+                    "C_list and initial_contaminant_concentration must either "
+                    "both have units or both be unitless."
+                )
+            Ci = _mag(Ci_in, unit)
 
         # When there are no kinetic sites (beta_s == 1), delegate to the
         # equilibrium solver.
@@ -359,12 +377,21 @@ class KineticSolver(
             kinetic=True,
         )
 
-        Z, T, P, T_list = dim.Z, dim.T, dim.P, dim.T_list
-        omega = dim.omega
+        Z = np.asarray(_m(dim.Z), dtype=np.float64)
+        T = np.asarray(_m(dim.T), dtype=np.float64)
+        P = _m(dim.P)
+        T_list = np.asarray(_m(dim.T_list), dtype=np.float64)
+        omega = _m(dim.omega)
         assert omega is not None, "omega must be set for kinetic sorption"
 
+        if len(C_values) != len(T_list):
+            raise ValueError(
+                f"C_list (len={len(C_values)}) and dim.T_list "
+                f"(len={len(T_list)}) must have the same length."
+            )
+
         # deltaC[j] = f_j - f_{j-1}  (prepend f_0 = 0, CXTFIT eq. 3.20)
-        deltaC: NDArray[np.float64] = np.diff([0.0] + C_list)
+        deltaC: NDArray[np.float64] = np.diff(C_values, prepend=0.0)
 
         C1_bvp: NDArray[np.float64] = np.zeros((len(Z), len(T)))
         C1_ivp: NDArray[np.float64] = np.zeros((len(Z), len(T)))
@@ -439,10 +466,17 @@ class KineticSolver(
         C2 = cast(NDArray[np.float64], (1 - f) * Kd * C2_bvp) + C2_ivp
         C_tot = C1 * beta * R * theta + rho_b * C2
 
-        return {"C1": C1, "C2": C2, "C_tot": C_tot}
+        if unit is None:
+            return {"C1": C1, "C2": C2, "C_tot": C_tot}
+
+        C2_unit = unit * Kd_unit if Kd_unit is not None else unit
+        return {
+            "C1": ureg.Quantity(C1, unit),
+            "C2": ureg.Quantity(C2, C2_unit).to_reduced_units(),
+            "C_tot": ureg.Quantity(C_tot, unit),
+        }
 
     @property
     def outputs(self):
         """List of output keys from compute() method."""
         return ["C1", "C2", "C_tot"]
-

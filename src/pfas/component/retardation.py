@@ -8,6 +8,9 @@ from pydantic import BaseModel, model_validator
 
 from pfas.data_structure import Adsorption, HydrologicalProperties
 
+def _dimensionless(x):
+    """Reduce a Quantity to dimensionless; leave plain numbers as they are."""
+    return x.to("dimensionless") if isinstance(x, Quantity) else x
 
 class Retardation(BaseModel, validate_assignment=True, extra='forbid',
                   arbitrary_types_allowed=True):
@@ -57,8 +60,9 @@ class Retardation(BaseModel, validate_assignment=True, extra='forbid',
         dict
             Dictionary with key 'adsorption' containing an Adsorption instance.
         """
-        awi_retardation = (self.Kaw * self.aaw) / self.hydro_properties.water_content
-        sp_retardation = (self.bulk_density * self.Kd) / self.hydro_properties.water_content
+        theta = self.hydro_properties.water_content
+        awi_retardation = _dimensionless((self.Kaw * self.aaw) / theta)
+        sp_retardation = _dimensionless((self.bulk_density * self.Kd) / theta)
         kin_params = self.kin_params or {}
 
         return {
