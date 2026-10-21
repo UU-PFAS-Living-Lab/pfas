@@ -24,11 +24,11 @@ from typing import Annotated
 
 import numpy as np
 from annotated_types import Ge, Gt, Interval
+from pint import Quantity
 from pydantic import BaseModel, Field, field_validator, model_validator
 from scipy.optimize import brentq
 
 from pfas.data_structure import BoundaryConditions, HydrologicalProperties, SimulationGrid
-from pint import Quantity
 
 
 class WaterPreprocessor(BaseModel, validate_assignment=True, extra='forbid',

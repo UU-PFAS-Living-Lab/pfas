@@ -7,14 +7,15 @@ air-water interface area estimation, and numerical integration support.
 """
 
 import numpy as np
-from pfas import ureg 
 from pint import Quantity
 
+from pfas import ureg
+
+
 def _uses_units(**named) -> bool:
-    """True if all given inputs are Quantities, False if none are.
- 
-    Raises if they are mixed, because a half-unitless call is almost
-    certainly a mistake.
+    """Return whether all inputs are Pint quantities or all are unitless.
+
+    Raise ValueError when the inputs mix quantities and plain values.
     """
     flags = {isinstance(v, Quantity) for v in named.values()}
     if len(flags) > 1:
@@ -39,10 +40,10 @@ def aaw_func_thermo(  # noqa: PLR0913, PLR0917
     gravity: Quantity | float,
 ) -> Quantity | float:
     """Compute air-water interfacial area using the thermodynamic approach.
- 
+
     Aaw(Sw) = (poro / sigma0) * integral from Sw to 1 of Pc(S) dS, with Pc from
     the van Genuchten retention curve.
- 
+
     Parameters
     ----------
     sigma0, alpha, water_density, gravity
@@ -50,7 +51,7 @@ def aaw_func_thermo(  # noqa: PLR0913, PLR0917
         in one consistent unit system (e.g. SI), since nothing can be checked.
     poro, n, th, thr, ths, sf : float
         Dimensionless.
- 
+
     Returns
     -------
     Quantity or float
@@ -74,7 +75,7 @@ def aaw_func_thermo(  # noqa: PLR0913, PLR0917
             * water_density
             * gravity
         )
-    
+
     aaw = poro / sigma0 * np.trapezoid(pc(sw), sw) * sf
     return aaw.to_base_units() if with_units else aaw
 
@@ -100,7 +101,7 @@ def aaw_func_tracer(sw, x2, x1, x0):
     Returns
     -------
     Aaw : float or ndarray
-        Air-water interfacial area per unit volume. 
+        Air-water interfacial area per unit volume.
 
     Notes
     -----
@@ -134,7 +135,8 @@ def aaw_func_GSSA(d50, poro, th=None, ths=None, sw=None): # noqa: N802
     Returns
     -------
     Aaw : float or ndarray
-        Air-water interfacial area per unit volume. 
+        Air-water interfacial area per unit volume.
+
     Notes
     -----
     N/A
@@ -148,7 +150,7 @@ def aaw_func_GSSA(d50, poro, th=None, ths=None, sw=None): # noqa: N802
     return aaw
 
 
-def aaw_func_d50_Lyu(d50, th=None, ths=None, sw=None):
+def aaw_func_d50_Lyu(d50, th=None, ths=None, sw=None):  # noqa: N802
     """Compute air-water interfacial area using the d50 correlation.
 
     Estimates the air-water interfacial area per unit bulk volume as a
@@ -174,7 +176,7 @@ def aaw_func_d50_Lyu(d50, th=None, ths=None, sw=None):
     """
     if sw is None:
             sw = th / ths
-    
+
     uses_units = _uses_units(d50=d50)
 
     if uses_units:
@@ -188,7 +190,7 @@ def aaw_func_d50_Lyu(d50, th=None, ths=None, sw=None):
     if uses_units:
             # Return a unit-aware result in 1/cm.
             return aaw_value / ureg.centimeter
-    
+
     return aaw_value
 
 
@@ -201,7 +203,7 @@ def aaw_func_nonlinear_d50(d50, th=None, ths=None, sw=None):
     """
     if sw is None:
                 sw = th / ths
-        
+
     uses_units = _uses_units(d50=d50)
 
     if uses_units:

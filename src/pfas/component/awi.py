@@ -3,18 +3,19 @@
 from typing import Annotated
 
 from annotated_types import Gt, Interval
-from pydantic import BaseModel, model_validator
 from pint import Quantity
+from pydantic import BaseModel, model_validator
+
 from pfas import ureg
 from pfas.data_structure import HydrologicalProperties
 from pfas.utils import (
     aaw_func_d50_Lyu,
     aaw_func_GSSA,
-    aaw_func_d50_Lyu,
     aaw_func_nonlinear_d50,
     aaw_func_thermo,
     aaw_func_tracer,
 )
+
 
 def _validate_aaw_units(aaw):
     """Pass ``aaw`` through; if it has units, check it is an inverse length."""

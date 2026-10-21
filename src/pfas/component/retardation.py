@@ -8,6 +8,7 @@ from pydantic import BaseModel, model_validator
 
 from pfas.data_structure import Adsorption, HydrologicalProperties
 
+
 def _dimensionless(x):
     """Reduce a Quantity to dimensionless; leave plain numbers as they are."""
     return x.to("dimensionless") if isinstance(x, Quantity) else x

@@ -133,10 +133,10 @@ class FreundlichSPsorption(BaseModel, validate_assignment=True):
                 f"{missing_keys} inside sorption_solid['freundlich']."
             )
 
-        Kd = kd_freundlich(
+        kd = kd_freundlich(
             C_rep=cfg["C_rep"],
             K_freund=cfg["K_freund"],
             n_freund=cfg["n_freund"],
         )
 
-        return {"Kd": Kd}
+        return {"Kd": kd}

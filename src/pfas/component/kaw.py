@@ -5,8 +5,8 @@ from typing import Annotated
 from annotated_types import Gt
 from pint import Quantity
 from pydantic import BaseModel, model_validator
-from pfas import ureg
 
+from pfas import ureg
 from pfas.utils import (
     Kaw_0_Le2021,
     Kaw_langmuir_Le2021,
@@ -15,12 +15,12 @@ from pfas.utils import (
 )
 
 
-class Le2021_asymptote(
+class Le2021_asymptote( #noqa: N801
     BaseModel,
     validate_assignment=True,
     extra="forbid",
     arbitrary_types_allowed=True,
-):  # noqa: N801
+):
     """
     Compute the dilute-limit air-water partition coefficient.
 
@@ -91,12 +91,12 @@ class Le2021_asymptote(
         return ["Kaw"]
 
 
-class Le2021_langmuir(
+class Le2021_langmuir( #noqa: N801
     BaseModel,
     validate_assignment=True,
     extra="forbid",
     arbitrary_types_allowed=True,
-):  # noqa: N801
+):
     """
     Compute concentration-dependent air-water partitioning using Le et al. (2021).
 
