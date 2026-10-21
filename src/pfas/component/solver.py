@@ -464,17 +464,30 @@ class KineticSolver(
 
         C1 = C1_bvp + C1_ivp
         C2 = cast(NDArray[np.float64], (1 - f) * Kd * C2_bvp) + C2_ivp
-        C_tot = C1 * beta * R * theta + rho_b * C2
 
         if unit is None:
+            if isinstance(rho_b, Quantity):
+                raise ValueError(
+                    "Use unit-bearing concentrations when bulk_density has units."
+                )
+            C_tot = C1 * beta * R * theta + rho_b * C2
             return {"C1": C1, "C2": C2, "C_tot": C_tot}
 
-        C2_unit = unit * Kd_unit if Kd_unit is not None else unit
-        return {
-            "C1": ureg.Quantity(C1, unit),
-            "C2": ureg.Quantity(C2, C2_unit).to_reduced_units(),
-            "C_tot": ureg.Quantity(C_tot, unit),
-        }
+        if Kd_unit is None:
+            raise ValueError("A unit-bearing Kd is needed for unit-bearing C_tot.")
+
+        C2_unit = unit * Kd_unit
+        C1_q = ureg.Quantity(C1, unit)
+        C2_q = ureg.Quantity(C2, C2_unit)
+
+        if not isinstance(rho_b, Quantity):
+            raise ValueError(
+                "Give bulk_density explicit units when concentrations carry units."
+            )
+
+        C_tot = C1_q * beta * R * theta + (rho_b * C2_q).to(unit)
+
+        return {"C1": C1_q, "C2": C2_q.to_reduced_units(), "C_tot": C_tot}
 
     @property
     def outputs(self):
