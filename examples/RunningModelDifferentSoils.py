@@ -356,7 +356,7 @@ def _(all_soil_results, model, np, pfas, pfas_name, plt, ureg):
         time       = model.grid.time
         depth      = model.grid.depth
         C_recharge = pfas["M"]* ureg("1e-15 mol/l")  # g/cm3, equivalent to 1 pmol/L
-        average_infiltration_rate  =ureg("9.51e-7 cm/s")
+        average_infiltration_rate  = ureg("9.51e-7 cm/s")
 
         C_profile_time = 35*ureg.years
         idx_35     = np.argmin(np.abs(time - C_profile_time))
