@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -10,6 +10,8 @@ def _(mo):
     # Mass balance
 
     In this example we will model a simple case and check our mass balance.
+
+    We keep track of our own units in this example and thus do not make use of the Pint registry. Please note that this is not recommended.
     """)
     return
 
@@ -24,6 +26,7 @@ def _():
     import numpy as np
     import pandas as pd
     import marimo as mo
+
     return (
         BoundaryPreprocessor,
         EquilibriumSolver,
@@ -122,7 +125,7 @@ def _(
 
     C_rep_mgL = 10e-6
     C_rep = C_rep_mgL / MW  # mol/m3
-    kaw = 5.81e-06
+    kaw = 5.81e-06 #m3/m2
     kaw_eff = kaw / (a + C_rep)
 
 
