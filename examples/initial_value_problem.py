@@ -8,7 +8,8 @@ app = marimo.App(width="medium")
 def _(mo):
     mo.md(r"""
     # Running simulations — with initial conditions
-    In this example, we run a simulation without a TOML file, but with **initial conditions**: a PFAS concentration of 1 mg/L pre-loaded into the top 50% of the soil column.
+    In this example we run with **initial conditions**: a PFAS concentration of 1 mg/L pre-loaded into the top 50% of the soil column.
+    In this example we keep track of our own units and do not make use of the Pint registry - note that this example also works with Pint.
     """)
     return
 
@@ -128,6 +129,8 @@ def _(
         sigma0=71,
         scaling_factor_awi=1.0,
         van_genuchten_alpha=0.019, #1/cm
+        water_density = 1000, 
+        gravity = 9.81,
     )
 
     # ── Step 7 + 8: Retardation (Kaw supplied directly) and solve ──────────────
