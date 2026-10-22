@@ -414,6 +414,8 @@ def Kaw_0_Le2021(  # noqa: N802
         + n_ch3_2_ch2_coo * n_N_CH3_2_CH2_COO
     )
 
+    return 10**log10_kaw_0
+
 #dG0 formule van Le et al. (2021):
 def dG0_Le2021(structural_properties): # noqa: N802
     """Calculate the Gibbs free energy change using the Le et al. model :cite:`le2021group`.
@@ -470,7 +472,14 @@ def dG0_Le2021(structural_properties): # noqa: N802
 
 
 #dG0 formule van Le et al. (2021):
-def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw): #noqa: N802
+def Kaw_langmuir_Le2021(  # noqa: N802
+    *,
+    Kaw_0: float,
+    dG0: float,
+    Cw: Quantity | float,
+    omega: Quantity | float,
+    T: Quantity | float,
+) -> Quantity | float:
     """Calculate the Langmuir partition coefficient using the Le et al. model :cite:`le2021group`.
 
     Implements the Langmuir-based approach of Le et al. (2021).
