@@ -69,7 +69,24 @@ class SWCsorption(
 
 
 class GuoTracer(BaseModel, validate_assignment=True, extra="forbid"):
-    """Calculate air-water interface area using the Guo et al. (2022) tracer relationship."""
+    """Calculate air-water interfacial area using the Guo tracer relationship :cite:`guo2022`.
+
+    Parameters
+    ----------
+    hydro_properties : HydrologicalProperties
+        Hydraulic properties from :class:`~pfas.data_structure.HydrologicalProperties`.
+    AWI : dict
+        Air-water-interface configuration containing a ``"Guo"`` mapping with
+        ``guo_x0``, ``guo_x1``, and ``guo_x2``.
+    soil : dict
+        Soil configuration.
+
+    Attributes
+    ----------
+    outputs : list of str
+        List containing ``"aaw"``.
+
+    """
 
     hydro_properties: HydrologicalProperties
     AWI: dict
@@ -112,6 +129,19 @@ class GuoTracer(BaseModel, validate_assignment=True, extra="forbid"):
 class GSSAAWI(BaseModel, validate_assignment=True, extra="forbid"):
     """Calculate air-water interfacial area using the GSSA-based linear model.
 
+    The geometric smooth-surface specific solid surface area (GSSA)
+    is calculated from porosity and median grain diameter and is
+    assumed to represent the maximum possible air-water interfacial
+    area. The GSSA-based relationship follows the formulation in :cite:`brusseau2023`.
+
+    Parameters
+    ----------
+    hydro_properties : HydrologicalProperties
+        Hydraulic properties from WaterPreprocessor.
+    soil : dict
+        Dictionary containing soil parameters:
+        'porosity' and 'd50'.
+
     Notes
     -----
     ``soil['d50']`` may be a Quantity (any length unit) or a plain number in cm.
@@ -140,6 +170,17 @@ class GSSAAWI(BaseModel, validate_assignment=True, extra="forbid"):
 class D50AWI(BaseModel, validate_assignment=True, extra="forbid"):
     """Calculate air-water interfacial area using the d50 correlation.
 
+    Estimates the maximum air-water interfacial area from the median
+    grain diameter and applies a linear dependence on water saturation. :cite:`brusseau2023`.
+
+
+    Parameters
+    ----------
+    hydro_properties : HydrologicalProperties
+        Hydraulic properties from WaterPreprocessor.
+    soil : dict
+        Dictionary containing soil parameter 'd50'.
+
     Notes
     -----
     ``soil['d50']`` may be a Quantity (any length unit) or a plain number in cm.
@@ -166,9 +207,22 @@ class D50AWI(BaseModel, validate_assignment=True, extra="forbid"):
 class NonlinearD50AWI(BaseModel, validate_assignment=True, extra="forbid"):
     """Calculate air-water interfacial area using the nonlinear d50 correlation.
 
+    Estimates air-water interfacial area from the median grain
+    diameter with an additional nonlinear saturation-dependent
+    correction. :cite:`brusseau2023`.
+
+
+    Parameters
+    ----------
+    hydro_properties : HydrologicalProperties
+        Hydraulic properties from WaterPreprocessor.
+    soil : dict
+        Dictionary containing soil parameter 'd50'.
+
     Notes
     -----
     ``soil['d50']`` may be a Quantity (any length unit) or a plain number in cm.
+
     """
 
     hydro_properties: HydrologicalProperties

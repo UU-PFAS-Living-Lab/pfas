@@ -25,7 +25,7 @@ author = ""
 
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
+release = '0.2.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -40,7 +40,11 @@ extensions = [
     "sphinx_inline_tabs",
     "sphinx_copybutton",
     "sphinx.ext.autosummary",
+    "sphinxcontrib.bibtex",
 ]
+
+bibtex_bibfiles = ["references.bib"]
+bibtex_default_style = "apa"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -61,7 +65,6 @@ html_logo = "images/logo_pfas.png"
 html_theme_options = {
     "logo_only": True,
     "navigation_depth": -1,
-    "display_version": True,
     "style_external_links": True,
 }
 
@@ -72,4 +75,4 @@ html_static_path = ['_static']
 html_css_files = [
     'custom.css',
 ]
-napoleon_use_param = True
+#napoleon_use_param = True

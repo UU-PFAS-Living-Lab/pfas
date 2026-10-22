@@ -224,7 +224,9 @@ def aaw_func_nonlinear_d50(d50, th=None, ths=None, sw=None):
 
 
 def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
-    """Calculate distribution coefficient using Fabregat-Palau (2021) model.
+    """Calculate distribution coefficient using the Fabregat-Palau model.
+
+    Based on Fabregat-Palaue et al. (2021) :cite:`fabregatpalau2021modelling`.
 
     Computes the soil-water distribution coefficient (Kd) for PFAS compounds
     based on the number of perfluorinated carbons and soil organic carbon
@@ -246,8 +248,8 @@ def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
 
     References
     ----------
-    Fabregat-Palau et al. (2021). Modelling the sorption behaviour of
-    perfluoroalkyl acids in soils.
+    Fabregat-Palau et al. :cite:`fabregatpalau2021modelling`. Modelling the
+    sorption behaviour of perfluoroalkyl acids in soils.
     """
     k_oc = k_oc_fabregat_palau2021(n_CFx)
     k_silt_clay = k_sc_fabregat_palau2021(n_CFx)
@@ -256,7 +258,7 @@ def kd_fabregat_palau(n_CFx, f_oc, f_silt_clay): #noqa: N802
 
 
 def k_sc_fabregat_palau2021(n_CFx):
-    """Calculate silt-clay sorption coefficient (Fabregat-Palau 2021).
+    """Calculate silt-clay sorption coefficient :cite:`fabregatpalau2021modelling`.
 
     Parameters
     ----------
@@ -270,15 +272,15 @@ def k_sc_fabregat_palau2021(n_CFx):
 
     References
     ----------
-    Fabregat-Palau et al. (2021). Modelling the sorption behaviour of
-    perfluoroalkyl acids in soils.
+    Fabregat-Palau et al. :cite:`fabregatpalau2021modelling`. Modelling the
+    sorption behaviour of perfluoroalkyl acids in soils.
     """
     k_sc = 10 ** (0.32 * n_CFx - 1.7)
     return k_sc
 
 
 def k_oc_fabregat_palau2021(n_CFx):
-    """Calculate organic carbon sorption coefficient (Fabregat-Palau 2021).
+    """Calculate organic carbon sorption coefficient :cite:`fabregatpalau2021modelling`.
 
     Parameters
     ----------
@@ -292,8 +294,8 @@ def k_oc_fabregat_palau2021(n_CFx):
 
     References
     ----------
-    Fabregat-Palau et al. (2021). Modelling the sorption behaviour of
-    perfluoroalkyl acids in soils.
+    Fabregat-Palau et al. :cite:`fabregatpalau2021modelling`. Modelling the
+    sorption behaviour of perfluoroalkyl acids in soils.
     """
     k_oc = 10 ** (0.41 * n_CFx - 0.7)
     return k_oc
@@ -353,11 +355,13 @@ def kd_freundlich(
     return K_freund * C_rep ** (n_freund - 1)
 
 #Kaw formule van Le et al. (2021):
+
 def Kaw_0_Le2021(  # noqa: N802
     structural_properties: dict[str, float | int],
-) -> float:
-    """
-    Calculate the dilute-limit air-water partition coefficient using Le et al. (2021).
+) -> float: # noqa: N802
+    """Calculate low-concentration air-water partitioning using the Le et al. (2021) model.
+
+    Based on Le et al. (2021) :cite:`le2021group`.
 
     Parameters
     ----------
@@ -410,15 +414,9 @@ def Kaw_0_Le2021(  # noqa: N802
         + n_ch3_2_ch2_coo * n_N_CH3_2_CH2_COO
     )
 
-    return 10**log10_kaw_0
-
-
-# dG0 formula from Le et al. (2021).
-def dG0_Le2021(  # noqa: N802
-    structural_properties: dict[str, float | int],
-) -> float:
-    """
-    Calculate the Gibbs free energy of adsorption using Le et al. (2021).
+#dG0 formule van Le et al. (2021):
+def dG0_Le2021(structural_properties): # noqa: N802
+    """Calculate the Gibbs free energy change using the Le et al. model :cite:`le2021group`.
 
     Parameters
     ----------
@@ -471,16 +469,9 @@ def dG0_Le2021(  # noqa: N802
     )
 
 
-def Kaw_langmuir_Le2021(  # noqa: N802
-    *,
-    Kaw_0: float,
-    dG0: float,
-    Cw: Quantity | float,
-    omega: Quantity | float,
-    T: Quantity | float,
-) -> Quantity | float:
-    """
-    Calculate the concentration-dependent air-water partition coefficient.
+#dG0 formule van Le et al. (2021):
+def Kaw_langmuir_Le2021(Kaw_0, dG0, Cw): #noqa: N802
+    """Calculate the Langmuir partition coefficient using the Le et al. model :cite:`le2021group`.
 
     Implements the Langmuir-based approach of Le et al. (2021).
 

@@ -5,11 +5,13 @@ Pfas documentation
 .. toctree::
    :maxdepth: 2
 
+   introduction
    installation
    quick_start
    tutorials
    api
    faq
+   references
 
 .. You can add more toctrees to get nice captions.
 .. .. toctree::

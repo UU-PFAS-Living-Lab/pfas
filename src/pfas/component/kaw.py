@@ -24,8 +24,9 @@ class Le2021_asymptote( #noqa: N801
     """
     Compute the dilute-limit air-water partition coefficient.
 
-    Calculates the dilute-limit air-water partition coefficient according
-    to the group-contribution approach of Le et al. (2021).
+    Calculates retardation factor for sorption at the air-water interface
+    using a calculated air-water partition coefficient, according to
+    Le et al. (2021) :cite:`le2021group`.
 
     Parameters
     ----------
@@ -98,7 +99,9 @@ class Le2021_langmuir( #noqa: N801
     arbitrary_types_allowed=True,
 ):
     """
-    Compute concentration-dependent air-water partitioning using Le et al. (2021).
+    Compute the air-water partition coefficient using the Langmuir isotherm.
+
+    Based on Le et al. (2021) :cite:`le2021group`.
 
     Parameters
     ----------
@@ -213,7 +216,7 @@ class Szyszkowski(
     Compute the air-water partition coefficient using the Szyszkowski model.
 
     Uses a Szyszkowski-based air-water partition coefficient with
-    parameters from Guo et al. (2022).
+    parameters as described by Guo et al. (2022) :cite:`guo2022`.
 
     Parameters
     ----------

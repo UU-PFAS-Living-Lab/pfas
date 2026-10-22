@@ -68,36 +68,56 @@ pip install -e ".[examples]"  # For running examples
 Here's a minimal example to get started:
 
 ```python
-from pfas.configuration import read_toml
-from pfas.preprocessing import (
-    WaterPreprocessor,
+from pfas.component import (
     BoundaryPreprocessor,
+    EquilibriumSolver,
     GridGenerator,
-    SpRetardationPreprocessor,
-    SWCAdsorptionPreprocessor,
-    SorptionKawiDirectInput,
-    SimulationRunner
+    LinearSPsorption,
+    Retardation,
+    SWCsorption,
+    WaterPreprocessor,
 )
 from pfas.model import Model
 
-# Load configuration from file
-config = read_toml("examples/data/config.toml")
+model = Model()
 
-# Create and configure the model
-model = (Model(config)
-    .add(WaterPreprocessor, porosity=0.4)
-    .add(BoundaryPreprocessor)
-    .add(GridGenerator)
-    .add(SpRetardationPreprocessor)
-    .add(SWCAdsorptionPreprocessor)
-    .add(SorptionKawiDirectInput)
-    .add(SimulationRunner)
+model.compute(
+    GridGenerator,
+    domain_length=60,
+    spatial_resolution=1.0,
+    time_resolution=100,
+    time_total=10000,
 )
+model.compute(
+    WaterPreprocessor,
+    average_infiltration_rate=1.5,
+    hydraulic_conductivity=6,
+    porosity=0.34,
+    dispersivity=1.5,
+    van_genuchten_n=1.31,
+    residual_water_content=0.04,
+)
+model.compute(BoundaryPreprocessor, C_list=[10.0, 0], T_list=[0, 2000])
+model.compute(
+    LinearSPsorption,
+    sorption_solid={
+        "kinetic_sorption": True,
+        "sorption_isotherm": "linear",
+        "linear": {"Kd_method": "direct_input", "Kd": 5.0},
+    },
+)
+model.compute(
+    SWCsorption,
+    sigma0=71,
+    scaling_factor_awi=1.0,
+    van_genuchten_alpha=0.019,
+)
+model.compute(Retardation, Kaw=0.5, bulk_density=1.6)
+model.compute(EquilibriumSolver)
 
 # Access results
-data = model.generated_data
-C_tot = data["C_tot"]  # Total PFAS concentration
-grid = data["grid"]    # Grid information
+grid = model.grid
+concentration = model.C_tot
 ```
 
 ## Documentation
@@ -110,8 +130,12 @@ Several example scripts are provided in the `examples/` directory, demonstrating
 
 - `data_structure.py` - Data structure handling
 - `initial_value_problem.py` - Setting up initial value problems
-- `Kd_sorption.py` - Linear sorption (Kd) modeling
-- `gen_example.py` - Configuration generation
+- `Kd_sorption_component.py` - Linear and component-based sorption modeling
+- `gen_example.py` - Basic PFAS transport simulation
+- `kin_vs_eq.py` - Kinetic versus equilibrium sorption
+- `mass_balance.py` - Mass-balance checking
+- `RunningModelDifferentSoils.py` - Running models for different soils
+- `loop_for_Staring_soils_and_PFASs.py` - Looping over soils and PFAS compounds
 
 To run these examples, you need Marimo.
 
