@@ -59,14 +59,27 @@ def aaw_func_thermo(  # noqa: PLR0913, PLR0917
         float in the inverse of the length unit implied by the inputs.
     """
     with_units = _uses_units(
-        sigma0=sigma0, alpha=alpha
+        sigma0=sigma0,
+        alpha=alpha,
+        water_density=water_density,
+        gravity=gravity,
     )
+    if with_units:
+        assert isinstance(sigma0, Quantity)
+        assert isinstance(alpha, Quantity)
+        assert isinstance(water_density, Quantity)
+        assert isinstance(gravity, Quantity)
+    else:
+        assert not isinstance(sigma0, Quantity)
+        assert not isinstance(alpha, Quantity)
+        assert not isinstance(water_density, Quantity)
+        assert not isinstance(gravity, Quantity)
     m = 1 - 1 / n
     sr = thr / ths
 
     sw = np.linspace(th/ths,1,1000)
 
-    def pc(saturation: np.ndarray) -> Quantity:
+    def pc(saturation: np.ndarray) -> Quantity | np.ndarray:
         return (
             (
                 ((1 - sr) / (saturation - sr)) ** (1 / m) - 1
@@ -76,8 +89,13 @@ def aaw_func_thermo(  # noqa: PLR0913, PLR0917
             * gravity
         )
 
-    aaw = poro / sigma0 * np.trapezoid(pc(sw), sw) * sf
-    return aaw.to_base_units() if with_units else aaw
+    pressure = pc(sw)
+    integral = np.sum((pressure[:-1] + pressure[1:]) * np.diff(sw) / 2)
+    aaw = poro / sigma0 * integral * sf
+    if with_units:
+        assert isinstance(aaw, Quantity)
+        return aaw.to_base_units()
+    return float(aaw)
 
 def aaw_func_tracer(sw, x2, x1, x0):
     """Compute air-water interfacial area using empirical polynomial model.
@@ -520,6 +538,9 @@ def Kaw_langmuir_Le2021(  # noqa: N802
     )
 
     if with_units:
+        assert isinstance(Cw, Quantity)
+        assert isinstance(omega, Quantity)
+        assert isinstance(T, Quantity)
         Cw_q = Cw.to("mole / liter")
         omega_q = omega.to("mole / liter")
         T_q = T.to("kelvin")
@@ -535,19 +556,22 @@ def Kaw_langmuir_Le2021(  # noqa: N802
         )
 
         exponent = (-dG0_q / (gas_constant * T_q)).to("").magnitude
-        Keq = np.exp(exponent) / omega_q
+        keq_q = np.exp(exponent) / omega_q
 
-        return (kaw_0_q / (1 + Keq * Cw_q)).to(
+        return (kaw_0_q / (1 + keq_q * Cw_q)).to(
             ureg.centimeter
 
         )
 
+    assert not isinstance(Cw, Quantity)
+    assert not isinstance(omega, Quantity)
+    assert not isinstance(T, Quantity)
     # Float convention:
     # Cw and omega: mol/L; T: K; dG0: kJ/mol.
-    gas_constant = 0.008314462618  # kJ/(mol K)
-    Keq = np.exp(-dG0 / (gas_constant * T)) / omega
+    gas_constant_float = 0.008314462618  # kJ/(mol K)
+    keq = np.exp(-dG0 / (gas_constant_float * T)) / omega
 
-    return Kaw_0 / (1 + Keq * Cw)
+    return Kaw_0 / (1 + keq * Cw)
 
 
 def Kaw_Szyszkowski(  # noqa: N802, PLR0913, PLR0917
@@ -604,6 +628,10 @@ def Kaw_Szyszkowski(  # noqa: N802, PLR0913, PLR0917
     )
 
     if with_units:
+        assert isinstance(sigma0, Quantity)
+        assert isinstance(a, Quantity)
+        assert isinstance(Cw, Quantity)
+        assert isinstance(T, Quantity)
         sigma0_q = sigma0.to("newton / meter")
         a_q = a.to("mole / meter**3")
         Cw_q = Cw.to("mole / meter**3")
@@ -622,13 +650,17 @@ def Kaw_Szyszkowski(  # noqa: N802, PLR0913, PLR0917
 
         return kaw.to("centimeter")
 
+    assert not isinstance(sigma0, Quantity)
+    assert not isinstance(a, Quantity)
+    assert not isinstance(Cw, Quantity)
+    assert not isinstance(T, Quantity)
     # Float convention:
     # sigma0: N/m; a and Cw: mol/L; T: K; result: m.
-    gas_constant = 8.314462618  # J/(mol K)
+    gas_constant_float = 8.314462618  # J/(mol K)
 
     a_mol_m3 = a * 1000.0
     Cw_mol_m3 = Cw * 1000.0
 
     return (sigma0 * b) / (
-        chi * gas_constant * T * (a_mol_m3 + Cw_mol_m3)
+        chi * gas_constant_float * T * (a_mol_m3 + Cw_mol_m3)
     )
