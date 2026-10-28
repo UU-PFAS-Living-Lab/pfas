@@ -28,14 +28,18 @@ Example
 import json
 import os
 from importlib import resources
+from importlib.resources.abc import Traversable
 from pathlib import Path
 from typing import Any
 
 from pfas import ureg
 
 
-def load_json_file(path):
+def load_json_file(path: Path | Traversable):
     """Load a JSON file from an arbitrary filesystem path."""
+    if isinstance(path, Traversable):
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -63,7 +67,7 @@ def load_dataset(name_or_path, load_units: bool = True):
     """
     # Case 1: user provided a filesystem path
     if os.path.isfile(name_or_path):
-        path_fp = Path(name_or_path)
+        path_fp: Path | Traversable = Path(name_or_path)
     # Case 2: user provided a dataset name
     elif name_or_path not in available_datasets():
         raise ValueError(
