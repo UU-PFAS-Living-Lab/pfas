@@ -546,7 +546,7 @@ def Kaw_langmuir_Le2021(  # noqa: N802
         T_q = T.to("kelvin")
 
         kaw_0_q = Kaw_0 * ureg.centimeter
-        dG0_q = dG0 * ureg.kilojoule / ureg.mole
+        dG0_q: Quantity = dG0 * ureg.kilojoule / ureg.mole
 
         gas_constant = (
             0.008314462618
