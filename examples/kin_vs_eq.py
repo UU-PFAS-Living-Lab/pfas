@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -37,10 +37,12 @@ def _():
         GridGenerator,
         EquilibriumSolver,
     )
+    from pfas import ureg
 
     from matplotlib import pyplot as plt
     import numpy as np
     import marimo as mo
+
     return (
         BoundaryPreprocessor,
         EquilibriumSolver,
@@ -52,8 +54,8 @@ def _():
         SWCsorption,
         WaterPreprocessor,
         mo,
-        np,
         plt,
+        ureg,
     )
 
 
@@ -72,17 +74,17 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(ureg):
 
-    bulk_dens = 1.6 #g cm-3
-    Kd = 8 # cm3 g-1
-    Kaw = 10 #cm3 cm-2
+    bulk_dens = ureg("1.6 g/cm^3")  #g cm-3
+    Kd = ureg("8 cm^3/g") # cm3 g-1
+    Kaw = ureg("10 cm^3/cm^2") #cm3 cm-2
 
     # ------------------------------------------------------------
     # Pulse boundary condition: C0 from t=0 to t=T_PULSE_END, then 0
     # ------------------------------------------------------------
-    C0 = 1.0 # mg L-1
-    T_PULSE_END = 100 #s
+    C0 = ureg("1.0 mg/L") # mg L-1
+    T_PULSE_END = 100 * ureg.s
     return C0, Kaw, Kd, T_PULSE_END, bulk_dens
 
 
@@ -109,34 +111,33 @@ def _(
     T_PULSE_END,
     WaterPreprocessor,
     bulk_dens,
-    np,
+    ureg,
 ):
     model_eq = Model()
     GRID_KWARGS_eq = dict(
-        domain_length=10, #cm
-        spatial_resolution=0.01,
-        time_resolution=1,
-        time_total=500, #s
+        domain_length=10*ureg.cm, #cm
+        spatial_resolution=0.01*ureg.cm,
+        time_resolution=1*ureg.s,
+        time_total=500*ureg.s, #s
     )
     model_eq.compute(GridGenerator, **GRID_KWARGS_eq)
 
     n_nodes_eq = len(model_eq.grid.depth)
-    initial_concentration_eq = np.zeros(n_nodes_eq)  # no initial contamination
 
     model_eq.compute(
         WaterPreprocessor,
-        average_infiltration_rate=1.5, #cm/s
-        hydraulic_conductivity=6, #cm/s
+        average_infiltration_rate=ureg("1.5 cm/s"), #cm/s
+        hydraulic_conductivity=ureg("6 cm/s"), #cm/s
         porosity=0.34,
-        dispersivity=1.5, #cm
+        dispersivity=1.5 *ureg.cm, #cm
         van_genuchten_n=1.31,
         residual_water_content=0.04,
     )
 
     model_eq.compute(
         BoundaryPreprocessor,
-        C_list=[C0, 0],
-        T_list=[0, T_PULSE_END],
+        C_list=[C0, ureg("0 mg/L")],
+        T_list=[0*ureg.s, T_PULSE_END],
     )
 
     sorption_solid_eq = {
@@ -149,9 +150,9 @@ def _(
 
     model_eq.compute(
         SWCsorption,
-        sigma0=71,
+        sigma0=ureg("71 dyn/cm"),
         scaling_factor_awi=1.0,
-        van_genuchten_alpha=0.019, #1/s
+        van_genuchten_alpha=ureg("0.02 1/cm"), 
     )
 
     model_eq.compute(
@@ -161,8 +162,7 @@ def _(
     )
 
     model_eq.compute(
-        EquilibriumSolver,
-        initial_contaminant_concentration=initial_concentration_eq,
+        EquilibriumSolver
     )
 
     print("Equilibrium simulation completed.")
@@ -196,16 +196,16 @@ def _(
     T_PULSE_END,
     WaterPreprocessor,
     bulk_dens,
-    np,
+    ureg,
 ):
-    FRAC_INT = 0.8
-    RATE_CONST = 0.1
+    FRAC_INT = 0.8 
+    RATE_CONST = ureg("0.1 1/s") #1/s
 
     GRID_KWARGS_kin  = dict(
-        domain_length=10,
-        spatial_resolution=0.5,
-        time_resolution=10,
-        time_total=500,
+        domain_length=10*ureg.cm, 
+        spatial_resolution=0.5*ureg.cm, 
+        time_resolution=10 *ureg.s,
+        time_total=500*ureg.s,
     )
 
     model_kin = Model()
@@ -213,22 +213,22 @@ def _(
     model_kin.compute(GridGenerator, **GRID_KWARGS_kin)
 
     n_nodes_kin = len(model_kin.grid.depth)
-    initial_concentration_kin = np.zeros(n_nodes_kin)  # no initial contamination
+
 
     model_kin.compute(
         WaterPreprocessor,
-        average_infiltration_rate=1.5,
-        hydraulic_conductivity=6,
+        average_infiltration_rate=ureg("1.5 cm/s"), #cm/s
+        hydraulic_conductivity=ureg("6 cm/s"), #cm/s
         porosity=0.34,
-        dispersivity=1.5,
+        dispersivity=1.5 *ureg.cm, #cm
         van_genuchten_n=1.31,
         residual_water_content=0.04,
     )
 
     model_kin.compute(
         BoundaryPreprocessor,
-        C_list=[C0, 0],
-        T_list=[0, T_PULSE_END],
+        C_list=[C0, ureg("0 mg/L")],
+        T_list=[0*ureg.s, T_PULSE_END],
     )
 
     sorption_solid_kin = {
@@ -242,9 +242,9 @@ def _(
 
     model_kin.compute(
         SWCsorption,
-        sigma0=71,
+        sigma0=ureg("71 dyn/cm"), #dyn/cm
         scaling_factor_awi=1.0,
-        van_genuchten_alpha=0.019,
+        van_genuchten_alpha=ureg("0.019 1/cm"), #1/cm
     )
 
     model_kin.compute(
@@ -257,7 +257,6 @@ def _(
 
     model_kin.compute(
         KineticSolver,
-        initial_contaminant_concentration=initial_concentration_kin,
 
     )
 

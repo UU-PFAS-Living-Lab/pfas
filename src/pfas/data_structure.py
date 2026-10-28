@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+from pint import Quantity
 
 
 @dataclass
@@ -56,8 +57,8 @@ class BoundaryConditions:
         Must have the same length as ``C_list``. ``T_list[0]`` must be 0.
     """
 
-    C_list: list[float]
-    T_list: list[float]
+    C_list: list[float | Quantity]
+    T_list: list[float | Quantity]
 
 @dataclass
 class HydrologicalProperties:

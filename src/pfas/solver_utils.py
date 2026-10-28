@@ -46,6 +46,7 @@ from typing import Callable, NamedTuple
 
 import numpy as np
 from numpy.typing import NDArray
+from pint import Quantity
 from scipy.integrate import quad
 from scipy.special import erfc, iv
 
@@ -85,7 +86,7 @@ class DimensionlessParams(NamedTuple):
 def compute_dimensionless_params(
     grid,
     hydro_properties,
-    T_list: list[float],
+    T_list: list[float | Quantity],
     adsorption=None,
     kinetic: bool = False,
 ) -> DimensionlessParams:
@@ -146,7 +147,12 @@ def compute_dimensionless_params(
 
     Z = grid.depth / L
     T = grid.time * scale
-    T_list_dim = [t * scale for t in T_list]
+    T_list_dim = []
+    for t in T_list:
+        t_dim = t * scale
+        if isinstance(t_dim, Quantity):
+            t_dim = t_dim.to("dimensionless").magnitude
+        T_list_dim.append(float(t_dim))
 
     omega = None
     if kinetic:

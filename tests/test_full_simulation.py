@@ -31,7 +31,7 @@ def test_full_simulation():
     }
 
     model.compute(LinearSPsorption, sorption_solid=sorption_solid)
-    model.compute(SWCsorption, sigma0=71, scaling_factor_awi=1.0, van_genuchten_alpha=0.019)
+    model.compute(SWCsorption, sigma0=71, scaling_factor_awi=1.0, van_genuchten_alpha=0.019, water_density=1000, gravity=9.81)
     model.compute(Retardation, Kaw=0.5, bulk_density=1.6)
     model.compute(EquilibriumSolver)
 

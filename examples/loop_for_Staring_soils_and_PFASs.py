@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -10,7 +10,11 @@ def _(mo):
     # Methods for computing Aaw for different PFAS and different soils
     In this notebook we run our model, utilizing the different available Aaw approaches, for different PFAS and different soil types.
     We keep one method for calculating the Kd and one method for calculating Kaw.
-    For completion, these differences are also shown at the bottom of this script.
+    We show the differences in contribution of this at the bottom of the script.
+
+    In these simulations we use an average infiltration rate which corresponds to the average Dutch precipitation rate. As reference soils we use the [Staring Reeks](https://doi.org/10.18174/512761), which comprises 18 soil types typical to the Netherlands. Our soil database, contemplary to this package, contains the necessary data.
+
+    We first start by loading the relevant modules in the code block below.
     """)
     return
 
@@ -22,13 +26,13 @@ def _():
     from pfas.data_loader import load_dataset, available_datasets
     from pfas.component.awi import SWCsorption, GuoTracer, D50AWI, NonlinearD50AWI, GSSAAWI
     from matplotlib import pyplot as plt
-    from pathlib import Path
     import marimo as mo
     import matplotlib.ticker as ticker
     import pandas as pd
     import numpy as np
     import os
     from pfas.model import Model
+    from pfas import ureg
 
     print("Available datasets:", available_datasets())
     return (
@@ -51,6 +55,7 @@ def _():
         pd,
         plt,
         ticker,
+        ureg,
     )
 
 
@@ -64,7 +69,7 @@ def _(mo):
 
 
 @app.cell
-def _(load_dataset):
+def _(load_dataset, ureg):
     pfas_db = load_dataset("PFASs")
     soil_db = load_dataset("soils")
 
@@ -72,18 +77,17 @@ def _(load_dataset):
 
     print("Available PFAS:", list(pfas_db.keys()))  # to see what's available
 
-    sigma0=72.8
+    sigma0=ureg("71 dyn/cm")
 
     # Solid-phase adsorption: linear
     frac_int = 1.0
-    rate_const = 0.0
     return pfas_db, pfas_names, soil_db
 
 
 @app.cell
-def _():
+def _(ureg):
 
-    pulse_duration = 25 * (60 * 60 * 24 * 365)
+    pulse_duration = 25 * ureg.years #25 years
     return (pulse_duration,)
 
 
@@ -118,8 +122,8 @@ def _(
     pfas_names,
     pulse_duration,
     soil_db,
+    ureg,
 ):
-
     staring_soils = [s for s in soil_db.keys() if s.startswith("Staring-O")]
     all_pfas_results = {}
 
@@ -130,31 +134,32 @@ def _(
         for soil_name in staring_soils:
             model = Model()  
             model.compute(GridGenerator,
-                domain_length=100,                        # cm
-                spatial_resolution=0.5,                   # cm
-                time_resolution=(1/12) * (60*60*24*365),  # seconds
-                time_total=250*(60*60*24*365),            # seconds
+                domain_length=100 * ureg.centimeter,
+                spatial_resolution=0.5 *ureg.centimeter,
+                time_resolution= 1 * ureg.month ,  
+                time_total=250 * ureg.years,        
             )
 
             soil         = soil_db[soil_name]
-            bulk_dens    = soil["rho_b"]["value"]
+            bulk_dens    = soil["rho_b"]
             porosity     = soil["porosity"]
             theta_r      = soil["theta_r"]
             theta_s      = soil["theta_s"]
-            K_sat        = soil["K_sat"]["value"]
-            vg_alpha     = soil["van_genuchten"]["alpha"]["value"]
+            K_sat        = soil["K_sat"]
+            vg_alpha     = soil["van_genuchten"]["alpha"]
             vg_n         = soil["van_genuchten"]["n"]
             vg_l         = soil["van_genuchten"]["l"]
-            dispersivity = 4.5
-            f_oc         = soil["f_oc"]["value"] / 100
-            f_clay       = soil["f_clay"]["value"] / 100
-            f_silt       = soil["f_silt"]["value"] / 100
+            dispersivity = 4.5 * ureg.centimeter
+            f_oc         = soil["f_oc"]
+            print(f_oc)
+            f_clay       = soil["f_clay"]
+            f_silt       = soil["f_silt"]
             f_silt_clay  = f_silt + f_clay
-            d50          = soil["d50"]["value"] / 10000
-
+            d50          = soil["d50"]
+            print(pfas["M"]* 1e-9)
             # 1. Water flow
             model.compute(WaterPreprocessor,
-                average_infiltration_rate=9.51e-7,
+                average_infiltration_rate=ureg("9.51e-7 cm/s"),
                 hydraulic_conductivity=K_sat,
                 porosity=porosity,
                 dispersivity=dispersivity,
@@ -165,15 +170,14 @@ def _(
 
             # 2. Boundary conditions
             model.compute(BoundaryPreprocessor,
-                C_list=[pfas["M"]["value"] * 1e-9, 0.0],
-                T_list=[0.0, pulse_duration],
+                C_list=[pfas["M"]* ureg("1e-9 mol/l"), ureg("0 mg/L")],
+                T_list=[0.0*ureg.years, pulse_duration],
             )
 
             # 3. Solid-phase sorption
             sorption_solid = {
                 "kinetic_sorption": False,
                 "sorption_isotherm": "linear",
-                "kinetic": {"frac_int": 1.0, "rate_const": 0.0},
                 "linear": {
                     "Kd_method": "fabregat_palau",
                     "n_CFx": pfas["structural_properties"]["n_CFx"],
@@ -184,19 +188,26 @@ def _(
             model.compute(LinearSPsorption, sorption_solid=sorption_solid)
 
             # 4. Kaw method
-            a = pfas["Szyszkowski_params"]["a"]["value"]
-            b = pfas["Szyszkowski_params"]["b"]["value"]
+            a = pfas["Szyszkowski_params"]["a"]
+            b = pfas["Szyszkowski_params"]["b"]
 
             if a is not None and b is not None:
-                model.compute(Szyszkowski,
-                    sigma0=71, a=a, b=b, chi=1, T=293.15, Cw=1e-12,
+                model.compute(
+                    Szyszkowski,
+                    sigma0=ureg("71 dyn/cm"),
+                    a=a,
+                    b=b,
+                    chi=1,
+                    T=293.15 * ureg.kelvin,
+                    Cw=ureg("1e-12 mol/L"),
                 )
             else:
-                model.compute(Le2021_langmuir,
+                model.compute(
+                    Le2021_langmuir,
                     structural_properties=pfas["structural_properties"],
-                    Cw=1e-12,
+                    Cw=ureg("1e-12 mol/L"),
                 )
-                model.input_data["sigma0"] = 71 
+                model.input_data["sigma0"] = ureg("71 dyn/cm")
 
             # 5. Aaw + Retardation + simulation
             aaw_methods = {
@@ -254,39 +265,68 @@ def _(mo):
     mo.md(r"""
     ##Plotting $A_{aw}$ for all soils
     In this part of this file we explore the differences between the different $A_{aw}$ approximations. First, we observe the absolute differences. After, we compare all methods to the thermodynamic method *aaw_thermo*.
+    Because we used the Pint registry, we are able to convert all the Aaw units first to cm.
+    Afterwards (when we substract the difference between methods) Pint takes care of this automatically.
     """)
     return
 
 
 @app.cell
-def _(all_soil_results, np, plt):
+def _(all_soil_results, np, plt, ureg):
     # ── Plot: Aaw comparison across all 18 Staring soils ─────────────────────
     exclude = ""
-    soil_names_plot = [s for s in all_soil_results.keys() if s not in exclude]
-    aaw_thermo     = [all_soil_results[s]["Aaw"]["thermo"]          for s in soil_names_plot]
-    aaw_GSSA       = [all_soil_results[s]["Aaw"]["func_GSSA"]       for s in soil_names_plot]
-    aaw_d50        = [all_soil_results[s]["Aaw"]["func_d50"]        for s in soil_names_plot]
-    aaw_nonlin_d50 = [all_soil_results[s]["Aaw"]["func_nonlin_d50"] for s in soil_names_plot]
+    from pint import Quantity
+    def aaw_in_per_cm(value):
+        if isinstance(value, Quantity):
+            return value.to(1 / ureg.centimeter).magnitude
+        return float(value)  # Assumed already in 1/cm
 
-    x     =np.arange(len(soil_names_plot))
+
+    exclude = set()  # e.g., {"Staring-O1"}
+    soil_names_plot = [s for s in all_soil_results if s not in exclude]
+
+    aaw_thermo = [
+        aaw_in_per_cm(all_soil_results[s]["Aaw"]["thermo"])
+        for s in soil_names_plot
+    ]
+    aaw_GSSA = [
+        aaw_in_per_cm(all_soil_results[s]["Aaw"]["func_GSSA"])
+        for s in soil_names_plot
+    ]
+    aaw_d50 = [
+        aaw_in_per_cm(all_soil_results[s]["Aaw"]["func_d50"])
+        for s in soil_names_plot
+    ]
+    aaw_nonlin_d50 = [
+        aaw_in_per_cm(all_soil_results[s]["Aaw"]["func_nonlin_d50"])
+        for s in soil_names_plot
+    ]
+
+    x = np.arange(len(soil_names_plot))
     width = 0.20
 
     fig_aaw, ax_aaw = plt.subplots(figsize=(10, 5))
-    ax_aaw.bar(x - 1.5 * width, aaw_thermo,     width, label="Thermodynamic",        color="#1f77b4")
-    ax_aaw.bar(x - 0.5 * width, aaw_GSSA,       width, label="GSSA-based",           color="#ff7f0e")
-    ax_aaw.bar(x + 0.5 * width, aaw_d50,        width, label="d50-based",            color="#2ca02c")
-    ax_aaw.bar(x + 1.5 * width, aaw_nonlin_d50, width, label="d50, nonlinear saturation", color="#d62728")
+    ax_aaw.bar(x - 1.5 * width, aaw_thermo, width, label="Thermodynamic", color="#1f77b4")
+    ax_aaw.bar(x - 0.5 * width, aaw_GSSA, width, label="GSSA-based", color="#ff7f0e")
+    ax_aaw.bar(x + 0.5 * width, aaw_d50, width, label="d50-based", color="#2ca02c")
+    ax_aaw.bar(
+        x + 1.5 * width,
+        aaw_nonlin_d50,
+        width,
+        label="d50, nonlinear saturation",
+        color="#d62728",
+    )
 
-    ax_aaw.set_xticks(list(x))
+    ax_aaw.set_xticks(x)
     ax_aaw.set_xticklabels(soil_names_plot, rotation=45, ha="right", fontsize=8)
-    ax_aaw.set_ylabel("Aaw (cm²/cm³)")
-    # ax_aaw.set_yscale("log")
-    ax_aaw.set_title(f"Air-water interfacial area — all Staring soils")
+    ax_aaw.set_ylabel("Aaw (1/cm)")
+    ax_aaw.set_title("Air-water interfacial area — all Staring soils")
     ax_aaw.legend()
     ax_aaw.grid(True, alpha=0.3, axis="y")
+    ax_aaw.set_yscale("log")
     plt.tight_layout()
     fig_aaw
-    return
+    return (Quantity,)
 
 
 @app.cell
@@ -384,46 +424,77 @@ def _(mo):
     mo.md(r"""
     ##Plotting BTC for all soils
 
-    <!-- The generated_data allows you to access both input and output of the model and thus also allows for relative simple plotting. -->
+    In this code block we show the influence of the different paremeterization strategies for the computation of the AWI at a depth of 50cm across all soils.
     """)
     return
 
 
 @app.cell
-def _(all_soil_results, model, pfas_name, plt):
-    # ── Plot: breakthrough curves at depth ≈ 50 cm, all soils ────────────────
-    seconds_per_year_bt = 60 * 60 * 24 * 365
-    depth_target_cm = 50
-    depth_idx_bt = min(range(len(model.grid.depth)),
-        key=lambda i: abs(model.grid.depth[i] - depth_target_cm)
+def _(all_soil_results, model, pfas_name, plt, ureg):
+    ureg.setup_matplotlib(True)
+    ureg.mpl_formatter = "{:~P}"
+
+    # Find the grid cell nearest 50 cm
+    depth_target = 50 * ureg.cm
+    depth_idx_bt = min(
+        range(len(model.grid.depth)),
+        key=lambda i: abs(
+            model.grid.depth[i].to(ureg.cm).magnitude
+            - depth_target.to(ureg.cm).magnitude
+        ),
     )
-    actual_depth_bt = model.grid.depth[depth_idx_bt]
+    actual_depth_bt = model.grid.depth[depth_idx_bt].to(ureg.cm)
+
+    # Convert time to the desired display unit; Pint handles the conversion.
+    time_years_bt = model.grid.time.to(ureg.year)
 
     fig_bt, axes_bt = plt.subplots(1, 4, figsize=(18, 5), sharey=True)
-    method_labels_bt = {"thermo": "Thermodynamic", "func_GSSA": "GSSA-based", "func_d50": "d50-based", "func_nonlin_d50": "d50, nonlinear saturation"}
+
+    method_labels_bt = {
+        "thermo": "Thermodynamic",
+        "func_GSSA": "GSSA-based",
+        "func_d50": "d50-based",
+        "func_nonlin_d50": "d50, nonlinear saturation",
+    }
     cmap_bt = plt.get_cmap("tab20", len(all_soil_results))
 
     for ax_idx, (aaw_key, aaw_label_bt) in enumerate(method_labels_bt.items()):
         ax_bt = axes_bt[ax_idx]
-        for s_idx, sname in enumerate(all_soil_results.keys()):
+        ax_bt.xaxis.set_units(ureg.year)
+        ax_bt.yaxis.set_units(ureg.mg / ureg.L)
+
+        for s_idx, sname in enumerate(all_soil_results):
             C = all_soil_results[sname]["sim"][aaw_key][depth_idx_bt, :]
             ax_bt.plot(
-                model.grid.time / seconds_per_year_bt, C,
-                color=cmap_bt(s_idx), label=sname, linewidth=1.2
+                time_years_bt,
+                C,
+                color=cmap_bt(s_idx),
+                label=sname,
+                linewidth=1.2,
             )
+
         ax_bt.set_title(f"Aaw: {aaw_label_bt}")
-        ax_bt.set_xlabel("Time (years)")
+        ax_bt.set_xlabel(f"Time ({ureg.year:P})")
+
         if ax_idx == 0:
-            ax_bt.set_ylabel("Total PFAS Concentration (mg/L)")
+            ax_bt.set_ylabel(
+                f"Total PFAS concentration ({(ureg.mg / ureg.L):~P})"
+            )
         ax_bt.grid(True, alpha=0.3)
 
-    axes_bt[-1].legend(title="Soil", bbox_to_anchor=(1.02, 1),
-                       loc="upper left", fontsize=7, ncol=1)
-    fig_bt.suptitle(
-        f"Breakthrough at ≈{actual_depth_bt:.0f} cm — {pfas_name}, all Staring soils",
-        fontsize=12
+    axes_bt[-1].legend(
+        title="Soil",
+        bbox_to_anchor=(1.02, 1),
+        loc="upper left",
+        fontsize=7,
+        ncol=1,
     )
-    plt.tight_layout()
+
+    fig_bt.suptitle(
+        f"Breakthrough at ≈{actual_depth_bt:.0f~P} — {pfas_name}, all Staring soils",
+        fontsize=12,
+    )
+    fig_bt.tight_layout()
     fig_bt
     return
 
@@ -434,7 +505,7 @@ def _(mo):
     #Other parameters
     In this code block we look at the differences in computed Kaw values, Kd values and effective saturation with the chosen methods.
 
-    We start with comparing the $K_{aw}$ values, before comparing $K_d$ values across soils  and providing the effective saturation for these soils.
+    We start with comparing the $K_{aw}$ values between different PFAS, before comparing $K_d$ values across soils  and providing the effective saturation for these soils. Please see other examples where all functionality is shown for computing $K_{aw}$ and $K_d$ with different methods.
     """)
     return
 
@@ -487,13 +558,20 @@ def _(all_pfas_results, pd, pfas_names, plt, ticker):
 
 
 @app.cell
-def _(all_pfas_results, plt, soil_db, ticker):
+def _(Quantity, all_pfas_results, plt, soil_db, ticker, ureg):
     #Kd
     soil_order = [s for s in soil_db.keys() if s.startswith("Staring-O")]
+    kd_display_unit = ureg.cm**3 / ureg.g
+
+    def kd_magnitude(kd):
+        if isinstance(kd, Quantity):
+            return kd.to(kd_display_unit).magnitude
+        return float(kd)  # Assumed to already be in cm³/g
+
 
     kd_by_soil = {
         soil_name: [
-            soil_results[soil_name]["Kd"]
+            kd_magnitude(soil_results[soil_name]["Kd"])
             for soil_results in all_pfas_results.values()
             if soil_name in soil_results
         ]
@@ -526,6 +604,7 @@ def _(all_pfas_results, plt, soil_db, ticker):
     ax_kd.grid(True, which="major", axis="both", alpha=0.45)
     ax_kd.tick_params(axis="x", labelrotation=45, labelsize=10)
     ax_kd.tick_params(axis="y", labelsize=10)
+
     for label in ax_kd.get_xticklabels():
         label.set_ha("right")
 
@@ -639,17 +718,6 @@ def _(all_pfas_results, np, plt):
                 bottom=sp_R,
                 label=label,
             )
-
-             # Total R
-            # for j, R in enumerate(R_total):
-            #     ax.text(
-            #         x[j] + offset,
-            #         R + max(R_total) * 0.01,
-            #         f"{R:.0f}",
-            #         ha="center",
-            #         va="bottom",
-            #         fontsize=7,
-            #     )
 
         ax.set_xticks(x)
         ax.set_xticklabels(soils, rotation=45, ha="right")
