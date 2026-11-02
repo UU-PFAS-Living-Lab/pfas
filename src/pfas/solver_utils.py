@@ -190,7 +190,7 @@ def _bvp_flux_bc(T: float, R: float, Z: NDArray[np.float64], P: float) -> NDArra
 
     term1 = 0.5 * erfc(b_minus)
     term2 = gauss * erfcx(b_plus)                      # exp(P*Z) * erfc(b_plus)
-    term3 = np.sqrt(P * T / (np.pi * R)) * gauss       
+    term3 = np.sqrt(P * T / (np.pi * R)) * gauss
 
     return term1 + term3 - 0.5 * (1.0 + P * Z + P * T / R) * term2
 
@@ -431,7 +431,7 @@ def _FT(  # noqa: N802, PLR0913, PLR0917
     b_minus = a * (R_beta * Z - tau)
     b_plus = a * (R_beta * Z + tau)
 
-    gauss = np.exp(-(b_minus**2))  
+    gauss = np.exp(-(b_minus**2))
 
     if volume_averaged:
         term0 = np.sqrt(P / (np.pi * R_beta * tau))
