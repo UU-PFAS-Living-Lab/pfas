@@ -48,7 +48,7 @@ import numpy as np
 from numpy.typing import NDArray
 from pint import Quantity
 from scipy.integrate import quad
-from scipy.special import erfc, iv
+from scipy.special import erfc, erfcx, iv
 
 # Number of modified Bessel function series terms for the Goldstein J-function
 # approximation following Lindstrom and Stone (1974).
@@ -179,23 +179,19 @@ def compute_dimensionless_params(
 # ---------------------------------------------------------------------------
 
 
-def _bvp_flux_bc(
-    T: float,
-    R: float,
-    Z: NDArray[np.float64],
-    P: float,
-) -> NDArray[np.float64]:
-    """Return the equilibrium flux-boundary BVP solution.
 
-    Parameters are dimensionless: ``T`` is time, ``R`` is retardation,
-    ``Z`` is depth, and ``P`` is the Péclet number. This is the third-type
-    solution from Toride et al. :cite:`toride1995`, Table 2.3, with
-    ``Omega = 0``.
-    """
+
+def _bvp_flux_bc(T: float, R: float, Z: NDArray[np.float64], P: float) -> NDArray[np.float64]:
     arg = np.sqrt(0.25 * P / R / T)
-    term1 = 0.5 * erfc(arg * (R * Z - T))
-    term2 = np.exp(P * Z) * erfc(arg * (R * Z + T))
-    term3 = np.sqrt(P / np.pi / R) * np.exp(-(arg * (R * Z - T)) ** 2)
+    b_minus = arg * (R * Z - T)
+    b_plus = arg * (R * Z + T)
+
+    gauss = np.exp(-(b_minus**2))
+
+    term1 = 0.5 * erfc(b_minus)
+    term2 = gauss * erfcx(b_plus)                      # exp(P*Z) * erfc(b_plus)
+    term3 = np.sqrt(P * T / (np.pi * R)) * gauss       
+
     return term1 + term3 - 0.5 * (1.0 + P * Z + P * T / R) * term2
 
 
