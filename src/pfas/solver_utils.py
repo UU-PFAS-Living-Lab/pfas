@@ -182,6 +182,13 @@ def compute_dimensionless_params(
 
 
 def _bvp_flux_bc(T: float, R: float, Z: NDArray[np.float64], P: float) -> NDArray[np.float64]:
+    """Return the equilibrium flux-boundary BVP solution.
+
+    Parameters are dimensionless: ``T`` is time, ``R`` is retardation,
+    ``Z`` is depth, and ``P`` is the Péclet number. This is the third-type
+    solution from Toride et al. :cite:`toride1995`, Table 2.3, with
+    ``Omega = 0``.
+    """
     arg = np.sqrt(0.25 * P / R / T)
     b_minus = arg * (R * Z - T)
     b_plus = arg * (R * Z + T)
