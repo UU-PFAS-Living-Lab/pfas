@@ -48,7 +48,7 @@ import numpy as np
 from numpy.typing import NDArray
 from pint import Quantity
 from scipy.integrate import quad
-from scipy.special import erfc, iv
+from scipy.special import erfc, erfcx, iv
 
 # Number of modified Bessel function series terms for the Goldstein J-function
 # approximation following Lindstrom and Stone (1974).
@@ -179,12 +179,9 @@ def compute_dimensionless_params(
 # ---------------------------------------------------------------------------
 
 
-def _bvp_flux_bc(
-    T: float,
-    R: float,
-    Z: NDArray[np.float64],
-    P: float,
-) -> NDArray[np.float64]:
+
+
+def _bvp_flux_bc(T: float, R: float, Z: NDArray[np.float64], P: float) -> NDArray[np.float64]:
     """Return the equilibrium flux-boundary BVP solution.
 
     Parameters are dimensionless: ``T`` is time, ``R`` is retardation,
@@ -193,9 +190,15 @@ def _bvp_flux_bc(
     ``Omega = 0``.
     """
     arg = np.sqrt(0.25 * P / R / T)
-    term1 = 0.5 * erfc(arg * (R * Z - T))
-    term2 = np.exp(P * Z) * erfc(arg * (R * Z + T))
-    term3 = np.sqrt(P / np.pi / R) * np.exp(-(arg * (R * Z - T)) ** 2)
+    b_minus = arg * (R * Z - T)
+    b_plus = arg * (R * Z + T)
+
+    gauss = np.exp(-(b_minus**2))
+
+    term1 = 0.5 * erfc(b_minus)
+    term2 = gauss * erfcx(b_plus)                      # exp(P*Z) * erfc(b_plus)
+    term3 = np.sqrt(P * T / (np.pi * R)) * gauss
+
     return term1 + term3 - 0.5 * (1.0 + P * Z + P * T / R) * term2
 
 
@@ -431,15 +434,18 @@ def _FT(  # noqa: N802, PLR0913, PLR0917
     ``beta`` are dimensionless transport parameters.
     """
     R_beta = beta * R
-    term0 = np.sqrt(P / (np.pi * R_beta * tau))
-    term1 = np.exp(-0.25 * P / R_beta / tau * (R_beta * Z - tau) ** 2)
-    term2 = np.exp(P * Z) * erfc(
-        np.sqrt(0.25 * P / R_beta / tau) * (R_beta * Z + tau)
-    )
+    a = np.sqrt(0.25 * P / (R_beta * tau))
+    b_minus = a * (R_beta * Z - tau)
+    b_plus = a * (R_beta * Z + tau)
+
+    gauss = np.exp(-(b_minus**2))
 
     if volume_averaged:
-        return term0 * term1 - 0.5 * (P / R_beta) * term2
-    return (Z / tau) * np.sqrt(0.25 * P * R_beta / (np.pi * tau)) * term1
+        term0 = np.sqrt(P / (np.pi * R_beta * tau))
+        term2 = gauss * erfcx(b_plus)
+        return term0 * gauss - 0.5 * (P / R_beta) * term2
+
+    return (Z / tau) * np.sqrt(0.25 * P * R_beta / (np.pi * tau)) * gauss
 
 
 def _goldstein_J(  # noqa: N806, N802
