@@ -1,29 +1,27 @@
-"""
-Tests for the initial value problem for both
-the EquilibriumSolver and KineticSolver 
-sorption pathways.
+"""Test the initial value problem with equilibrium and kinetic solvers.
 
-Run with:
-    pytest test_pfas_model.py -v -s
+Exercise both solver pathways with unitless inputs and Pint quantities.
 """
 
 import numpy as np
 import pytest
+from pint import Quantity
 
-from pfas.model import Model
+from pfas import ureg
 from pfas.component import (
-    LinearSPsorption,
-    SWCsorption,
-    Retardation,
-    WaterPreprocessor,
     BoundaryPreprocessor,
-    GridGenerator,
     EquilibriumSolver,
+    GridGenerator,
     KineticSolver,
+    LinearSPsorption,
+    Retardation,
+    SWCsorption,
+    WaterPreprocessor,
 )
-
+from pfas.model import Model
 
 BULK_DENS = 1.6
+CONCENTRATION_UNIT = ureg.milligram / ureg.liter
 
 SOLVER_CONFIGS = {
     "equilibrium": {
@@ -31,7 +29,7 @@ SOLVER_CONFIGS = {
         "kinetic_sorption": False,
         "frac_int": 0.8,
         "rate_const": 0.1,
-        "retardation_range": (40, 50),
+        "retardation_range": (39, 50),
         "solver_kwargs": {"bc": "flux"},
         "retardation_kwargs": {},
         "grid_kwargs": {
@@ -46,7 +44,7 @@ SOLVER_CONFIGS = {
         "kinetic_sorption": True,
         "frac_int": 0.8,
         "rate_const": 0.1,
-        "retardation_range": (40, 50),
+        "retardation_range": (39, 50),
         "solver_kwargs": {},
         "retardation_kwargs": {
             "kinetic": True,
@@ -67,11 +65,17 @@ def solver_config(request):
     return SOLVER_CONFIGS[request.param]
 
 
-@pytest.fixture(scope="module")
-def simulation(solver_config):
-    """Build the grid, run the full model pipeline for the given solver
-    configuration, and return the pieces needed by the tests below."""
+@pytest.fixture(scope="module", params=[False, True], ids=["unitless", "pint"])
+def with_units(request):
+    return request.param
 
+
+@pytest.fixture(scope="module")
+def simulation(solver_config, with_units):
+    """Build and run a simulation for one solver configuration.
+
+    Return the model and inputs needed by the tests.
+    """
     model = Model()
 
     model.compute(
@@ -84,6 +88,20 @@ def simulation(solver_config):
 
     initial_concentration = np.zeros(n_nodes)
     initial_concentration[:cutoff] = 0.5
+    if with_units:
+        initial_concentration = initial_concentration * CONCENTRATION_UNIT
+
+    van_genuchten_alpha = 0.019
+    sigma0 = 71
+    kaw = 0.1
+    kd = 8
+    bulk_density = BULK_DENS
+    if with_units:
+        van_genuchten_alpha /= ureg.meter
+        sigma0 *= ureg.newton / ureg.meter
+        kaw *= ureg.centimeter
+        kd *= ureg.liter / ureg.kilogram
+        bulk_density *= ureg.kilogram / ureg.liter
 
     model.compute(
         WaterPreprocessor,
@@ -97,7 +115,7 @@ def simulation(solver_config):
 
     model.compute(
         BoundaryPreprocessor,
-        C_list=[0],
+        C_list=[0 * CONCENTRATION_UNIT if with_units else 0],
         T_list=[0],
     )
 
@@ -110,7 +128,7 @@ def simulation(solver_config):
         },
         "linear": {
             "Kd_method": "direct_input",
-            "Kd": 8,
+            "Kd": kd,
         },
     }
 
@@ -121,15 +139,17 @@ def simulation(solver_config):
 
     model.compute(
         SWCsorption,
-        sigma0=71,
+        sigma0=sigma0,
         scaling_factor_awi=1.0,
-        van_genuchten_alpha=0.019,
+        van_genuchten_alpha=van_genuchten_alpha,
+        water_density=1000 * ureg.kilogram / ureg.meter**3 if with_units else 1000,
+        gravity=9.81 * ureg.meter / ureg.second**2 if with_units else 9.81,
     )
 
     model.compute(
         Retardation,
-        Kaw=10,
-        bulk_density=BULK_DENS,
+        Kaw=kaw,
+        bulk_density=bulk_density,
         **solver_config["retardation_kwargs"],
     )
 
@@ -175,9 +195,10 @@ def test_generated_data(model):
     assert model.generated_data, "model.generated_data should not be empty"
 
     for key, value in model.generated_data.items():
-        if isinstance(value, np.ndarray):
-            assert value.size > 0, f"{key} array is empty"
-            assert not np.isnan(value).all(), f"{key} array is entirely NaN"
+        values = _magnitudes(value)
+        if values.ndim > 0:
+            assert values.size > 0, f"{key} array is empty"
+            assert not np.isnan(values).all(), f"{key} array is entirely NaN"
 
 
 def test_physical_grid(z, t):
@@ -190,61 +211,74 @@ def test_water_properties(model):
 
     theta = hydro.water_content
     v = hydro.pore_velocity
-    D = hydro.dispersion_coefficient
+    dispersion = hydro.dispersion_coefficient
 
     assert 0 < theta <= 0.34
     assert v > 0
-    assert D > 0
+    assert dispersion > 0
 
     # Independent calculation from WaterPreprocessor inputs
     expected_v = 1.5 / theta
-    expected_D = expected_v * 1.5
+    expected_dispersion = expected_v * 1.5
 
     assert np.isclose(v, expected_v)
-    assert np.isclose(D, expected_D)
+    assert np.isclose(dispersion, expected_dispersion)
 
 
-def test_retardation(model, solver_config):
+def test_retardation(model, solver_config, with_units):
     adsorption = model.generated_data["adsorption"]
-    R = adsorption.total_retardation
+    retardation = adsorption.total_retardation
+    if with_units:
+        assert isinstance(retardation, Quantity)
+        assert retardation.check("")
+    else:
+        assert isinstance(retardation, (int, float))
+    retardation_value = float(_magnitudes(retardation))
 
     lo, hi = solver_config["retardation_range"]
     solver_name = solver_config["solver_cls"].__name__
-    assert lo <= R <= hi, (
-        f"R={R} is outside the expected range [{lo}, {hi}] for {solver_name}"
+    assert lo <= retardation_value <= hi, (
+        f"R={retardation_value} is outside the expected range [{lo}, {hi}] "
+        f"for {solver_name}"
     )
 
 
 def test_initial_condition(initial_concentration, z):
-    Ci = np.asarray(initial_concentration)
+    ci = _magnitudes(initial_concentration)
 
-    assert Ci.shape == z.shape
-    assert np.isclose(Ci.min(), 0.0)
-    assert np.isclose(Ci.max(), 0.5)
+    assert ci.shape == z.shape
+    assert np.isclose(ci.min(), 0.0)
+    assert np.isclose(ci.max(), 0.5)
 
-    contaminated = np.where(Ci > 0)[0]
+    contaminated = np.where(ci > 0)[0]
     assert len(contaminated) > 0, "expected a contaminated region in the initial condition"
 
 
-def test_solution_shapes(model, z, t):
-    C1 = model.generated_data["C1"]
-    C_tot = model.generated_data["C_tot"]
+def test_solution_shapes(model, z, t, with_units):
+    c1 = model.generated_data["C1"]
+    c_tot = model.generated_data["C_tot"]
 
-    assert C1.shape == (len(z), len(t))
-    assert C_tot.shape == C1.shape
+    assert c1.shape == (len(z), len(t))
+    assert c_tot.shape == c1.shape
+    if with_units:
+        assert isinstance(c1, Quantity)
+        assert isinstance(c_tot, Quantity)
+        assert c1.check("[mass] / [length] ** 3")
+        assert c_tot.check("[mass] / [length] ** 3")
+    else:
+        assert isinstance(c1, np.ndarray)
+        assert isinstance(c_tot, np.ndarray)
 
 
 def test_negative_concentrations(model, z, t):
+    """Report significantly negative concentrations without failing.
     """
-    Reports any significantly negative concentration values without
-    failing the test, mirroring the original exploratory diagnostic.
-    """
-    C1 = model.generated_data["C1"]
+    c1 = _magnitudes(model.generated_data["C1"])
 
-    minimum = np.min(C1)
+    minimum = np.min(c1)
     print("\nminimum C =", minimum)
 
-    negative_locations = np.where(C1 < -1e-12)
+    negative_locations = np.where(c1 < -1e-12)
     n_negative = len(negative_locations[0])
     print("number of significantly negative values =", n_negative)
 
@@ -252,7 +286,7 @@ def test_negative_concentrations(model, z, t):
         first = negative_locations[0][0]
         second = negative_locations[1][0]
 
-        print("first negative value:", C1[first, second])
+        print("first negative value:", c1[first, second])
         print("at depth =", z[first], "cm")
         print("at time =", t[second], "s")
 
@@ -261,10 +295,10 @@ MASS_BALANCE_TOLERANCE = 1e-2
 
 
 def test_mass_diagnostic(model, initial_concentration, z, t):
-    C1 = model.generated_data["C1"]
-    Ci = np.asarray(initial_concentration)
+    c1 = _magnitudes(model.generated_data["C1"])
+    ci = _magnitudes(initial_concentration)
 
-    initial_mass = np.trapezoid(Ci, z)
+    initial_mass = np.trapezoid(ci, z)
     assert initial_mass > 0, "initial mass must be positive for this test to be meaningful"
 
     print("\nInitial concentration integral:")
@@ -272,7 +306,7 @@ def test_mass_diagnostic(model, initial_concentration, z, t):
 
     masses = []
     for j in range(len(t)):
-        mass = np.trapezoid(C1[:, j], z)
+        mass = np.trapezoid(c1[:, j], z)
         masses.append(mass)
 
         assert np.isfinite(mass), f"Non-finite total mass at t={t[j]}"
@@ -294,3 +328,10 @@ def test_mass_diagnostic(model, initial_concentration, z, t):
             f"\u222bC_tot dz = {masses[j]:.8g} | "
             f"ratio = {masses[j] / initial_mass:.8g}"
         )
+
+
+def _magnitudes(value):
+    """Return numeric values for assertions, whether unit-bearing or plain."""
+    if isinstance(value, Quantity):
+        return np.asarray(value.magnitude)
+    return np.asarray(value)

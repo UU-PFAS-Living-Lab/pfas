@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 
@@ -20,6 +20,7 @@ def _():
     from pfas.model import Model
     from matplotlib import pyplot as plt
     import marimo as mo
+
     return (mo,)
 
 
@@ -77,17 +78,17 @@ def _(PFASs, soils, spa_matrix):
     print(vg_params)
 
     # Pull scalar soil values used in the simulation
-    bulk_dens   = soil["rho_b"]  ["value"]         # numeric value only (g/cm³)
+    bulk_dens   = soil["rho_b"]
     porosity    = soil["porosity"]
     vg_n        = vg_params["n"]
     theta_r     = soil["theta_r"]
-    vg_alpha    = vg_params["alpha"]["value"]    # numeric value (1/cm)
+    vg_alpha    = vg_params["alpha"]
     dispersivity = 1.5                       # not present for Accusand, use default
     C_rep = 1 #indication of nonlinearity for freundlich sorption, can be between 0 and 1
     # Check for solid phase adsorption parameters available in the dataset:
     if soil_name in spa_matrix and pfas_name in spa_matrix[soil_name]:
         spa = dict(spa_matrix[soil_name][pfas_name])
-        freundlich_k = spa["Freundlich_K"]["value"]   # numeric value
+        freundlich_k = spa["Freundlich_K"]
         freundlich_n = spa["Freundlich_N"]
         frac_int = spa["frac_instant_adsorption"]
         rate_const = spa["kinetic_adsorption_rate"]
@@ -95,12 +96,12 @@ def _(PFASs, soils, spa_matrix):
         print(f"  Freundlich K : {freundlich_k}")
         print(f"  Freundlich N : {freundlich_n}")
         print(f"  Frac instant : {frac_int}")
-        print(f"  Kinetic rate : {rate_const} 1/h")
+        print(f"  Kinetic rate : {rate_const} ")
         use_spa = True
     else:
         print(f"\nNo spa_matrix entry for {pfas_name} in {soil_name}. Using fallback Kd.")
         use_spa = False
-    return pfas, soil, spa, vg_params
+    return pfas, rate_const, soil, spa, vg_params
 
 
 @app.cell
@@ -108,49 +109,23 @@ def _(mo):
     mo.md(r"""
     ## Converting Units
     Within the *pfas* package it is important to be consistent with units to ensure the right results. To this end, all data in the database comes with a unit, as is shown in the code above.
-    To help with converting, the pfas package has its own unit converter. This converts the units to SI units automatically.
+    It is not mandatory to keep track of your units, but strongly recommended. To help with converting, we use the [Pint](https://pint.readthedocs.io/) unit registry. Please refer to this documentation for additional options.
     """)
     return
 
 
 @app.cell
-def _(pfas, soil, spa, vg_params):
-    from pfas.unit_converter import UnitConverter
+def _(pfas, rate_const, soil, vg_params):
 
-    molar_mass_si = UnitConverter.to_si(
-        pfas["M"]["value"],
-        pfas["M"]["unit"],
-    )[0]
+    molar_mass_si = pfas["M"].to_base_units()
+    K_oc_si = pfas["K_oc"].to_base_units()
+    diffusivity_si = pfas["diffusivity"].to_base_units()
 
-    K_oc_si = UnitConverter.to_si(
-        pfas["K_oc"]["value"],
-        pfas["K_oc"]["unit"],
-    )[0]
+    bulk_dens_si = soil["rho_b"].to_base_units()
+    K_sat_si = soil["K_sat"].to_base_units()
+    vg_alpha_si = vg_params["alpha"].to_base_units()
 
-    diffusivity_si = UnitConverter.to_si(
-        pfas["diffusivity"]["value"],
-        pfas["diffusivity"]["unit"],
-    )[0]
-
-    bulk_dens_si = UnitConverter.to_si(
-        soil["rho_b"]["value"],
-        soil["rho_b"]["unit"],
-    )[0]
-
-    K_sat_si = UnitConverter.to_si(
-        soil["K_sat"]["value"],
-        soil["K_sat"]["unit"],
-    )[0]
-
-    vg_alpha_si = UnitConverter.to_si(
-        vg_params["alpha"]["value"],
-        vg_params["alpha"]["unit"],
-    )[0]
-
-    rate_const_si = UnitConverter.to_si(
-        spa["kinetic_adsorption_rate"]["value"],
-        spa["kinetic_adsorption_rate"]["unit"],
-    )[0]
+    rate_const_si = rate_const.to_base_units()
     return (
         K_oc_si,
         K_sat_si,
@@ -182,52 +157,52 @@ def _(
     unit_table = pd.DataFrame([
         {
             "Parameter": "Molar mass",
-            "Old value": pfas["M"]["value"],
-            "Old unit": pfas["M"]["unit"],
-            "New value": molar_mass_si,
-            "New unit": "kg/mol",
+            "Old value": pfas["M"].magnitude,
+            "Old unit": pfas["M"].units,
+            "New value": molar_mass_si.magnitude,
+            "New unit": molar_mass_si.units,
         },
         {
             "Parameter": "Koc",
-            "Old value": pfas["K_oc"]["value"],
-            "Old unit": pfas["K_oc"]["unit"],
-            "New value": K_oc_si,
-            "New unit": "m**3/kg",
+            "Old value": pfas["K_oc"].magnitude,
+            "Old unit": pfas["K_oc"].units,
+            "New value": K_oc_si.magnitude,
+            "New unit": K_oc_si.units,
         },
         {
             "Parameter": "Diffusivity",
-            "Old value": pfas["diffusivity"]["value"],
-            "Old unit": pfas["diffusivity"]["unit"],
-            "New value": diffusivity_si,
-            "New unit": "m**2/s",
+            "Old value": pfas["diffusivity"].magnitude,
+            "Old unit": pfas["diffusivity"].units,
+            "New value": diffusivity_si.magnitude,
+            "New unit": diffusivity_si.units,
         },
         {
             "Parameter": "Bulk density",
-            "Old value": soil["rho_b"]["value"],
-            "Old unit": soil["rho_b"]["unit"],
-            "New value": bulk_dens_si,
-            "New unit": "kg/m**3",
+            "Old value": soil["rho_b"].magnitude,
+            "Old unit": soil["rho_b"].units,
+            "New value": bulk_dens_si.magnitude,
+            "New unit": bulk_dens_si.units,
         },
         {
             "Parameter": "Ksat",
-            "Old value": soil["K_sat"]["value"],
-            "Old unit": soil["K_sat"]["unit"],
-            "New value": K_sat_si,
-            "New unit": "m/s",
+            "Old value": soil["K_sat"].magnitude,
+            "Old unit": soil["K_sat"].units,
+            "New value": K_sat_si.magnitude,
+            "New unit": K_sat_si.units,
         },
         {
             "Parameter": "VG alpha",
-            "Old value": vg_params["alpha"]["value"],
-            "Old unit": vg_params["alpha"]["unit"],
-            "New value": vg_alpha_si,
-            "New unit": "1/m",
+            "Old value": vg_params["alpha"].magnitude,
+            "Old unit": vg_params["alpha"].units,
+            "New value": vg_alpha_si.magnitude,
+            "New unit": vg_alpha_si.units,
         },
         {
             "Parameter": "Kinetic rate",
-            "Old value": spa["kinetic_adsorption_rate"]["value"],
-            "Old unit": spa["kinetic_adsorption_rate"]["unit"],
-            "New value": rate_const_si,
-            "New unit": "1/s",
+            "Old value": spa["kinetic_adsorption_rate"].magnitude,
+            "Old unit": spa["kinetic_adsorption_rate"].units,
+            "New value": rate_const_si.magnitude,
+            "New unit": rate_const_si.units,
         },
     ])
 

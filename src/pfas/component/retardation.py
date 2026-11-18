@@ -3,12 +3,18 @@
 from typing import Annotated, Optional
 
 from annotated_types import Gt
+from pint import Quantity
 from pydantic import BaseModel, model_validator
 
 from pfas.data_structure import Adsorption, HydrologicalProperties
 
 
-class Retardation(BaseModel, validate_assignment=True, extra='forbid'):
+def _dimensionless(x):
+    """Reduce a Quantity to dimensionless; leave plain numbers as they are."""
+    return x.to("dimensionless") if isinstance(x, Quantity) else x
+
+class Retardation(BaseModel, validate_assignment=True, extra='forbid',
+                  arbitrary_types_allowed=True):
     """
     Calculate retardation factors from solid-phase and air-water interface sorption data.
 
@@ -31,13 +37,13 @@ class Retardation(BaseModel, validate_assignment=True, extra='forbid'):
         Hydraulic properties from WaterPreprocessor.
     """
 
-    Kd: float  # noqa: N815
-    Kaw: float
-    aaw: float
+    Kd: float | Quantity  # noqa: N815
+    Kaw: float | Quantity
+    aaw: float | Quantity
     kinetic: bool = False
     kin_params: Optional[dict] = None
     hydro_properties: HydrologicalProperties
-    bulk_density: Annotated[float, Gt(0)]
+    bulk_density: Annotated[float|Quantity, Gt(0)]
 
     @model_validator(mode="after")
     def validate_kinetic_inputs(self) -> "Retardation":
@@ -55,8 +61,9 @@ class Retardation(BaseModel, validate_assignment=True, extra='forbid'):
         dict
             Dictionary with key 'adsorption' containing an Adsorption instance.
         """
-        awi_retardation = (self.Kaw * self.aaw) / self.hydro_properties.water_content
-        sp_retardation = (self.bulk_density * self.Kd) / self.hydro_properties.water_content
+        theta = self.hydro_properties.water_content
+        awi_retardation = _dimensionless((self.Kaw * self.aaw) / theta)
+        sp_retardation = _dimensionless((self.bulk_density * self.Kd) / theta)
         kin_params = self.kin_params or {}
 
         return {
